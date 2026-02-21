@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Mini Shop</title>
+  <style>
+    body { font-family: sans-serif; padding: 40px; }
+    .card {
+      border: 1px solid #ddd;
+      padding: 20px;
+      width: 250px;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 10px;
+      background: black;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Mahsulotlar</h2>
+
+<div class="card">
+  <h3>Krossovka</h3>
+  <p>450 000 so'm</p>
+  <button onclick="order('Krossovka','450 000')">
+    Buyurtma berish
+  </button>
+</div>
+
+<div class="card">
+  <h3>Sumka</h3>
+  <p>320 000 so'm</p>
+  <button onclick="order('Sumka','320 000')">
+    Buyurtma berish
+  </button>
+</div>
+
+<script>
+async function order(product, price) {
+  const name = prompt("Ismingiz:");
+  const phone = prompt("Telefon raqamingiz:");
+
+  if (!name || !phone) return alert("Ma'lumot kiriting");
+
+  const res = await fetch("http://localhost:5000/order", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, phone, product, price }),
+  });
+  
+  if (res.ok) {
+    alert("Buyurtma yuborildi ✅");
+  } else {
+    alert("Xatolik yuz berdi ❌");
+  }
+}
+</script>
+
+</body>
+</html>
