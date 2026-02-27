@@ -1,68 +1,118 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Mini Shop</title>
-  <style>
-    body { font-family: sans-serif; padding: 40px; }
-    .card {
-      border: 1px solid #ddd;
-      padding: 20px;
-      width: 250px;
-      margin-bottom: 20px;
-    }
-    button {
-      padding: 10px;
-      background: black;
-      color: white;
-      cursor: pointer;
-    }
-  </style>
+<meta charset="UTF-8" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<title>Imperial Restoran</title>
 </head>
-<body>
 
-<h2>Mahsulotlar</h2>
+<body class="bg-[#0f172a] text-white pt-24">
 
-<div class="card">
-  <h3>Krossovka</h3>
-  <p>450 000 so'm</p>
-  <button onclick="order('Krossovka','450 000')">
-    Buyurtma berish
+<!-- HEADER (FIXED) -->
+<header class="fixed top-0 left-0 w-full bg-black px-8 py-4 flex justify-between items-center z-50 shadow-lg">
+  <h1 class="text-2xl font-bold">Imperial Restoran</h1>
+
+  <div class="flex items-center gap-6">
+    <button onclick="openUserPanel()" class="hover:text-emerald-400">
+      Profil
+    </button>
+
+    <button onclick="toggleCart()" class="relative">
+      🛒
+      <span id="cartCount"
+        class="absolute -top-2 -right-3 bg-emerald-600 px-2 text-xs rounded-full">
+        0
+      </span>
+    </button>
+  </div>
+</header>
+
+<!-- LANDING -->
+<section class="text-center py-24 bg-gradient-to-r from-black to-gray-900">
+  <h2 class="text-5xl font-bold mb-6">Mazali Taomlar</h2>
+  <p class="text-gray-400 mb-8">
+    Eng sifatli milliy va zamonaviy taomlar
+  </p>
+  <button onclick="scrollToMenu()"
+    class="bg-emerald-600 px-6 py-3 rounded-lg hover:bg-emerald-700">
+    Menuni ko‘rish
   </button>
+</section>
+
+<!-- MENU -->
+<section id="menu" class="p-12">
+
+  <h2 class="text-3xl font-bold mb-10">Taomlar</h2>
+
+  <!-- FILTER -->
+  <div class="flex gap-4 mb-10 flex-wrap">
+    <button onclick="filterCategory('all')"
+      class="bg-gray-800 px-4 py-2 rounded hover:bg-emerald-600">
+      Barchasi
+    </button>
+
+    <button onclick="filterCategory('Milliy')"
+      class="bg-gray-800 px-4 py-2 rounded hover:bg-emerald-600">
+      Milliy
+    </button>
+
+    <button onclick="filterCategory('Ichimlik')"
+      class="bg-gray-800 px-4 py-2 rounded hover:bg-emerald-600">
+      Ichimlik
+    </button>
+  </div>
+
+  <div id="products" class="grid md:grid-cols-3 gap-10"></div>
+
+</section>
+
+<!-- OVERLAY -->
+<div id="overlay"
+  onclick="closePanels()"
+  class="fixed inset-0 bg-black bg-opacity-60 hidden z-40"></div>
+
+<!-- CART PANEL -->
+<div id="cartPanel"
+  class="fixed right-0 top-0 w-96 h-full bg-[#111827] p-6 transform translate-x-full transition duration-300 z-50 overflow-y-auto">
+
+  <h2 class="text-xl font-bold mb-6">Savatcha</h2>
+
+  <div id="cartItems" class="space-y-4"></div>
+
+  <div class="mt-6 border-t border-gray-700 pt-4">
+    <p class="text-lg font-semibold">
+      Jami: <span id="cartTotal">0</span> so'm
+    </p>
+
+    <button onclick="checkout()"
+      class="mt-4 w-full bg-emerald-600 py-3 rounded-lg hover:bg-emerald-700">
+      Buyurtma berish
+    </button>
+  </div>
+
 </div>
 
-<div class="card">
-  <h3>Sumka</h3>
-  <p>320 000 so'm</p>
-  <button onclick="order('Sumka','320 000')">
-    Buyurtma berish
-  </button>
+<!-- USER PANEL -->
+<div id="userPanel"
+  class="fixed right-0 top-0 w-96 h-full bg-[#111827] p-6 transform translate-x-full transition duration-300 z-50 overflow-y-auto">
+
+  <h2 class="text-xl font-bold mb-6">Profil</h2>
+
+  <div id="userInfo" class="mb-8"></div>
+
+  <h3 class="text-lg font-semibold mb-4">Buyurtmalarim</h3>
+  <div id="userOrders" class="space-y-4"></div>
+
 </div>
-<script>
-const BASE_URL =
-  window.location.hostname === "localhost"
-    ? "http://localhost:5000"
-    : "https://e-comerce-bot-main-production.up.railway.app";
 
-async function order(product, price) {
-  const name = prompt("Ismingiz:");
-  const phone = prompt("Telefon raqamingiz:");
+<!-- FOOTER -->
+<footer class="bg-black text-center py-6 mt-20">
+  <p class="text-gray-500">
+    © 2026 Imperial Restoran
+  </p>
+</footer>
 
-  if (!name || !phone) return alert("Ma'lumot kiriting");
-
-  const res = await fetch(`${BASE_URL}/order`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, phone, product, price }),
-  });
-
-  if (res.ok) {
-    alert("Buyurtma yuborildi ✅");
-  } else {
-    alert("Xatolik yuz berdi ❌");
-  }
-}
-</script>
-
+<script src="app.js"></script>
 </body>
 </html>
