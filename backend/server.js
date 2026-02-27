@@ -18,9 +18,7 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB ulandi ✅"))
   .catch(err => console.log(err));
 
-const bot = new TelegramBot(process.env.BOT_TOKEN, {
-  polling: true
-});
+const bot = new TelegramBot(process.env.BOT_TOKEN);
 
 /* PRODUCTS */
 app.get("/products", (req, res) => {
