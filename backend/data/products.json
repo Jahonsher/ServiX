@@ -1,0 +1,9 @@
+[
+  { "id":1, "name":"Osh", "price":45000, "category":"Taom", "image":"https://images.unsplash.com/photo-1604908177522-0409c0c8c1ff?w=600" },
+  { "id":2, "name":"Lag'mon", "price":38000, "category":"Taom", "image":"https://images.unsplash.com/photo-1617196034738-26c5a5a6d1d2?w=600" },
+  { "id":3, "name":"Steyk", "price":95000, "category":"Taom", "image":"https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=600" },
+  { "id":4, "name":"Burger", "price":42000, "category":"Taom", "image":"https://images.unsplash.com/photo-1550547660-d9450f859349?w=600" },
+  { "id":5, "name":"Cola", "price":8000, "category":"Ichimlik", "image":"https://images.unsplash.com/photo-1622484212850-eb596d769edc?w=600" },
+  { "id":6, "name":"Moxito", "price":18000, "category":"Ichimlik", "image":"https://images.unsplash.com/photo-1572441713132-51c75654db73?w=600" },
+  { "id":7, "name":"Choy", "price":5000, "category":"Ichimlik", "image":"https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600" }
+]

@@ -1,51 +1,94 @@
 require("dotenv").config();
+
 const express = require("express");
-const axios = require("axios");
+const mongoose = require("mongoose");
 const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
+const TelegramBot = require("node-telegram-bot-api");
+
+const User = require("./models/User");
+const Order = require("./models/Order");
 
 const app = express();
-
 app.use(cors());
 app.use(express.json());
 
-const TOKEN = process.env.BOT_TOKEN;
-const CHAT_ID = process.env.CHAT_ID;
-const PORT = process.env.PORT || 5000;
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB ulandi ✅"))
+  .catch(err => console.log(err));
 
-app.post("/order", async (req, res) => {
-  const { name, phone, product, price } = req.body;
-
-  if (!name || !phone) {
-    return res.status(400).json({ error: "Ma'lumot to'liq emas" });
-  }
-
-  const message = `
-🛒 YANGI BUYURTMA
-
-👤 Ism: ${name}
-📞 Telefon: ${phone}
-📦 Mahsulot: ${product}
-💰 Narx: ${price}
-`;
-
-  try {
-    await axios.post(
-  `https://api.telegram.org/bot${TOKEN}/sendMessage`,
-  {
-    chat_id: CHAT_ID,
-    text: message,
-  }
-);
-
-    res.json({ success: true });
-  } catch (err) {
-  console.log("TELEGRAM ERROR:");
-  console.log(err.response?.data);
-  console.log(err.message);
-  res.status(500).json({ error: "Telegram error" });
-}
+const bot = new TelegramBot(process.env.BOT_TOKEN, {
+  polling: true
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server ${PORT} portda ishlayapti`);
+/* PRODUCTS */
+app.get("/products", (req, res) => {
+  const filePath = path.join(__dirname, "data", "products.json");
+  const data = fs.readFileSync(filePath);
+  res.json(JSON.parse(data));
+});
+
+/* AUTH */
+app.post("/auth", async (req, res) => {
+
+  const { id, first_name, username } = req.body;
+
+  let user = await User.findOne({ telegramId: id });
+
+  if (!user) {
+    user = await User.create({
+      telegramId: id,
+      firstName: first_name,
+      username
+    });
+  }
+
+  res.json(user);
+});
+
+/* ORDER */
+app.post("/order", async (req, res) => {
+
+  const { telegramId, items } = req.body;
+
+  const total = items.reduce(
+    (sum, i) => sum + (i.price * i.quantity),
+    0
+  );
+
+  const order = await Order.create({
+    telegramId,
+    items,
+    total
+  });
+
+  const text = items
+    .map(i => `${i.name} - ${i.quantity} ta`)
+    .join("\n");
+
+  bot.sendMessage(
+    process.env.CHEF_ID,
+    `🆕 Yangi buyurtma
+
+${text}
+
+💰 ${total} so'm`
+  );
+
+  res.json(order);
+});
+
+/* USER ORDERS */
+app.get("/user/:telegramId", async (req, res) => {
+
+  const orders = await Order.find({
+    telegramId: req.params.telegramId
+  }).sort({ createdAt: -1 });
+
+  res.json(orders);
+});
+
+app.listen(process.env.PORT, () => {
+  console.log("Server ishlayapti 🚀");
 });
