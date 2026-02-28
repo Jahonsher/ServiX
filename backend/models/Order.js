@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const OrderSchema = new mongoose.Schema({
+const orderSchema = new mongoose.Schema({
   telegramId: Number,
   items: [
     {
@@ -10,14 +10,9 @@ const OrderSchema = new mongoose.Schema({
     }
   ],
   total: Number,
-  status: {
-    type: String,
-    default: "new"
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+  userInfo: Object
+}, {
+  timestamps: true
 });
 
-module.exports = mongoose.model("Order", OrderSchema);
+module.exports = mongoose.model("Order", orderSchema);

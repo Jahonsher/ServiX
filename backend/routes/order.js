@@ -1,49 +1,86 @@
-app.post("/order", async (req, res) => {
-  try {
-    const { telegramId, items, user } = req.body;
+const express = require("express");
+const Order = require("../models/Order");
 
-    if (!telegramId) {
-      return res.status(400).json({ error: "telegramId yo‘q" });
-    }
 
-    if (!items || !items.length) {
-      return res.status(400).json({ error: "items bo‘sh" });
-    }
+module.exports = function(bot) {
 
-    const total = items.reduce(
-      (sum, i) => sum + (i.price * i.quantity),
-      0
-    );
+    
+  const router = express.Router();
 
-    const order = await Order.create({
-      telegramId,
-      items,
-      total,
-      userInfo: user || null
-    });
-
-    // Telegram xabarini try/catch ichida yuboramiz
+  /* ===========================
+     CREATE ORDER
+  =========================== */
+  router.post("/", async (req, res) => {
     try {
-      const text = items
-        .map(i => `${i.name} - ${i.quantity} ta`)
-        .join("\n");
 
-      await bot.sendMessage(
-        process.env.CHEF_ID,
-        `🆕 Yangi buyurtma
+      const { telegramId, items, user } = req.body;
 
-${text}
+      if (!telegramId)
+        return res.status(400).json({ error: "telegramId yo‘q" });
 
-💰 ${total} so'm`
+      if (!items || !items.length)
+        return res.status(400).json({ error: "items bo‘sh" });
+
+      /* TOTAL */
+      const total = items.reduce(
+        (sum, i) => sum + (Number(i.price) * Number(i.quantity)),
+        0
       );
-    } catch (tgErr) {
-      console.log("Telegram error:", tgErr.message);
+
+      /* SAVE TO MONGO */
+      const order = await Order.create({
+        telegramId: Number(telegramId),
+        items,
+        total,
+        userInfo: user || null
+      });
+
+      console.log("✅ Order MongoDB ga saqlandi");
+
+      /* TELEGRAM MESSAGE */
+      let message = "🆕 Yangi buyurtma\n\n";
+
+      items.forEach(item => {
+        message += `🍽 ${item.name}\n`;
+        message += `🔢 ${item.quantity} ta\n`;
+        message += `💵 ${item.price} so'm\n\n`;
+      });
+
+      message += `💰 Jami: ${total} so'm\n\n`;
+      message += `🆔 User ID: ${telegramId}`;
+
+      await bot.sendMessage(Number(process.env.CHEF_ID),message);
+
+      console.log("📩 Telegramga yuborildi");
+
+      res.json(order);
+
+    } catch (err) {
+      console.log("❌ ORDER ERROR:", err.message);
+      res.status(500).json({ error: "Order server error" });
     }
+  });
 
-    return res.json(order);
+  /* ===========================
+     USER ORDERS
+  =========================== */
+  router.get("/:telegramId", async (req, res) => {
+    try {
 
-  } catch (err) {
-    console.log("ORDER ERROR:", err);
-    return res.status(500).json({ error: "Server error" });
-  }
-});
+      const orders = await Order.find({
+        telegramId: Number(req.params.telegramId)
+      }).sort({ createdAt: -1 });
+
+      res.json(orders);
+
+    } catch (err) {
+      console.log("❌ FETCH ERROR:", err.message);
+      res.status(500).json({ error: "User order error" });
+    }
+  });
+
+  return router;
+};
+
+console.log("ORDER HIT");
+console.log("CHEF_ID:", process.env.CHEF_ID);
