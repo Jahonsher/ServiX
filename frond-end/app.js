@@ -1,7 +1,9 @@
-const API =
-  window.location.hostname === "localhost"
-    ? "http://localhost:5000"
-    : "https://e-comerce-bot-main-production.up.railway.app";
+// const API =
+//   window.location.hostname === "localhost"
+//     ? "http://localhost:5000"
+//     : "https://e-comerce-bot-main-production.up.railway.app";
+
+const API = "https://your-railway-url.up.railway.app";
 
 let products = [];
 let cart = [];
