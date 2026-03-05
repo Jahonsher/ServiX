@@ -27,38 +27,33 @@ const WEBAPP_URL = process.env.WEBAPP_URL || "https://e-comerce-bot.vercel.app";
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 console.log("🤖 Bot polling ishga tushdi");
 
-// /start — agar telefon allaqachon saqlangan bo'lsa WebApp ochadi, aks holda telefon so'raydi
+// /start — har doim Telegram dan user ma'lumotlarini oladi va DB ga saqlaydi
 bot.onText(/\/start/, async (msg) => {
   const chatId    = msg.chat.id;
-  const firstName = msg.from.first_name || "Do'st";
+  const from      = msg.from;
+  const firstName = from.first_name || "Do'st";
 
-  // DB dan userni tekshiramiz
-  let existingUser = await User.findOne({ telegramId: msg.from.id });
-
-  // Har doim ism/username ni yangilab turamiz
-  existingUser = await User.findOneAndUpdate(
-    { telegramId: msg.from.id },
+  // ✅ Har doim DB ga yozamiz — Telegram dan kelgan barcha ma'lumot
+  const existingUser = await User.findOneAndUpdate(
+    { telegramId: from.id },
     {
-      telegramId: msg.from.id,
-      first_name: msg.from.first_name || "",
-      last_name:  msg.from.last_name  || "",
-      username:   msg.from.username   || ""
+      telegramId: from.id,
+      first_name: from.first_name || "",
+      last_name:  from.last_name  || "",
+      username:   from.username   || ""
     },
     { upsert: true, new: true }
   );
 
-  // Agar telefon allaqachon saqlangan — to'g'ridan WebApp ochiladi
-  if (existingUser && existingUser.phone) {
+  console.log("✅ /start user saqlandi:", existingUser);
+
+  // Agar telefon allaqachon bor — to'g'ri WebApp ochiladi
+  if (existingUser.phone) {
     await bot.sendMessage(chatId,
-      `👋 Xush kelibsiz, ${firstName}! \n\nDo'konni ochish uchun quyidagi tugmani bosing 👇`,
+      `👋 Xush kelibsiz, ${firstName}!\n\nDo'konni ochish uchun quyidagi tugmani bosing 👇`,
       {
         reply_markup: {
-          keyboard: [[
-            {
-              text: "🛒 Do'konni ochish",
-              web_app: { url: WEBAPP_URL }
-            }
-          ]],
+          keyboard: [[{ text: "🛒 Do'konni ochish", web_app: { url: WEBAPP_URL } }]],
           resize_keyboard: true
         }
       }
@@ -66,14 +61,12 @@ bot.onText(/\/start/, async (msg) => {
     return;
   }
 
-  // 1-marta kirsa — telefon so'raladi
+  // 1-marta: telefon so'raladi
   await bot.sendMessage(chatId,
     `👋 Salom, ${firstName}!\n\nDavom etish uchun telefon raqamingizni yuboring 👇`,
     {
       reply_markup: {
-        keyboard: [[
-          { text: "📱 Telefon raqamni yuborish", request_contact: true }
-        ]],
+        keyboard: [[{ text: "📱 Telefon raqamni yuborish", request_contact: true }]],
         resize_keyboard: true,
         one_time_keyboard: true
       }
@@ -151,16 +144,26 @@ app.get("/products", (req, res) => {
 });
 
 // Auth — WebApp ochilganda chaqiriladi
+// Telegram WebApp dan kelgan ma'lumotni DB dagi telefon bilan birlashtiradi
 app.post("/auth", async (req, res) => {
   try {
     const { id, first_name, last_name, username } = req.body;
 
+    // Agar DB da allaqachon telefon saqlangan bo'lsa — uni saqlab qolamiz
     const user = await User.findOneAndUpdate(
       { telegramId: id },
-      { telegramId: id, first_name, last_name, username },
+      {
+        $set: {
+          telegramId: id,
+          first_name: first_name || "",
+          last_name:  last_name  || "",
+          username:   username   || ""
+        }
+      },
       { upsert: true, new: true }
     );
 
+    console.log("✅ Auth user:", user);
     res.json({ ok: true, user });
   } catch (err) {
     console.error("AUTH ERROR:", err.message);
@@ -172,7 +175,14 @@ app.post("/auth", async (req, res) => {
 app.get("/user/:telegramId", async (req, res) => {
   try {
     const user = await User.findOne({ telegramId: Number(req.params.telegramId) });
-    res.json(user || {});
+    if (!user) return res.json({});
+    res.json({
+      telegramId: user.telegramId,
+      first_name: user.first_name || "",
+      last_name:  user.last_name  || "",
+      username:   user.username   || "",
+      phone:      user.phone      || ""
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

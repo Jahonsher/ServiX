@@ -10,47 +10,50 @@ let userData   = null;
 let userProfile = null;
 
 /* ===== TELEGRAM AUTH ===== */
+// 1. Telegram WebApp dan ID olamiz
+// 2. /auth orqali DB ga yozamiz (ism/username yangilanadi, telefon saqlanib qoladi)
+// 3. /user/:id dan to'liq profil olamiz (telefon bilan)
+
 if (window.Telegram && Telegram.WebApp) {
   const tg = Telegram.WebApp;
   tg.expand();
-  tg.setHeaderColor('#0d0a07');
-  tg.setBackgroundColor('#0d0a07');
+  tg.setHeaderColor("#0d0a07");
+  tg.setBackgroundColor("#0d0a07");
 
   if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
     userData   = tg.initDataUnsafe.user;
     telegramId = userData.id;
 
+    // Auth — DB ga yozamiz
     fetch(API + "/auth", {
-      method: "POST",
+      method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(userData)
+      body:    JSON.stringify(userData)
     })
     .then(r => r.json())
-    .then(data => {
-      userProfile = data.user;
+    .then(() => {
+      // Auth dan keyin to'liq profil olamiz (telefon ham bor)
+      return fetch(API + "/user/" + telegramId).then(r => r.json());
+    })
+    .then(fullUser => {
+      userProfile = fullUser;
+      userData    = { ...userData, ...fullUser }; // telefonni ham qo'shamiz
+      console.log("✅ User profil yuklandi:", userProfile);
       renderProfile();
     })
     .catch(err => console.error("AUTH ERROR:", err));
   }
 }
 
+// Test mode (bot orqali emas, to'g'ridan brauzerda ochilganda)
 if (!telegramId) {
   telegramId = 8523270760;
   console.warn("⚠️ Test mode, telegramId:", telegramId);
-  // Test uchun DB dan user olish
   fetch(API + "/user/" + telegramId)
     .then(r => r.json())
     .then(data => {
       userProfile = data;
-      // Agar DB da yo'q bo'lsa userData ga test qiymat beramiz
-      if (!userData) {
-        userData = {
-          id: telegramId,
-          first_name: data?.first_name || "Test",
-          last_name:  data?.last_name  || "",
-          username:   data?.username   || ""
-        };
-      }
+      userData    = { id: telegramId, ...data };
       renderProfile();
     })
     .catch(() => {});
