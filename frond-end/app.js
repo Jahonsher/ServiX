@@ -187,10 +187,17 @@ function checkout() {
   const btn = document.getElementById("checkoutBtn");
   if (btn) { btn.disabled = true; btn.innerText = "Yuborilmoqda..."; }
 
+  const userToSend = {
+    first_name: userProfile?.first_name || userData?.first_name || "",
+    last_name:  userProfile?.last_name  || userData?.last_name  || "",
+    username:   userProfile?.username   || userData?.username   || "",
+    phone:      userProfile?.phone      || ""
+  };
+
   fetch(API + "/order", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ telegramId, items: cart })
+    body: JSON.stringify({ telegramId, items: cart, user: userToSend })
   })
   .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
   .then(() => {
