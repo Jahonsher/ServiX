@@ -162,17 +162,15 @@ bot.onText(/Ish vaqti/, async (msg) => {
 bot.onText(/Boglanish/, async (msg) => {
   try {
     await send(msg.chat.id,
-      "Boglanish:\n\nTelefon: +998 77 008 34 13\nTelegram: @Jahonsher",
+      "Boglanish:\n\nTelefon: +998 77 008 34 13\nTelegram: @Jahonsher\n\nSavollar uchun togri murojaat qiling!",
       {
         reply_markup: {
           inline_keyboard: [[
-            { text: "Qongiroq", url: "tel:+998770083413" },
-            { text: "Telegram", url: "https://t.me/Jahonsher" }
+            { text: "Telegram @Jahonsher", url: "https://t.me/Jahonsher" }
           ]]
         }
       }
     );
-    await send(msg.chat.id, "Boshqa bolimlar:", { reply_markup: mainMenu });
   } catch(e) { console.error("boglanish error:", e.message); }
 });
 
