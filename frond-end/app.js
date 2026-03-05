@@ -1,151 +1,126 @@
-// ✅ API URL
 const API =
   window.location.hostname === "localhost"
     ? "http://localhost:5000"
     : "https://e-comerce-bot-main-production.up.railway.app";
 
-let products  = [];
-let cart      = [];
+let products   = [];
+let cart       = [];
 let telegramId = null;
-let userData   = null;   // Telegram dan kelgan ma'lumot
-let userProfile = null;  // DB dan kelgan (telefon ham bor)
+let userData   = null;
+let userProfile = null;
 
-/* ===========================
-   TELEGRAM AUTH
-=========================== */
+/* ===== TELEGRAM AUTH ===== */
 if (window.Telegram && Telegram.WebApp) {
   const tg = Telegram.WebApp;
   tg.expand();
+  tg.setHeaderColor('#0d0a07');
+  tg.setBackgroundColor('#0d0a07');
 
   if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
     userData   = tg.initDataUnsafe.user;
     telegramId = userData.id;
 
-    // Backend ga auth yuboramiz — user DB ga saqlanadi
     fetch(API + "/auth", {
-      method:  "POST",
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(userData)
+      body: JSON.stringify(userData)
     })
     .then(r => r.json())
     .then(data => {
-      userProfile = data.user;   // DB dagi user (telefon bilan)
+      userProfile = data.user;
       renderProfile();
-      console.log("✅ Auth OK, user:", userProfile);
     })
     .catch(err => console.error("AUTH ERROR:", err));
   }
 }
 
-// Test mode
 if (!telegramId) {
   telegramId = 8523270760;
   console.warn("⚠️ Test mode, telegramId:", telegramId);
-
-  // Test uchun ham profil yuklaymiz
   fetch(API + "/user/" + telegramId)
     .then(r => r.json())
     .then(data => { userProfile = data; renderProfile(); })
     .catch(() => {});
 }
 
-/* ===========================
-   PROFIL RENDER
-=========================== */
+/* ===== PROFILE ===== */
 function renderProfile() {
-  const nameEl  = document.getElementById("profileName");
-  const uNameEl = document.getElementById("profileUsername");
-  const phoneEl = document.getElementById("profilePhone");
-
-  if (!userProfile && !userData) return;
-
   const u = userProfile || userData;
+  if (!u) return;
 
-  if (nameEl) {
-    const fullName = `${u.first_name || ""} ${u.last_name || ""}`.trim();
-    nameEl.innerText = fullName || "Noma'lum";
-  }
-  if (uNameEl) {
-    uNameEl.innerText = u.username ? `@${u.username}` : "Username yo'q";
-  }
-  if (phoneEl) {
-    phoneEl.innerText = u.phone ? `📱 ${u.phone}` : "📱 Telefon yo'q";
-  }
+  const nameEl   = document.getElementById("profileName");
+  const unameEl  = document.getElementById("profileUsername");
+  const phoneEl  = document.getElementById("profilePhone");
+
+  if (nameEl)  nameEl.innerText  = `${u.first_name || ""} ${u.last_name || ""}`.trim() || "Mehmon";
+  if (unameEl) unameEl.innerText = u.username ? `@${u.username}` : "";
+  if (phoneEl) phoneEl.innerText = u.phone    ? `📱 ${u.phone}`  : "📱 Telefon biriktirilmagan";
 }
 
-/* ===========================
-   LOAD PRODUCTS
-=========================== */
+/* ===== LOAD PRODUCTS ===== */
 function loadProducts() {
-  console.log("📦 Products yuklanmoqda...");
   fetch(API + "/products")
-    .then(res => {
-      if (!res.ok) throw new Error("Server xato: " + res.status);
-      return res.json();
-    })
+    .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
     .then(data => {
-      console.log("✅ Products:", data.length, "ta");
       products = data;
       renderProducts(products);
     })
     .catch(err => {
-      console.error("❌ PRODUCT ERROR:", err);
-      const c = document.getElementById("products");
-      if (c) c.innerHTML = `
-        <div class="col-span-full text-center text-red-400 py-10">
-          ❌ Mahsulotlar yuklanmadi<br><small>${err.message}</small>
+      document.getElementById("products").innerHTML = `
+        <div class="empty-state" style="grid-column:1/-1">
+          <div class="icon">⚠️</div>
+          <p>Mahsulotlar yuklanmadi (${err.message})</p>
         </div>`;
     });
 }
 
-/* ===========================
-   RENDER PRODUCTS
-=========================== */
+/* ===== RENDER PRODUCTS ===== */
 function renderProducts(list) {
   const container = document.getElementById("products");
-  if (!container) return;
   container.innerHTML = "";
 
   if (!list || !list.length) {
-    container.innerHTML = `<div class="col-span-full text-center text-gray-400 py-10">Mahsulotlar topilmadi</div>`;
+    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">🍽</div><p>Mahsulotlar topilmadi</p></div>`;
     return;
   }
 
-  list.forEach(product => {
-    container.innerHTML += `
-      <div class="bg-[#1e293b] p-6 rounded-xl shadow-lg">
-        <img src="${product.image}"
-             class="w-full h-48 object-cover rounded-lg mb-4"
-             onerror="this.style.display='none'">
-        <h3 class="text-lg font-bold">${product.name}</h3>
-        <p class="text-gray-400 mb-2">${product.category}</p>
-        <p class="text-emerald-400 font-semibold mb-4">${Number(product.price).toLocaleString()} so'm</p>
-        <button onclick="addToCart(${product.id})"
-          class="bg-emerald-600 w-full py-2 rounded hover:bg-emerald-700 transition">
-          🛒 Savatchaga qo'shish
-        </button>
+  list.forEach((p, i) => {
+    const card = document.createElement("div");
+    card.className = "product-card";
+    card.style.animationDelay = `${i * 60}ms`;
+    card.innerHTML = `
+      <img src="${p.image}" alt="${p.name}"
+           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+      <div class="img-placeholder" style="display:none">🍽</div>
+      <div class="product-info">
+        <h3>${p.name}</h3>
+        <div class="cat">${p.category}</div>
+        <span class="price">${Number(p.price).toLocaleString()} so'm</span>
+        <button class="add-btn" onclick="addToCart(${p.id})">Qo'shish</button>
       </div>`;
+    container.appendChild(card);
   });
 }
 
-/* ===========================
-   FILTER
-=========================== */
-function filterCategory(category) {
-  if (category === "all") { renderProducts(products); return; }
-  renderProducts(products.filter(p => p.category === category));
+/* ===== FILTER ===== */
+function filterCategory(cat, btn) {
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
+  renderProducts(cat === "all" ? products : products.filter(p => p.category === cat));
 }
 
-/* ===========================
-   CART
-=========================== */
+/* ===== CART ===== */
 function addToCart(id) {
   const product = products.find(p => p.id === id);
   if (!product) return;
-  const existing = cart.find(p => p.id === id);
-  if (existing) existing.quantity++;
+  const ex = cart.find(p => p.id === id);
+  if (ex) ex.quantity++;
   else cart.push({ ...product, quantity: 1 });
   updateCart();
+
+  // mini feedback
+  const btns = document.querySelectorAll(".add-btn");
+  // find the right button visually
 }
 
 function changeQty(id, delta) {
@@ -159,120 +134,101 @@ function changeQty(id, delta) {
 function updateCart() {
   const container = document.getElementById("cartItems");
   if (!container) return;
-  container.innerHTML = "";
-  let total = 0;
 
-  cart.forEach(item => {
-    total += item.price * item.quantity;
-    container.innerHTML += `
-      <div class="bg-[#1e293b] p-4 rounded-lg flex justify-between items-center mb-2">
-        <div>
-          <h4 class="font-semibold">${item.name}</h4>
-          <p class="text-gray-400 text-sm">${Number(item.price).toLocaleString()} so'm</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button onclick="changeQty(${item.id}, -1)" class="bg-gray-700 px-3 py-1 rounded">−</button>
-          <span class="font-bold">${item.quantity}</span>
-          <button onclick="changeQty(${item.id}, 1)"  class="bg-gray-700 px-3 py-1 rounded">+</button>
-        </div>
-      </div>`;
-  });
+  const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const count = cart.reduce((s, i) => s + i.quantity, 0);
 
-  const cartCount = document.getElementById("cartCount");
-  if (cartCount) cartCount.innerText = cart.reduce((s, i) => s + i.quantity, 0);
+  // Badge
+  const badge = document.getElementById("cartCount");
+  if (badge) badge.innerText = count;
 
-  const cartTotal = document.getElementById("cartTotal");
-  if (cartTotal) cartTotal.innerText = Number(total).toLocaleString();
+  // Total
+  const totalEl = document.getElementById("cartTotal");
+  if (totalEl) totalEl.innerText = Number(total).toLocaleString();
+
+  if (!cart.length) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">🛒</div><p>Savatcha bo'sh</p></div>`;
+    return;
+  }
+
+  container.innerHTML = cart.map(item => `
+    <div class="cart-item">
+      <div>
+        <div class="cart-item-name">${item.name}</div>
+        <div class="cart-item-price">${Number(item.price).toLocaleString()} so'm</div>
+      </div>
+      <div class="qty-controls">
+        <button class="qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
+        <span class="qty-num">${item.quantity}</span>
+        <button class="qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
+      </div>
+    </div>`).join("");
 }
 
-/* ===========================
-   PANEL CONTROL
-=========================== */
-function toggleCart() { openPanel("cartPanel"); }
-
-function openUserPanel() {
-  openPanel("userPanel");
-  renderProfile();
-  loadUserOrders();
-}
+/* ===== PANELS ===== */
+function toggleCart()    { openPanel("cartPanel"); }
+function openUserPanel() { openPanel("userPanel"); renderProfile(); loadUserOrders(); }
 
 function openPanel(id) {
-  document.getElementById(id)?.classList.remove("translate-x-full");
-  document.getElementById("overlay")?.classList.remove("hidden");
+  document.getElementById(id)?.classList.add("open");
+  document.getElementById("overlay")?.classList.add("show");
 }
 
 function closePanels() {
-  document.getElementById("cartPanel")?.classList.add("translate-x-full");
-  document.getElementById("userPanel")?.classList.add("translate-x-full");
-  document.getElementById("overlay")?.classList.add("hidden");
+  document.getElementById("cartPanel")?.classList.remove("open");
+  document.getElementById("userPanel")?.classList.remove("open");
+  document.getElementById("overlay")?.classList.remove("show");
 }
 
-/* ===========================
-   CHECKOUT
-=========================== */
+/* ===== CHECKOUT ===== */
 function checkout() {
   if (!cart.length) { alert("⚠️ Savatcha bo'sh!"); return; }
 
   const btn = document.getElementById("checkoutBtn");
-  if (btn) { btn.disabled = true; btn.innerText = "⏳ Yuborilmoqda..."; }
-
-  console.log("📤 Order:", { telegramId, items: cart });
+  if (btn) { btn.disabled = true; btn.innerText = "Yuborilmoqda..."; }
 
   fetch(API + "/order", {
-    method:  "POST",
+    method: "POST",
     headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify({ telegramId, items: cart })
+    body: JSON.stringify({ telegramId, items: cart })
   })
-  .then(res => {
-    if (!res.ok) throw new Error("Server xato: " + res.status);
-    return res.json();
-  })
-  .then(data => {
-    console.log("✅ ORDER OK:", data);
+  .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
+  .then(() => {
     cart = [];
     updateCart();
     closePanels();
-    alert("✅ Buyurtma muvaffaqiyatli yuborildi!");
+    alert("✅ Buyurtma muvaffaqiyatli qabul qilindi!");
   })
-  .catch(err => {
-    console.error("❌ ORDER ERROR:", err);
-    alert("❌ Xato: " + err.message);
-  })
+  .catch(err => alert("❌ Xato: " + err.message))
   .finally(() => {
-    if (btn) { btn.disabled = false; btn.innerText = "✅ Buyurtma berish"; }
+    if (btn) { btn.disabled = false; btn.innerText = "Buyurtma Berish"; }
   });
 }
 
-/* ===========================
-   USER ORDERS
-=========================== */
+/* ===== USER ORDERS ===== */
 function loadUserOrders() {
   fetch(API + "/user/" + telegramId + "/orders")
-    .then(res => res.json())
+    .then(r => r.json())
     .then(data => {
-      const container = document.getElementById("userOrders");
-      if (!container) return;
-      container.innerHTML = "";
+      const c = document.getElementById("userOrders");
+      if (!c) return;
 
       if (!data || !data.length) {
-        container.innerHTML = `<div class="text-gray-400 text-center py-6">Hali buyurtma yo'q</div>`;
+        c.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>Hali buyurtma yo'q</p></div>`;
         return;
       }
 
-      data.forEach(order => {
-        const itemsList = order.items.map(i => `${i.name} (${i.quantity})`).join(", ");
-        const date      = new Date(order.createdAt).toLocaleString("uz-UZ");
-        const phone     = order.userInfo?.phone ? `<p class="text-xs text-gray-400">📱 ${order.userInfo.phone}</p>` : "";
-
-        container.innerHTML += `
-          <div class="bg-[#1e293b] p-4 rounded-lg mb-3">
-            <p class="font-semibold mb-1">${itemsList}</p>
-            <p class="text-emerald-400 font-bold">${Number(order.total).toLocaleString()} so'm</p>
-            ${phone}
-            <p class="text-sm text-yellow-400 mt-1">📌 ${order.status || "Yangi"}</p>
-            <p class="text-xs text-gray-500 mt-1">🕐 ${date}</p>
+      c.innerHTML = data.map(order => {
+        const items = order.items.map(i => `${i.name} × ${i.quantity}`).join(", ");
+        const date  = new Date(order.createdAt).toLocaleDateString("uz-UZ");
+        return `
+          <div class="order-card">
+            <div class="order-items">${items}</div>
+            <div class="order-total">${Number(order.total).toLocaleString()} so'm</div>
+            <div><span class="order-status">${order.status || "Yangi"}</span></div>
+            <div class="order-date">🕐 ${date}</div>
           </div>`;
-      });
+      }).join("");
     })
     .catch(err => console.error("USER ORDERS ERROR:", err));
 }
