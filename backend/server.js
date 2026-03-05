@@ -27,13 +27,16 @@ const WEBAPP_URL = process.env.WEBAPP_URL || "https://e-comerce-bot.vercel.app";
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 console.log("🤖 Bot polling ishga tushdi");
 
-// /start — contact so'rash
+// /start — agar telefon allaqachon saqlangan bo'lsa WebApp ochadi, aks holda telefon so'raydi
 bot.onText(/\/start/, async (msg) => {
-  const chatId = msg.chat.id;
+  const chatId    = msg.chat.id;
   const firstName = msg.from.first_name || "Do'st";
 
-  // Avval DB ga user qo'shamiz (telefonsiz)
-  await User.findOneAndUpdate(
+  // DB dan userni tekshiramiz
+  let existingUser = await User.findOne({ telegramId: msg.from.id });
+
+  // Har doim ism/username ni yangilab turamiz
+  existingUser = await User.findOneAndUpdate(
     { telegramId: msg.from.id },
     {
       telegramId: msg.from.id,
@@ -44,7 +47,26 @@ bot.onText(/\/start/, async (msg) => {
     { upsert: true, new: true }
   );
 
-  // Telefon raqam so'rash
+  // Agar telefon allaqachon saqlangan — to'g'ridan WebApp ochiladi
+  if (existingUser && existingUser.phone) {
+    await bot.sendMessage(chatId,
+      `👋 Xush kelibsiz, ${firstName}! \n\nDo'konni ochish uchun quyidagi tugmani bosing 👇`,
+      {
+        reply_markup: {
+          keyboard: [[
+            {
+              text: "🛒 Do'konni ochish",
+              web_app: { url: WEBAPP_URL }
+            }
+          ]],
+          resize_keyboard: true
+        }
+      }
+    );
+    return;
+  }
+
+  // 1-marta kirsa — telefon so'raladi
   await bot.sendMessage(chatId,
     `👋 Salom, ${firstName}!\n\nDavom etish uchun telefon raqamingizni yuboring 👇`,
     {
