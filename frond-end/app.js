@@ -37,9 +37,22 @@ if (window.Telegram && Telegram.WebApp) {
 if (!telegramId) {
   telegramId = 8523270760;
   console.warn("⚠️ Test mode, telegramId:", telegramId);
+  // Test uchun DB dan user olish
   fetch(API + "/user/" + telegramId)
     .then(r => r.json())
-    .then(data => { userProfile = data; renderProfile(); })
+    .then(data => {
+      userProfile = data;
+      // Agar DB da yo'q bo'lsa userData ga test qiymat beramiz
+      if (!userData) {
+        userData = {
+          id: telegramId,
+          first_name: data?.first_name || "Test",
+          last_name:  data?.last_name  || "",
+          username:   data?.username   || ""
+        };
+      }
+      renderProfile();
+    })
     .catch(() => {});
 }
 
