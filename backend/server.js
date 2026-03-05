@@ -123,6 +123,68 @@ bot.on("contact", async (msg) => {
   );
 });
 
+// Oshpaz tugmani bosganida
+bot.on("callback_query", async (query) => {
+  const data = query.data;
+
+  // accept_ORDERID_USERID yoki reject_ORDERID_USERID
+  const [action, orderId, userId] = data.split("_");
+
+  if (action !== "accept" && action !== "reject") return;
+
+  try {
+    if (action === "accept") {
+      // DB da statusni yangilash
+      await Order.findByIdAndUpdate(orderId, { status: "Qabul qilindi" });
+
+      // Oshpazga xabar yangilanadi
+      await bot.editMessageReplyMarkup(
+        { inline_keyboard: [[{ text: "✅ Qabul qilindi", callback_data: "done" }]] },
+        { chat_id: query.message.chat.id, message_id: query.message.message_id }
+      );
+
+      // Userga bildirishnoma
+      await bot.sendMessage(Number(userId),
+        `✅ *Buyurtmangiz qabul qilindi!*
+
+Oshpaz tayyorlashni boshladi 👨‍🍳
+Tez orada tayyor bo'ladi!`,
+        { parse_mode: "Markdown" }
+      );
+
+      console.log("✅ Buyurtma qabul qilindi:", orderId);
+
+    } else if (action === "reject") {
+      // DB da statusni yangilash
+      await Order.findByIdAndUpdate(orderId, { status: "Bekor qilindi" });
+
+      // Oshpazga xabar yangilanadi
+      await bot.editMessageReplyMarkup(
+        { inline_keyboard: [[{ text: "❌ Bekor qilindi", callback_data: "done" }]] },
+        { chat_id: query.message.chat.id, message_id: query.message.message_id }
+      );
+
+      // Userga bildirishnoma
+      await bot.sendMessage(Number(userId),
+        `❌ *Buyurtmangiz bekor qilindi.*
+
+Kechirasiz, hozir bu taom mavjud emas.
+Boshqa taom tanlashingiz mumkin.`,
+        { parse_mode: "Markdown" }
+      );
+
+      console.log("❌ Buyurtma bekor qilindi:", orderId);
+    }
+
+    // Callback query ga javob beramiz (loading animatsiyasini to'xtatish)
+    await bot.answerCallbackQuery(query.id);
+
+  } catch (err) {
+    console.error("CALLBACK ERROR:", err.message);
+    await bot.answerCallbackQuery(query.id, { text: "Xato yuz berdi!" });
+  }
+});
+
 /* ================= API ROUTES ================= */
 
 // Mahsulotlar
@@ -238,7 +300,22 @@ app.post("/order", async (req, res) => {
     });
     message += `\n💰 Jami: ${total.toLocaleString()} so'm`;
 
-    await bot.sendMessage(CHEF_ID, message);
+    // Oshpazga inline tugma bilan yuboramiz
+    await bot.sendMessage(CHEF_ID, message, {
+      parse_mode: "Markdown",
+      reply_markup: {
+        inline_keyboard: [[
+          {
+            text: "✅ Qabul qilish",
+            callback_data: `accept_${order._id}_${telegramId}`
+          },
+          {
+            text: "❌ Bekor qilish",
+            callback_data: `reject_${order._id}_${telegramId}`
+          }
+        ]]
+      }
+    });
     console.log("✅ Telegram yuborildi!");
 
     res.json({ success: true, order });
