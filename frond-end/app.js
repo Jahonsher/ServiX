@@ -10,60 +10,64 @@ let userData   = null;
 let userProfile = null;
 
 /* ===== TELEGRAM AUTH ===== */
-// 1. Telegram WebApp dan ID olamiz
-// 2. /auth orqali DB ga yozamiz (ism/username yangilanadi, telefon saqlanib qoladi)
-// 3. /user/:id dan to'liq profil olamiz (telefon bilan)
+function initTelegramUser() {
+  // Telegram WebApp orqali kelgan bo'lsa
+  if (window.Telegram && window.Telegram.WebApp) {
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+    tg.setHeaderColor("#0d0a07");
+    tg.setBackgroundColor("#0d0a07");
 
-if (window.Telegram && Telegram.WebApp) {
-  const tg = Telegram.WebApp;
-  tg.expand();
-  tg.setHeaderColor("#0d0a07");
-  tg.setBackgroundColor("#0d0a07");
+    const tgUser = tg.initDataUnsafe?.user;
 
-  // DEBUG — konsolda ko'rsatish
-  console.log("🔍 Telegram.WebApp mavjud:", !!tg);
-  console.log("🔍 initData:", tg.initData);
-  console.log("🔍 initDataUnsafe:", JSON.stringify(tg.initDataUnsafe));
-  console.log("🔍 initDataUnsafe.user:", JSON.stringify(tg.initDataUnsafe?.user));
+    if (tgUser && tgUser.id) {
+      // ✅ Telegram dan kelgan user
+      telegramId = tgUser.id;
+      userData   = tgUser;
 
-  if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-    userData   = tg.initDataUnsafe.user;
-    telegramId = userData.id;
+      console.log("✅ Telegram user:", telegramId, tgUser.first_name);
 
-    // Auth — DB ga yozamiz
-    fetch(API + "/auth", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(userData)
-    })
-    .then(r => r.json())
-    .then(() => {
-      // Auth dan keyin to'liq profil olamiz (telefon ham bor)
-      return fetch(API + "/user/" + telegramId).then(r => r.json());
-    })
-    .then(fullUser => {
-      userProfile = fullUser;
-      userData    = { ...userData, ...fullUser }; // telefonni ham qo'shamiz
-      console.log("✅ User profil yuklandi:", userProfile);
-      renderProfile();
-    })
-    .catch(err => console.error("AUTH ERROR:", err));
+      // DB ga saqlash va to'liq profil olish
+      fetch(API + "/auth", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          id:         tgUser.id,
+          first_name: tgUser.first_name || "",
+          last_name:  tgUser.last_name  || "",
+          username:   tgUser.username   || ""
+        })
+      })
+      .then(r => r.json())
+      .then(() => fetch(API + "/user/" + telegramId).then(r => r.json()))
+      .then(fullUser => {
+        userProfile = fullUser;
+        // Telefon ham userData ga qo'shiladi
+        userData = { ...userData, phone: fullUser.phone || "" };
+        console.log("✅ Profil yuklandi:", userProfile);
+        renderProfile();
+      })
+      .catch(err => console.error("AUTH ERROR:", err));
+
+      return; // ← muvaffaqiyatli, keyingi kod ishlamaydi
+    }
   }
+
+  // ❌ Telegram WebApp dan kelmagan (brauzerda to'g'ri ochilgan)
+  // Foydalanuvchiga xabar ko'rsatamiz
+  console.warn("⚠️ Telegram WebApp orqali ochilmagan!");
+  showNotTelegramWarning();
 }
 
-// Test mode (bot orqali emas, to'g'ridan brauzerda ochilganda)
-if (!telegramId) {
-  telegramId = 8523270760;
-  console.warn("⚠️ Test mode, telegramId:", telegramId);
-  fetch(API + "/user/" + telegramId)
-    .then(r => r.json())
-    .then(data => {
-      userProfile = data;
-      userData    = { id: telegramId, ...data };
-      renderProfile();
-    })
-    .catch(() => {});
+function showNotTelegramWarning() {
+  // Agar bot orqali emas ochilgan bo'lsa — ogohlantirish
+  const warning = document.getElementById("tgWarning");
+  if (warning) warning.style.display = "flex";
+  // Mahsulotlarni baribir ko'rsatamiz, faqat buyurtma berib bo'lmaydi
+  telegramId = null;
 }
+
+initTelegramUser();
 
 /* ===== PROFILE ===== */
 function renderProfile() {
@@ -118,10 +122,11 @@ function renderProducts(list) {
         <h3>${p.name}</h3>
         <div class="cat">${p.category}</div>
         <span class="price">${Number(p.price).toLocaleString()} so'm</span>
-        <button class="add-btn" onclick="addToCart(${p.id})">Qo'shish</button>
+        <button class="add-btn" data-id="${p.id}" onclick="addToCart(${p.id})">Qo'shish</button>
       </div>`;
     container.appendChild(card);
   });
+  updateProductButtons(); // render bo'lgandan keyin holat yangilanadi
 }
 
 /* ===== FILTER ===== */
@@ -132,17 +137,14 @@ function filterCategory(cat, btn) {
 }
 
 /* ===== CART ===== */
-function addToCart(id) {
+function addToCart(id, btnEl) {
   const product = products.find(p => p.id === id);
   if (!product) return;
   const ex = cart.find(p => p.id === id);
   if (ex) ex.quantity++;
   else cart.push({ ...product, quantity: 1 });
   updateCart();
-
-  // mini feedback
-  const btns = document.querySelectorAll(".add-btn");
-  // find the right button visually
+  updateProductButtons(); // barcha tugmalarni yangilash
 }
 
 function changeQty(id, delta) {
@@ -151,6 +153,24 @@ function changeQty(id, delta) {
   item.quantity += delta;
   if (item.quantity <= 0) cart = cart.filter(p => p.id !== id);
   updateCart();
+  updateProductButtons();
+}
+
+// Savatchadagi mahsulotlarga qarab tugmalarni yangilash
+function updateProductButtons() {
+  document.querySelectorAll(".add-btn").forEach(btn => {
+    const id = Number(btn.dataset.id);
+    const inCart = cart.find(p => p.id === id);
+    if (inCart) {
+      btn.innerHTML = "✓ Qo'shildi";
+      btn.style.background = "linear-gradient(135deg, #4ade80, #16a34a)";
+      btn.style.color = "#0d0a07";
+    } else {
+      btn.innerHTML = "Qo'shish";
+      btn.style.background = "";
+      btn.style.color = "";
+    }
+  });
 }
 
 function updateCart() {
@@ -205,6 +225,10 @@ function closePanels() {
 /* ===== CHECKOUT ===== */
 function checkout() {
   if (!cart.length) { alert("⚠️ Savatcha bo'sh!"); return; }
+  if (!telegramId) {
+    alert("⚠️ Buyurtma berish uchun Telegram bot orqali kiring!\n\n@mini_shop_jahonsher_bot ga /start yuboring");
+    return;
+  }
 
   const btn = document.getElementById("checkoutBtn");
   if (btn) { btn.disabled = true; btn.innerText = "Yuborilmoqda..."; }
@@ -213,8 +237,9 @@ function checkout() {
     first_name: userProfile?.first_name || userData?.first_name || "",
     last_name:  userProfile?.last_name  || userData?.last_name  || "",
     username:   userProfile?.username   || userData?.username   || "",
-    phone:      userProfile?.phone      || ""
+    phone:      userProfile?.phone      || userData?.phone      || ""
   };
+  console.log("📤 userToSend:", userToSend);
 
   fetch(API + "/order", {
     method: "POST",
@@ -225,6 +250,7 @@ function checkout() {
   .then(() => {
     cart = [];
     updateCart();
+    updateProductButtons();
     closePanels();
     alert("✅ Buyurtma muvaffaqiyatli qabul qilindi!");
   })
