@@ -65,7 +65,6 @@ const Order = mongoose.model("Order", orderSchema);
 function mainKeyboard() {
   return {
     keyboard: [
-      [{ text: "🍽 Menyu & Buyurtma", web_app: { url: WEBAPP_URL } }],
       [{ text: "📋 Buyurtmalarim" }, { text: "📍 Manzil" }],
       [{ text: "🕐 Ish vaqti" },     { text: "📞 Bog'lanish" }]
     ],
@@ -103,7 +102,7 @@ bot.onText(/\/start/, async (msg) => {
 
   // Telefon bor — asosiy menyu
   await bot.sendMessage(chatId,
-    `👋 Xush kelibsiz, *${firstName}*!\n\n🍽 *Imperial Restoran*\nQuyidagi bo'limlardan birini tanlang 👇`,
+    `👋 Xush kelibsiz, *${firstName}*!\n\n🍽 *Imperial Restoran*\n\nQuyidagi bo'limlardan birini tanlang 👇`,
     { parse_mode: "Markdown", reply_markup: mainKeyboard() }
   );
 });
@@ -192,21 +191,20 @@ bot.onText(/Ish vaqti/, async (msg) => {
 });
 
 // 📞 Bog'lanish
-bot.onText(/Bog'lanish/, async (msg) => {
+bot.onText(/Bog.lanish/, async (msg) => {
   const chatId = msg.chat.id;
 
   await bot.sendMessage(chatId,
     `📞 *Bog'lanish:*\n\n` +
-    `📱 Telefon: +998 71 234 56 78\n` +
-    `📱 WhatsApp: +998 90 123 45 67\n` +
-    `📧 Email: info@imperial.uz\n` +
-    `📸 Instagram: @imperial_restoran\n\n` +
-    `💬 Savollaringiz bo'lsa, adminga yozing 👇`,
+    `📱 Telefon: +998 77 008 34 13\n` +
+    `💬 Telegram: @jahonsher\n\n` +
+    `Savollaringiz bo'lsa, to'g'ridan murojaat qiling! 👇`,
     {
       parse_mode: "Markdown",
       reply_markup: {
         inline_keyboard: [[
-          { text: "👨‍💼 Admin bilan bog'lanish", url: "https://t.me/admin_username" }
+          { text: "📱 Qo'ng'iroq qilish", url: "tel:+998770083413" },
+          { text: "💬 Telegram", url: "https://t.me/jahonsher" }
         ]]
       }
     }
