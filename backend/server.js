@@ -132,6 +132,9 @@ bot.on("callback_query", async (q) => {
   } catch(e) { console.error("callback:", e.message); }
 });
 
+// Health check — Railway uchun
+app.get("/", (req, res) => res.send("OK"));
+
 // Webhook endpoint
 const WH = "/wh/" + TOKEN;
 app.post(WH, (req, res) => {
