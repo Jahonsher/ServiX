@@ -22,12 +22,13 @@ if (!process.env.CHEF_ID)   { console.error("❌ CHEF_ID yo'q");   process.exit(
 
 const CHEF_ID    = Number(process.env.CHEF_ID);
 const WEBAPP_URL = process.env.WEBAPP_URL || "https://e-comerce-bot.vercel.app";
-const RAILWAY_URL = process.env.RAILWAY_URL || process.env.RAILWAY_STATIC_URL;
+// Railway avtomatik domenni beradi
+const RAILWAY_URL = process.env.RAILWAY_PUBLIC_DOMAIN
+  || process.env.RAILWAY_STATIC_URL
+  || process.env.RAILWAY_URL;
 
-// Webhook rejimida ishlaymiz (Railway uchun polling emas)
 const bot = new TelegramBot(process.env.BOT_TOKEN, { webHook: false });
-
-console.log("🤖 Bot tayyor");
+console.log("🤖 Bot tayyor, RAILWAY_URL:", RAILWAY_URL || "YO'Q");
 
 /* ================= MONGODB ================= */
 mongoose.connect(process.env.MONGO_URI)
@@ -191,7 +192,7 @@ bot.onText(/Ish vaqti/, async (msg) => {
 });
 
 // 📞 Bog'lanish
-bot.onText(/Bog.lanish/, async (msg) => {
+bot.onText(/Bog'lanish|Boglanish|bog'lanish/, async (msg) => {
   const chatId = msg.chat.id;
 
   await bot.sendMessage(chatId,
