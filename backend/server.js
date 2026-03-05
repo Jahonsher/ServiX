@@ -178,13 +178,22 @@ app.post("/order", async (req, res) => {
     if (!telegramId)             return res.status(400).json({ error: "telegramId yo'q" });
     if (!items || !items.length) return res.status(400).json({ error: "items bo'sh" });
 
-    // DB dan user olish, agar yo'q bo'lsa frontenddan kelgan user ishlatiladi
-    let userInfo = await User.findOne({ telegramId: Number(telegramId) });
-    if (!userInfo && user) {
-      // Frontenddan kelgan ma'lumot bilan DB ga yozamiz
-      userInfo = await User.findOneAndUpdate(
+    // DB dan user olish
+    let dbUser = await User.findOne({ telegramId: Number(telegramId) });
+
+    // Frontend dan kelgan user bilan birlashtirish
+    const userInfo = {
+      first_name: dbUser?.first_name || user?.first_name || "",
+      last_name:  dbUser?.last_name  || user?.last_name  || "",
+      username:   dbUser?.username   || user?.username   || "",
+      phone:      dbUser?.phone      || user?.phone      || ""
+    };
+
+    // DB ga yangilash (agar yangi ma'lumot kelgan bo'lsa)
+    if (user?.first_name || user?.phone) {
+      await User.findOneAndUpdate(
         { telegramId: Number(telegramId) },
-        { telegramId: Number(telegramId), ...user },
+        { telegramId: Number(telegramId), ...userInfo },
         { upsert: true, new: true }
       );
     }
@@ -207,11 +216,9 @@ app.post("/order", async (req, res) => {
     console.log("✅ Order saqlandi:", order._id);
 
     // Telegram xabar
-    const name  = userInfo
-      ? `${userInfo.first_name || ""} ${userInfo.last_name || ""}`.trim()
-      : `ID: ${telegramId}`;
-    const uname = userInfo?.username ? ` (@${userInfo.username})` : "";
-    const phone = userInfo?.phone    ? `\n📱 Tel: ${userInfo.phone}` : "";
+    const name  = `${userInfo.first_name} ${userInfo.last_name}`.trim() || `ID: ${telegramId}`;
+    const uname = userInfo.username ? ` (@${userInfo.username})` : "";
+    const phone = userInfo.phone    ? `\n📱 Tel: ${userInfo.phone}` : "";
 
     let message = `🆕 Yangi buyurtma!\n\n`;
     message    += `👤 Mijoz: ${name}${uname}${phone}\n\n`;
