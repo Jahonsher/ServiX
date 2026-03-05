@@ -54,54 +54,54 @@ const Order = mongoose.model("Order", orderSchema);
 
 /* ================= BOT ================= */
 
-// /start — agar telefon bor bo'lsa WebApp, aks holda telefon so'raydi
+// Asosiy menyu klaviaturasi
+function mainKeyboard() {
+  return {
+    keyboard: [
+      [{ text: "🍽 Menyu & Buyurtma", web_app: { url: WEBAPP_URL } }],
+      [{ text: "📋 Buyurtmalarim" }, { text: "📍 Manzil" }],
+      [{ text: "🕐 Ish vaqti" },     { text: "📞 Bog'lanish" }]
+    ],
+    resize_keyboard: true
+  };
+}
+
+// /start
 bot.onText(/\/start/, async (msg) => {
   const chatId    = msg.chat.id;
   const from      = msg.from;
   const firstName = from.first_name || "Do'st";
 
-  // Har doim DB ga yozamiz
   const existingUser = await User.findOneAndUpdate(
     { telegramId: from.id },
-    {
-      telegramId: from.id,
-      first_name: from.first_name || "",
-      last_name:  from.last_name  || "",
-      username:   from.username   || ""
-    },
+    { telegramId: from.id, first_name: from.first_name || "", last_name: from.last_name || "", username: from.username || "" },
     { upsert: true, new: true }
   );
 
-  console.log("✅ /start user:", existingUser.telegramId, existingUser.first_name);
-
-  // Telefon allaqachon saqlangan — to'g'ri WebApp ochiladi
-  if (existingUser.phone) {
+  // Telefon yo'q — so'raymiz
+  if (!existingUser.phone) {
     await bot.sendMessage(chatId,
-      `👋 Xush kelibsiz, ${firstName}!\n\nDo'konni ochish uchun quyidagi tugmani bosing 👇`,
+      `👋 Salom, *${firstName}*!\n\n🍽 *Imperial Restoran* ga xush kelibsiz!\n\nDavom etish uchun telefon raqamingizni yuboring 👇`,
       {
+        parse_mode: "Markdown",
         reply_markup: {
-          keyboard: [[{ text: "🛒 Do'konni ochish", web_app: { url: WEBAPP_URL } }]],
-          resize_keyboard: true
+          keyboard: [[{ text: "📱 Telefon raqamni yuborish", request_contact: true }]],
+          resize_keyboard: true,
+          one_time_keyboard: true
         }
       }
     );
     return;
   }
 
-  // 1-marta — telefon so'raladi
+  // Telefon bor — asosiy menyu
   await bot.sendMessage(chatId,
-    `👋 Salom, ${firstName}!\n\nDavom etish uchun telefon raqamingizni yuboring 👇`,
-    {
-      reply_markup: {
-        keyboard: [[{ text: "📱 Telefon raqamni yuborish", request_contact: true }]],
-        resize_keyboard: true,
-        one_time_keyboard: true
-      }
-    }
+    `👋 Xush kelibsiz, *${firstName}*!\n\n🍽 *Imperial Restoran*\nQuyidagi bo'limlardan birini tanlang 👇`,
+    { parse_mode: "Markdown", reply_markup: mainKeyboard() }
   );
 });
 
-// Telefon kelganda — saqlash + WebApp tugmasi
+// Telefon kelganda
 bot.on("contact", async (msg) => {
   const chatId    = msg.chat.id;
   const firstName = msg.from.first_name || "Do'st";
@@ -112,17 +112,100 @@ bot.on("contact", async (msg) => {
     { new: true }
   );
 
-  console.log("📱 Telefon saqlandi:", msg.contact.phone_number);
+  await bot.sendMessage(chatId,
+    `✅ Rahmat, *${firstName}*! Raqamingiz saqlandi.\n\n🍽 *Imperial Restoran* ga xush kelibsiz!\nQuyidagi bo'limlardan birini tanlang 👇`,
+    { parse_mode: "Markdown", reply_markup: mainKeyboard() }
+  );
+});
+
+// 📋 Buyurtmalarim
+bot.onText(/Buyurtmalarim/, async (msg) => {
+  const chatId = msg.chat.id;
+  try {
+    const orders = await Order.find({ telegramId: msg.from.id })
+      .sort({ createdAt: -1 }).limit(5);
+
+    if (!orders.length) {
+      await bot.sendMessage(chatId,
+        "📋 Hali buyurtma yo'q.\n\nMenyu va buyurtma uchun 🍽 *Menyu & Buyurtma* tugmasini bosing!",
+        { parse_mode: "Markdown", reply_markup: mainKeyboard() }
+      );
+      return;
+    }
+
+    let text = "📋 *So'nggi buyurtmalaringiz:*\n\n";
+    orders.forEach((o, i) => {
+      const date  = new Date(o.createdAt).toLocaleDateString("uz-UZ");
+      const items = o.items.map(it => `${it.name} × ${it.quantity}`).join(", ");
+      const table = o.tableNumber ? `📍 ${o.tableNumber}` : "";
+      text += `*${i+1}. ${date}* ${table}\n`;
+      text += `${items}\n`;
+      text += `💰 ${Number(o.total).toLocaleString()} so'm — _${o.status || "Yangi"}_\n\n`;
+    });
+
+    await bot.sendMessage(chatId, text, { parse_mode: "Markdown", reply_markup: mainKeyboard() });
+  } catch(err) {
+    console.error("ORDERS CMD ERROR:", err.message);
+  }
+});
+
+// 📍 Manzil
+bot.onText(/Manzil/, async (msg) => {
+  const chatId = msg.chat.id;
 
   await bot.sendMessage(chatId,
-    `✅ Rahmat! Raqamingiz saqlandi.\n\nQuyidagi tugmani bosib do'konni oching 👇`,
+    `📍 *Bizning manzil:*\n\nToshkent sh., Chilonzor tumani\nNavro'z ko'chasi, 15-uy\n\n🚇 Metro: Chilonzor (5 daqiqa)\n🚗 Parking mavjud`,
+    { parse_mode: "Markdown" }
+  );
+
+  // Xarita yuborish
+  await bot.sendLocation(chatId, 41.2995, 69.2401);
+
+  await bot.sendMessage(chatId, "Yo'l topish uchun 👆", { reply_markup: mainKeyboard() });
+});
+
+// 🕐 Ish vaqti
+bot.onText(/Ish vaqti/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  // Hozirgi vaqtni tekshirish (UTC+5 Toshkent)
+  const now      = new Date();
+  const hour     = (now.getUTCHours() + 5) % 24;
+  const isOpen   = hour >= 10 && hour < 23;
+  const statusEmoji = isOpen ? "🟢" : "🔴";
+  const statusText  = isOpen ? "Hozir OCHIQ" : "Hozir YOPIQ";
+
+  await bot.sendMessage(chatId,
+    `🕐 *Ish vaqtimiz:*\n\n` +
+    `Dushanba — Juma:  10:00 – 23:00\n` +
+    `Shanba — Yakshanba: 09:00 – 00:00\n\n` +
+    `${statusEmoji} *${statusText}*`,
+    { parse_mode: "Markdown", reply_markup: mainKeyboard() }
+  );
+});
+
+// 📞 Bog'lanish
+bot.onText(/Bog'lanish/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  await bot.sendMessage(chatId,
+    `📞 *Bog'lanish:*\n\n` +
+    `📱 Telefon: +998 71 234 56 78\n` +
+    `📱 WhatsApp: +998 90 123 45 67\n` +
+    `📧 Email: info@imperial.uz\n` +
+    `📸 Instagram: @imperial_restoran\n\n` +
+    `💬 Savollaringiz bo'lsa, adminga yozing 👇`,
     {
+      parse_mode: "Markdown",
       reply_markup: {
-        keyboard: [[{ text: "🛒 Do'konni ochish", web_app: { url: WEBAPP_URL } }]],
-        resize_keyboard: true
+        inline_keyboard: [[
+          { text: "👨‍💼 Admin bilan bog'lanish", url: "https://t.me/admin_username" }
+        ]]
       }
     }
   );
+
+  await bot.sendMessage(chatId, "Boshqa bo'limlar:", { reply_markup: mainKeyboard() });
 });
 
 // Oshpaz tugmani bosganida
