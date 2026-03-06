@@ -6,6 +6,8 @@ const cors        = require("cors");
 const TelegramBot = require("node-telegram-bot-api");
 const fs          = require("fs");
 const path        = require("path");
+const jwt         = require("jsonwebtoken");
+const bcrypt      = require("bcryptjs");
 
 const app = express();
 app.use(cors());
@@ -17,17 +19,18 @@ const MONGO_URI  = process.env.MONGO_URI;
 const WEBAPP_URL = process.env.WEBAPP_URL || "https://e-comerce-bot.vercel.app";
 const PORT       = process.env.PORT || 5000;
 const DOMAIN     = process.env.RAILWAY_URL || "";
+const JWT_SECRET = process.env.JWT_SECRET || "imperial_secret_2026";
 
-if (!TOKEN)    { console.error("BOT_TOKEN yoq"); process.exit(1); }
-if (!CHEF_ID)  { console.error("CHEF_ID yoq");   process.exit(1); }
+if (!TOKEN)   { console.error("BOT_TOKEN yoq"); process.exit(1); }
+if (!CHEF_ID) { console.error("CHEF_ID yoq");   process.exit(1); }
 
-// FAQAT webhook — polling YOQILMAYDI
 const bot = new TelegramBot(TOKEN);
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log("MongoDB ulandi"))
   .catch(err => { console.error("Mongo:", err.message); process.exit(1); });
 
+// ===== MODELS =====
 const User = mongoose.model("User", new mongoose.Schema({
   telegramId: { type: Number, unique: true },
   first_name: String, last_name: String,
@@ -37,9 +40,59 @@ const User = mongoose.model("User", new mongoose.Schema({
 const Order = mongoose.model("Order", new mongoose.Schema({
   telegramId: Number, items: Array, total: Number,
   userInfo: Object, orderType: String,
-  tableNumber: String, status: { type: String, default: "Yangi" }
+  tableNumber: String,
+  status: { type: String, default: "Yangi" },
+  rating: { type: Number, default: null },
+  ratingComment: { type: String, default: "" }
 }, { timestamps: true }));
 
+const Product = mongoose.model("Product", new mongoose.Schema({
+  id:       { type: Number, unique: true },
+  name:     String,
+  name_ru:  String,
+  price:    Number,
+  category: String,
+  image:    String,
+  active:   { type: Boolean, default: true }
+}, { timestamps: true }));
+
+// Admin model — har restoran uchun
+const Admin = mongoose.model("Admin", new mongoose.Schema({
+  username:     { type: String, unique: true },
+  password:     String,
+  restaurantName: String,
+  telegramId:   Number,
+  role:         { type: String, default: "admin" } // "superadmin" | "admin"
+}, { timestamps: true }));
+
+// ===== JWT MIDDLEWARE =====
+function authMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Token kerak" });
+  try {
+    req.admin = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch(e) {
+    res.status(401).json({ error: "Token yaroqsiz" });
+  }
+}
+
+// ===== PRODUCTS: DB ga sinxronlash =====
+async function syncProductsToDB() {
+  try {
+    const count = await Product.countDocuments();
+    if (count === 0) {
+      const filePath = path.join(__dirname, "data", "products.json");
+      if (fs.existsSync(filePath)) {
+        const products = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+        await Product.insertMany(products);
+        console.log("Products DB ga sinxronlandi:", products.length);
+      }
+    }
+  } catch(e) { console.error("syncProducts:", e.message); }
+}
+
+// ===== BOT =====
 const menu = {
   keyboard: [
     [{ text: "Buyurtmalarim" }, { text: "Manzil"    }],
@@ -118,32 +171,70 @@ bot.onText(/Boglanish/, async (msg) => {
 
 bot.on("callback_query", async (q) => {
   try {
-    const [action, orderId, userId] = q.data.split("_");
+    const parts = q.data.split("_");
+    const action = parts[0];
+
     if (action === "accept") {
+      const [, orderId, userId] = parts;
       await Order.findByIdAndUpdate(orderId, { status: "Qabul qilindi" });
-      await bot.editMessageReplyMarkup({ inline_keyboard: [[{ text: "Qabul qilindi", callback_data: "done" }]] }, { chat_id: q.message.chat.id, message_id: q.message.message_id });
-      await send(Number(userId), "Buyurtmangiz qabul qilindi! Tayyorlanmoqda.");
+      await bot.editMessageReplyMarkup(
+        { inline_keyboard: [[{ text: "✅ Qabul qilindi", callback_data: "done" }]] },
+        { chat_id: q.message.chat.id, message_id: q.message.message_id }
+      );
+      await send(Number(userId), "✅ Buyurtmangiz qabul qilindi! Tayyorlanmoqda.");
+
+      // Reyting so'rash — 30 soniya keyin
+      setTimeout(async () => {
+        await send(Number(userId), "Buyurtmangizni qanday baholaysiz?", {
+          reply_markup: { inline_keyboard: [[
+            { text: "⭐ 1", callback_data: `rate_${orderId}_1` },
+            { text: "⭐⭐ 2", callback_data: `rate_${orderId}_2` },
+            { text: "⭐⭐⭐ 3", callback_data: `rate_${orderId}_3` },
+            { text: "⭐⭐⭐⭐ 4", callback_data: `rate_${orderId}_4` },
+            { text: "⭐⭐⭐⭐⭐ 5", callback_data: `rate_${orderId}_5` },
+          ]]}
+        });
+      }, 30000);
+
     } else if (action === "reject") {
+      const [, orderId, userId] = parts;
       await Order.findByIdAndUpdate(orderId, { status: "Bekor qilindi" });
-      await bot.editMessageReplyMarkup({ inline_keyboard: [[{ text: "Bekor qilindi", callback_data: "done" }]] }, { chat_id: q.message.chat.id, message_id: q.message.message_id });
-      await send(Number(userId), "Buyurtmangiz bekor qilindi. Kechirasiz.");
+      await bot.editMessageReplyMarkup(
+        { inline_keyboard: [[{ text: "❌ Bekor qilindi", callback_data: "done" }]] },
+        { chat_id: q.message.chat.id, message_id: q.message.message_id }
+      );
+      await send(Number(userId), "❌ Buyurtmangiz bekor qilindi. Kechirasiz.");
+
+    } else if (action === "rate") {
+      const [, orderId, stars] = parts;
+      await Order.findByIdAndUpdate(orderId, { rating: Number(stars) });
+      await bot.editMessageReplyMarkup(
+        { inline_keyboard: [[{ text: "⭐".repeat(Number(stars)) + " Baholangdi!", callback_data: "done" }]] },
+        { chat_id: q.message.chat.id, message_id: q.message.message_id }
+      );
+      await bot.answerCallbackQuery(q.id, { text: "Rahmat!" });
+      return;
     }
+
     await bot.answerCallbackQuery(q.id);
   } catch(e) { console.error("callback:", e.message); }
 });
 
-// Health check — Railway uchun
+// ===== PUBLIC ENDPOINTS =====
 app.get("/", (req, res) => res.send("OK"));
 
-// Webhook endpoint
 const WH = "/wh/" + TOKEN;
 app.post(WH, (req, res) => {
   try { bot.processUpdate(req.body); } catch(e) { console.error("processUpdate:", e.message); }
   res.sendStatus(200);
 });
 
-app.get("/products", (req, res) => {
+// Products — DB dan olish (admin qo'shsa shu yerdan chiqadi)
+app.get("/products", async (req, res) => {
   try {
+    const products = await Product.find({ active: true }).sort({ id: 1 });
+    if (products.length) return res.json(products);
+    // DB bo'sh bo'lsa file dan
     res.json(JSON.parse(fs.readFileSync(path.join(__dirname, "data", "products.json"), "utf-8")));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -186,21 +277,25 @@ app.post("/order", async (req, res) => {
     };
 
     const total = items.reduce((s, i) => s + Number(i.price) * i.quantity, 0);
-    const order = await Order.create({ telegramId: Number(telegramId), items, total, userInfo: ui, orderType: orderType||"online", tableNumber: tableNumber||"Online", status: "Yangi" });
+    const order = await Order.create({
+      telegramId: Number(telegramId), items, total,
+      userInfo: ui, orderType: orderType||"online",
+      tableNumber: tableNumber||"Online", status: "Yangi"
+    });
 
     const name  = (ui.first_name + " " + ui.last_name).trim() || "ID:" + telegramId;
     const uname = ui.username ? " (@" + ui.username + ")" : "";
     const phone = ui.phone    ? "\nTel: " + ui.phone : "";
     const table = orderType === "dine_in" ? "Stol: " + tableNumber : "Online";
 
-    let m = "Yangi buyurtma!\n\n" + table + "\nMijoz: " + name + uname + phone + "\n\nMahsulotlar:\n";
+    let m = "🆕 Yangi buyurtma!\n\n" + table + "\nMijoz: " + name + uname + phone + "\n\nMahsulotlar:\n";
     items.forEach(i => { m += "- " + i.name + " x" + i.quantity + " | " + Number(i.price).toLocaleString() + " som\n"; });
     m += "\nJami: " + total.toLocaleString() + " som";
 
     await send(CHEF_ID, m, {
       reply_markup: { inline_keyboard: [[
-        { text: "Qabul", callback_data: "accept_" + order._id + "_" + telegramId },
-        { text: "Rad",   callback_data: "reject_" + order._id + "_" + telegramId }
+        { text: "✅ Qabul", callback_data: "accept_" + order._id + "_" + telegramId },
+        { text: "❌ Rad",   callback_data: "reject_" + order._id + "_" + telegramId }
       ]]}
     });
 
@@ -208,11 +303,162 @@ app.post("/order", async (req, res) => {
   } catch(e) { console.error("order:", e.message); res.status(500).json({ error: e.message }); }
 });
 
+// ===== ADMIN AUTH =====
+app.post("/admin/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const admin = await Admin.findOne({ username });
+    if (!admin) return res.status(401).json({ error: "Foydalanuvchi topilmadi" });
+    const ok = await bcrypt.compare(password, admin.password);
+    if (!ok) return res.status(401).json({ error: "Parol noto'g'ri" });
+    const token = jwt.sign({ id: admin._id, username: admin.username, role: admin.role, restaurantName: admin.restaurantName }, JWT_SECRET, { expiresIn: "7d" });
+    res.json({ ok: true, token, admin: { username: admin.username, restaurantName: admin.restaurantName, role: admin.role } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Birinchi admin yaratish (faqat bir marta ishlatiladi)
+app.post("/admin/setup", async (req, res) => {
+  try {
+    const count = await Admin.countDocuments();
+    if (count > 0) return res.status(403).json({ error: "Admin allaqachon mavjud" });
+    const { username, password, restaurantName } = req.body;
+    const hash = await bcrypt.hash(password, 10);
+    const admin = await Admin.create({ username, password: hash, restaurantName: restaurantName || "Imperial Restoran", role: "superadmin" });
+    res.json({ ok: true, message: "Superadmin yaratildi", username: admin.username });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Yangi admin qo'shish (faqat superadmin)
+app.post("/admin/create", authMiddleware, async (req, res) => {
+  try {
+    if (req.admin.role !== "superadmin") return res.status(403).json({ error: "Ruxsat yo'q" });
+    const { username, password, restaurantName } = req.body;
+    const hash = await bcrypt.hash(password, 10);
+    const admin = await Admin.create({ username, password: hash, restaurantName, role: "admin" });
+    res.json({ ok: true, admin: { username: admin.username, restaurantName: admin.restaurantName } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ===== ADMIN — PRODUCTS CRUD =====
+app.get("/admin/products", authMiddleware, async (req, res) => {
+  try {
+    res.json(await Product.find().sort({ id: 1 }));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/admin/products", authMiddleware, async (req, res) => {
+  try {
+    const last = await Product.findOne().sort({ id: -1 });
+    const newId = last ? last.id + 1 : 1;
+    const product = await Product.create({ ...req.body, id: newId });
+    res.json({ ok: true, product });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put("/admin/products/:id", authMiddleware, async (req, res) => {
+  try {
+    const product = await Product.findOneAndUpdate({ id: Number(req.params.id) }, req.body, { new: true });
+    res.json({ ok: true, product });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete("/admin/products/:id", authMiddleware, async (req, res) => {
+  try {
+    await Product.findOneAndDelete({ id: Number(req.params.id) });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ===== ADMIN — ORDERS =====
+app.get("/admin/orders", authMiddleware, async (req, res) => {
+  try {
+    const { status, type, limit = 50, skip = 0 } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    if (type)   filter.orderType = type;
+    const orders = await Order.find(filter).sort({ createdAt: -1 }).limit(Number(limit)).skip(Number(skip));
+    const total  = await Order.countDocuments(filter);
+    res.json({ orders, total });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put("/admin/orders/:id/status", authMiddleware, async (req, res) => {
+  try {
+    const order = await Order.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
+    res.json({ ok: true, order });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ===== ADMIN — STATISTICS =====
+app.get("/admin/stats", authMiddleware, async (req, res) => {
+  try {
+    const now   = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const week  = new Date(today); week.setDate(week.getDate() - 6);
+    const month = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Bugungi
+    const todayOrders   = await Order.find({ createdAt: { $gte: today } });
+    const todayRevenue  = todayOrders.reduce((s, o) => s + (o.total || 0), 0);
+    const todayOnline   = todayOrders.filter(o => o.orderType === "online").length;
+    const todayDineIn   = todayOrders.filter(o => o.orderType === "dine_in").length;
+
+    // Oylik
+    const monthOrders  = await Order.find({ createdAt: { $gte: month } });
+    const monthRevenue = monthOrders.reduce((s, o) => s + (o.total || 0), 0);
+
+    // Haftalik grafik — oxirgi 7 kun
+    const weeklyData = [];
+    for (let i = 6; i >= 0; i--) {
+      const d     = new Date(today); d.setDate(d.getDate() - i);
+      const dNext = new Date(d);     dNext.setDate(dNext.getDate() + 1);
+      const dayOrders = await Order.find({ createdAt: { $gte: d, $lt: dNext } });
+      weeklyData.push({
+        date:    d.toLocaleDateString("uz-UZ", { month: "short", day: "numeric" }),
+        orders:  dayOrders.length,
+        revenue: dayOrders.reduce((s, o) => s + (o.total || 0), 0)
+      });
+    }
+
+    // Reyting
+    const ratedOrders = await Order.find({ rating: { $ne: null } });
+    const avgRating   = ratedOrders.length
+      ? (ratedOrders.reduce((s, o) => s + o.rating, 0) / ratedOrders.length).toFixed(1)
+      : null;
+
+    // Jami foydalanuvchilar
+    const totalUsers = await User.countDocuments();
+
+    // Status bo'yicha
+    const statusStats = await Order.aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]);
+
+    res.json({
+      today:       { orders: todayOrders.length, revenue: todayRevenue, online: todayOnline, dineIn: todayDineIn },
+      month:       { orders: monthOrders.length, revenue: monthRevenue },
+      weekly:      weeklyData,
+      rating:      { avg: avgRating, count: ratedOrders.length },
+      totalUsers,
+      statusStats
+    });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ===== ADMIN — USERS =====
+app.get("/admin/users", authMiddleware, async (req, res) => {
+  try {
+    const users = await User.find().sort({ createdAt: -1 }).limit(100);
+    res.json(users);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 process.on("uncaughtException",  e => console.error("uncaught:", e.message));
 process.on("unhandledRejection", e => console.error("unhandled:", e));
 
 app.listen(PORT, async () => {
   console.log("Server " + PORT + " da ishga tushdi");
+  await syncProductsToDB();
   if (DOMAIN) {
     try {
       await bot.setWebHook("https://" + DOMAIN + WH);
