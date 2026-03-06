@@ -8,18 +8,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cormorant+Garamond:wght@300;400;500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --gold:   #c9a84c;
-      --gold2:  #e8c97e;
+      --gold:   #d4aa4e;
+      --gold2:  #f0d080;
       --dark:   #0d0a07;
       --dark2:  #15110c;
       --dark3:  #1e1710;
       --card:   #1a1410;
-      --border: rgba(201,168,76,0.2);
-      --text:   #f0e6d0;
-      --muted:  #8a7a65;
+      --border: rgba(212,170,78,0.3);
+      --text:   #faf3e0;
+      --muted:  #b09a7a;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:var(--dark); color:var(--text); font-family:'Jost',sans-serif; font-weight:300; overflow-x:hidden; }
+    body { background:var(--dark); color:var(--text); font-family:'Jost',sans-serif; font-weight:400; overflow-x:hidden; }
     ::-webkit-scrollbar { width:4px; }
     ::-webkit-scrollbar-track { background:var(--dark); }
     ::-webkit-scrollbar-thumb { background:var(--gold); border-radius:2px; }
@@ -42,17 +42,23 @@
     }
     .hero-badge { font-family:'Cormorant Garamond',serif; font-size:11px; letter-spacing:4px; text-transform:uppercase; color:var(--gold); margin-bottom:12px; border:1px solid var(--border); padding:4px 16px; border-radius:2px; }
     .hero h1 { font-family:'Playfair Display',serif; font-size:clamp(32px,8vw,52px); font-weight:700; line-height:1.15; background:linear-gradient(135deg,#e8c97e 0%,#c9a84c 50%,#a07830 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-    .hero p { font-family:'Cormorant Garamond',serif; font-size:18px; color:rgba(240,230,208,0.7); margin-top:8px; letter-spacing:1px; }
+    .hero p { font-family:'Cormorant Garamond',serif; font-size:18px; color:rgba(250,243,224,0.9); margin-top:8px; letter-spacing:1px; }
     .hero-btn { margin-top:18px; padding:10px 28px; background:transparent; border:1px solid var(--gold); color:var(--gold); font-family:'Jost',sans-serif; font-size:11px; letter-spacing:3px; text-transform:uppercase; border-radius:2px; cursor:pointer; transition:all .2s; }
     .hero-btn:hover { background:var(--gold); color:var(--dark); }
 
     /* TOPBAR */
     .topbar { position:sticky; top:0; z-index:40; background:rgba(13,10,7,0.92); backdrop-filter:blur(12px); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; padding:12px 20px; }
     .topbar-logo { font-family:'Playfair Display',serif; font-size:18px; color:var(--gold); font-weight:600; }
-    .topbar-actions { display:flex; gap:8px; }
+    .topbar-actions { display:flex; gap:8px; align-items:center; }
     .icon-btn { background:rgba(201,168,76,0.08); border:1px solid var(--border); color:var(--gold2); width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; transition:all .2s; position:relative; }
     .icon-btn:hover { background:rgba(201,168,76,0.18); }
     .badge { position:absolute; top:-6px; right:-6px; background:var(--gold); color:var(--dark); font-size:10px; font-weight:700; width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+
+    /* LANGUAGE SWITCHER */
+    .lang-switcher { display:flex; gap:2px; background:rgba(201,168,76,0.08); border:1px solid var(--border); border-radius:8px; padding:3px; }
+    .lang-btn { font-family:'Jost',sans-serif; font-size:11px; font-weight:500; letter-spacing:1px; padding:5px 10px; border-radius:5px; border:none; cursor:pointer; transition:all .2s; color:var(--muted); background:transparent; }
+    .lang-btn.active { background:var(--gold); color:var(--dark); font-weight:600; }
+    .lang-btn:hover:not(.active) { color:var(--gold2); }
 
     /* SECTION TITLE */
     .section-title { text-align:center; padding:36px 20px 8px; }
@@ -136,8 +142,13 @@
 
 <!-- TOPBAR -->
 <nav class="topbar">
-  <div class="topbar-logo">✦ Imperial</div>
+  <div class="topbar-logo" data-i18n="nav.title">✦ Imperial</div>
   <div class="topbar-actions">
+    <!-- TIL ALMASHTIRISH TUGMASI -->
+    <div class="lang-switcher">
+      <button class="lang-btn active" data-lang="uz" onclick="setLang('uz')">UZ</button>
+      <button class="lang-btn" data-lang="ru" onclick="setLang('ru')">RU</button>
+    </div>
     <button class="icon-btn" onclick="openUserPanel()">👤</button>
     <button class="icon-btn" onclick="toggleCart()">
       🛒
@@ -148,34 +159,34 @@
 
 <!-- HERO -->
 <header class="hero">
-  <div class="hero-badge">Toshkent, O'zbekiston</div>
-  <h1>Imperial Restoran</h1>
-  <p>Eng yaxshi ta'm — eng yaxshi xizmat</p>
+  <div class="hero-badge" data-i18n="hero.badge">Toshkent, O'zbekiston</div>
+  <h1 data-i18n="hero.title">Imperial Restoran</h1>
+  <p data-i18n="hero.subtitle">Eng yaxshi ta'm — eng yaxshi xizmat</p>
   <div class="gold-line" style="margin-top:18px; max-width:200px; margin-left:auto; margin-right:auto;"><span>✦</span></div>
-  <button class="hero-btn" onclick="scrollToMenu()">Menuni Ko'rish</button>
+  <button class="hero-btn" onclick="scrollToMenu()" data-i18n="hero.btn">Menuni Ko'rish</button>
 </header>
 
 <!-- MENU -->
 <section id="menu">
   <div class="section-title">
-    <span class="sub">Bizning taomlar</span>
-    <h2>Menyu</h2>
+    <span class="sub" data-i18n="menu.sub">Bizning taomlar</span>
+    <h2 data-i18n="menu.title">Menyu</h2>
     <div class="gold-line"><span>✦</span></div>
   </div>
   <div class="filter-tabs">
-    <button class="tab-btn active" onclick="filterCategory('all', this)">Barchasi</button>
-    <button class="tab-btn" onclick="filterCategory('Taom', this)">Taomlar</button>
-    <button class="tab-btn" onclick="filterCategory('Ichimlik', this)">Ichimliklar</button>
+    <button class="tab-btn active" data-cat="all" onclick="filterCategory('all', this)" data-i18n="tab.all">Barchasi</button>
+    <button class="tab-btn" data-cat="Taom" onclick="filterCategory('Taom', this)" data-i18n="tab.food">Taomlar</button>
+    <button class="tab-btn" data-cat="Ichimlik" onclick="filterCategory('Ichimlik', this)" data-i18n="tab.drink">Ichimliklar</button>
   </div>
   <div class="product-grid" id="products">
     <div class="empty-state" style="grid-column:1/-1">
       <div class="icon">🍽</div>
-      <p>Yuklanmoqda...</p>
+      <p data-i18n="product.loading">Yuklanmoqda...</p>
     </div>
   </div>
 </section>
 
-<footer>© 2026 <span>Imperial Restoran</span> — Barcha huquqlar himoyalangan</footer>
+<footer>© 2026 <span>Imperial Restoran</span> — <span data-i18n="footer.text">Barcha huquqlar himoyalangan</span></footer>
 
 <!-- OVERLAY -->
 <div id="overlay" onclick="closePanels()"></div>
@@ -183,43 +194,46 @@
 <!-- CART PANEL -->
 <div class="panel" id="cartPanel">
   <div class="panel-header">
-    <h2>Savatcha</h2>
+    <h2 data-i18n="cart.title">Savatcha</h2>
     <button class="close-btn" onclick="closePanels()">✕</button>
   </div>
   <div id="cartItems" style="flex:1">
-    <div class="empty-state"><div class="icon">🛒</div><p>Savatcha bo'sh</p></div>
+    <div class="empty-state"><div class="icon">🛒</div><p data-i18n="cart.empty">Savatcha bo'sh</p></div>
   </div>
   <div class="cart-footer">
     <div class="cart-total-row">
-      <span>Jami:</span>
-      <span><span id="cartTotal">0</span> so'm</span>
+      <span data-i18n="cart.total">Jami:</span>
+      <span><span id="cartTotal">0</span> <span data-i18n="cart.currency">so'm</span></span>
     </div>
 
     <!-- Stol tanlash -->
     <div style="margin-bottom:12px;">
       <div style="font-family:'Cormorant Garamond',serif; font-size:13px; color:var(--muted); margin-bottom:8px; letter-spacing:1px;">
-        📍 Buyurtma turi
+        <span data-i18n="cart.ordertype">📍 Buyurtma turi</span>
       </div>
       <div style="display:flex; gap:8px; margin-bottom:10px;">
-        <button id="btnDineIn"  onclick="selectOrderType('dine_in')"
+        <button id="btnDineIn" onclick="selectOrderType('dine_in')"
           style="flex:1; padding:8px; border-radius:4px; border:1px solid var(--border);
             background:rgba(201,168,76,0.08); color:var(--muted);
             font-family:'Jost',sans-serif; font-size:11px; letter-spacing:1px;
-            cursor:pointer; transition:all .2s;">
+            cursor:pointer; transition:all .2s;"
+          data-i18n="cart.dinein">
           🪑 Restoranda
         </button>
         <button id="btnOnline" onclick="selectOrderType('online')"
           style="flex:1; padding:8px; border-radius:4px; border:1px solid var(--border);
             background:rgba(201,168,76,0.08); color:var(--muted);
             font-family:'Jost',sans-serif; font-size:11px; letter-spacing:1px;
-            cursor:pointer; transition:all .2s;">
+            cursor:pointer; transition:all .2s;"
+          data-i18n="cart.online">
           🌐 Online
         </button>
       </div>
 
-      <!-- Stol raqami (faqat "Restoranda" tanlanganda ko'rinadi) -->
       <div id="tableInputWrap" style="display:none;">
-        <input id="tableInput" type="number" min="1" max="50" placeholder="Stol raqamini kiriting..."
+        <input id="tableInput" type="number" min="1" max="50"
+          data-i18n="cart.tableplaceholder"
+          placeholder="Stol raqamini kiriting..."
           style="width:100%; padding:10px 12px; background:var(--card);
             border:1px solid var(--border); border-radius:4px;
             color:var(--text); font-family:'Jost',sans-serif; font-size:13px;
@@ -230,28 +244,28 @@
       </div>
     </div>
 
-    <button class="checkout-btn" id="checkoutBtn" onclick="checkout()">Buyurtma Berish</button>
+    <button class="checkout-btn" id="checkoutBtn" onclick="checkout()" data-i18n="cart.checkout">Buyurtma Berish</button>
   </div>
 </div>
 
 <!-- USER PANEL -->
 <div class="panel" id="userPanel">
   <div class="panel-header">
-    <h2>Profilim</h2>
+    <h2 data-i18n="user.title">Profilim</h2>
     <button class="close-btn" onclick="closePanels()">✕</button>
   </div>
   <div class="profile-card">
     <div class="profile-avatar">👤</div>
-    <div class="profile-name" id="profileName">Yuklanmoqda...</div>
+    <div class="profile-name" id="profileName" data-i18n="user.loading">Yuklanmoqda...</div>
     <div class="profile-username" id="profileUsername"></div>
     <div class="profile-phone" id="profilePhone"></div>
   </div>
   <div style="padding:16px 20px 8px; display:flex; align-items:center; gap:8px;">
-    <span style="font-family:'Playfair Display',serif; font-size:16px;">Buyurtmalarim</span>
+    <span style="font-family:'Playfair Display',serif; font-size:16px;" data-i18n="user.orders">Buyurtmalarim</span>
     <div style="flex:1; height:1px; background:var(--border)"></div>
   </div>
   <div id="userOrders">
-    <div class="empty-state"><div class="icon">📋</div><p>Yuklanmoqda...</p></div>
+    <div class="empty-state"><div class="icon">📋</div><p data-i18n="user.loading">Yuklanmoqda...</p></div>
   </div>
 </div>
 
@@ -260,15 +274,16 @@
   background:rgba(13,10,7,0.97); flex-direction:column;
   align-items:center; justify-content:center; text-align:center; padding:32px;">
   <div style="font-size:48px; margin-bottom:16px;">🤖</div>
-  <div style="font-family:'Playfair Display',serif; font-size:22px; color:#c9a84c; margin-bottom:12px;">Telegram orqali kiring</div>
-  <div style="color:#8a7a65; font-size:14px; line-height:1.6; max-width:280px;">
+  <div style="font-family:'Playfair Display',serif; font-size:22px; color:#c9a84c; margin-bottom:12px;" data-i18n="tg.title">Telegram orqali kiring</div>
+  <div style="color:#8a7a65; font-size:14px; line-height:1.6; max-width:280px;" data-i18n="tg.desc" data-i18n-html="true">
     Bu ilova faqat Telegram bot orqali ishlaydi.<br><br>
     Quyidagi botga o'ting va <strong style="color:#c9a84c">/start</strong> bosing:
   </div>
   <a href="https://t.me/mini_shop_jahonsher_bot"
      style="margin-top:24px; padding:12px 28px; background:linear-gradient(135deg,#c9a84c,#a07830);
        color:#0d0a07; font-family:'Jost',sans-serif; font-size:12px; font-weight:500;
-       letter-spacing:2px; text-decoration:none; border-radius:4px; text-transform:uppercase;">
+       letter-spacing:2px; text-decoration:none; border-radius:4px; text-transform:uppercase;"
+     data-i18n="tg.btn">
     Botga o'tish →
   </a>
 </div>

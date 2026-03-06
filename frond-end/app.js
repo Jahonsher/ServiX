@@ -8,8 +8,157 @@ let cart        = [];
 let telegramId  = null;
 let userData    = null;
 let userProfile = null;
-let orderType   = null;  // 'dine_in' yoki 'online'
-let tableNumber = null;  // stol raqami
+let orderType   = null;
+let tableNumber = null;
+
+/* ===== I18N — TIL TARJIMALARI ===== */
+const translations = {
+  uz: {
+    // Topbar
+    "nav.title": "✦ Imperial",
+    // Hero
+    "hero.badge": "Toshkent, O'zbekiston",
+    "hero.title": "Imperial Restoran",
+    "hero.subtitle": "Eng yaxshi ta'm — eng yaxshi xizmat",
+    "hero.btn": "Menuni Ko'rish",
+    // Menu section
+    "menu.sub": "Bizning taomlar",
+    "menu.title": "Menyu",
+    // Filter tabs
+    "tab.all": "Barchasi",
+    "tab.food": "Taomlar",
+    "tab.drink": "Ichimliklar",
+    // Product
+    "product.add": "Qo'shish",
+    "product.added": "✓ Qo'shildi",
+    "product.loading": "Yuklanmoqda...",
+    "product.notfound": "Mahsulotlar topilmadi",
+    "product.error": "Mahsulotlar yuklanmadi",
+    // Cart panel
+    "cart.title": "Savatcha",
+    "cart.empty": "Savatcha bo'sh",
+    "cart.total": "Jami:",
+    "cart.currency": "so'm",
+    "cart.ordertype": "📍 Buyurtma turi",
+    "cart.dinein": "🪑 Restoranda",
+    "cart.online": "🌐 Online",
+    "cart.tableplaceholder": "Stol raqamini kiriting...",
+    "cart.checkout": "Buyurtma Berish",
+    "cart.sending": "Yuborilmoqda...",
+    // User panel
+    "user.title": "Profilim",
+    "user.loading": "Yuklanmoqda...",
+    "user.nophone": "📱 Telefon yo'q",
+    "user.orders": "Buyurtmalarim",
+    "user.noorders": "Hali buyurtma yo'q",
+    // Alerts
+    "alert.emptycart": "⚠️ Savatcha bo'sh!",
+    "alert.notelegram": "⚠️ Buyurtma berish uchun Telegram bot orqali kiring!\n\n@mini_shop_jahonsher_bot ga /start yuboring",
+    "alert.selecttype": "⚠️ Buyurtma turini tanlang: Restoranda yoki Online",
+    "alert.entertable": "⚠️ Stol raqamini kiriting!",
+    "alert.success": "✅ Buyurtma muvaffaqiyatli qabul qilindi!",
+    "alert.error": "❌ Xato: ",
+    // Telegram warning
+    "tg.title": "Telegram orqali kiring",
+    "tg.desc": "Bu ilova faqat Telegram bot orqali ishlaydi.<br><br>Quyidagi botga o'ting va <strong style=\"color:#c9a84c\">/start</strong> bosing:",
+    "tg.btn": "Botga o'tish →",
+    // Footer
+    "footer.text": "Barcha huquqlar himoyalangan",
+    // Profile
+    "profile.guest": "Mehmon",
+  },
+  ru: {
+    // Topbar
+    "nav.title": "✦ Imperial",
+    // Hero
+    "hero.badge": "Ташкент, Узбекистан",
+    "hero.title": "Ресторан Imperial",
+    "hero.subtitle": "Лучший вкус — лучший сервис",
+    "hero.btn": "Смотреть меню",
+    // Menu section
+    "menu.sub": "Наши блюда",
+    "menu.title": "Меню",
+    // Filter tabs
+    "tab.all": "Все",
+    "tab.food": "Блюда",
+    "tab.drink": "Напитки",
+    // Product
+    "product.add": "Добавить",
+    "product.added": "✓ Добавлено",
+    "product.loading": "Загрузка...",
+    "product.notfound": "Товары не найдены",
+    "product.error": "Не удалось загрузить товары",
+    // Cart panel
+    "cart.title": "Корзина",
+    "cart.empty": "Корзина пуста",
+    "cart.total": "Итого:",
+    "cart.currency": "сум",
+    "cart.ordertype": "📍 Тип заказа",
+    "cart.dinein": "🪑 В ресторане",
+    "cart.online": "🌐 Онлайн",
+    "cart.tableplaceholder": "Введите номер стола...",
+    "cart.checkout": "Оформить заказ",
+    "cart.sending": "Отправляем...",
+    // User panel
+    "user.title": "Мой профиль",
+    "user.loading": "Загрузка...",
+    "user.nophone": "📱 Телефон не указан",
+    "user.orders": "Мои заказы",
+    "user.noorders": "Заказов пока нет",
+    // Alerts
+    "alert.emptycart": "⚠️ Корзина пуста!",
+    "alert.notelegram": "⚠️ Для заказа войдите через Telegram бот!\n\nОтправьте /start боту @mini_shop_jahonsher_bot",
+    "alert.selecttype": "⚠️ Выберите тип заказа: В ресторане или Онлайн",
+    "alert.entertable": "⚠️ Введите номер стола!",
+    "alert.success": "✅ Заказ успешно принят!",
+    "alert.error": "❌ Ошибка: ",
+    // Telegram warning
+    "tg.title": "Войдите через Telegram",
+    "tg.desc": "Это приложение работает только через Telegram бот.<br><br>Перейдите к боту и нажмите <strong style=\"color:#c9a84c\">/start</strong>:",
+    "tg.btn": "Перейти к боту →",
+    // Footer
+    "footer.text": "Все права защищены",
+    // Profile
+    "profile.guest": "Гость",
+  }
+};
+
+let currentLang = localStorage.getItem("lang") || "uz";
+
+function t(key) {
+  return translations[currentLang][key] || translations["uz"][key] || key;
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem("lang", lang);
+  applyTranslations();
+  updateCart();
+  renderProducts(
+    document.querySelector(".tab-btn.active")?.dataset?.cat === "all" || !document.querySelector(".tab-btn.active")?.dataset?.cat
+      ? products
+      : products.filter(p => p.category === document.querySelector(".tab-btn.active")?.dataset?.cat)
+  );
+  renderProfile();
+
+  // Til tugmalarini yangilash
+  document.querySelectorAll(".lang-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.lang === lang);
+  });
+}
+
+function applyTranslations() {
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const key = el.dataset.i18n;
+    if (el.tagName === "INPUT") {
+      el.placeholder = t(key);
+    } else if (el.dataset.i18nHtml) {
+      el.innerHTML = t(key);
+    } else {
+      el.textContent = t(key);
+    }
+  });
+}
 
 /* ===== TELEGRAM AUTH ===== */
 function initTelegramUser() {
@@ -23,10 +172,8 @@ function initTelegramUser() {
   tg.setHeaderColor("#0d0a07");
   tg.setBackgroundColor("#0d0a07");
 
-  // 1-usul: initDataUnsafe.user
   let tgUser = tg.initDataUnsafe?.user;
 
-  // 2-usul: initData string dan parse
   if (!tgUser && tg.initData) {
     try {
       const params  = new URLSearchParams(tg.initData);
@@ -37,13 +184,17 @@ function initTelegramUser() {
     }
   }
 
-  console.log("🔍 tgUser:", tgUser);
-
   if (tgUser && tgUser.id) {
     telegramId = tgUser.id;
     userData   = tgUser;
 
-    // Auth — DB ga yozamiz
+    // Telegram tili asosida avtomatik til o'rnatish
+    if (!localStorage.getItem("lang")) {
+      const tgLang = tgUser.language_code || "uz";
+      currentLang = tgLang === "ru" ? "ru" : "uz";
+      localStorage.setItem("lang", currentLang);
+    }
+
     fetch(API + "/auth", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
@@ -55,7 +206,6 @@ function initTelegramUser() {
       })
     })
     .then(r => r.json())
-    // Auth dan keyin to'liq profil (telefon bilan) olamiz
     .then(() => fetch(API + "/user/" + telegramId).then(r => r.json()))
     .then(fullUser => {
       userProfile = fullUser;
@@ -86,9 +236,9 @@ function renderProfile() {
   const unameEl = document.getElementById("profileUsername");
   const phoneEl = document.getElementById("profilePhone");
 
-  if (nameEl)  nameEl.innerText  = `${u.first_name || ""} ${u.last_name || ""}`.trim() || "Mehmon";
-  if (unameEl) unameEl.innerText = u.username ? `@${u.username}` : "";
-  if (phoneEl) phoneEl.innerText = u.phone    ? `📱 ${u.phone}`  : "📱 Telefon yo'q";
+  if (nameEl)  nameEl.textContent  = `${u.first_name || ""} ${u.last_name || ""}`.trim() || t("profile.guest");
+  if (unameEl) unameEl.textContent = u.username ? `@${u.username}` : "";
+  if (phoneEl) phoneEl.textContent = u.phone    ? `📱 ${u.phone}`  : t("user.nophone");
 }
 
 /* ===== LOAD PRODUCTS ===== */
@@ -104,7 +254,7 @@ function loadProducts() {
       if (c) c.innerHTML = `
         <div class="empty-state" style="grid-column:1/-1">
           <div class="icon">⚠️</div>
-          <p>Mahsulotlar yuklanmadi (${err.message})</p>
+          <p>${t("product.error")} (${err.message})</p>
         </div>`;
     });
 }
@@ -115,7 +265,7 @@ function renderProducts(list) {
   container.innerHTML = "";
 
   if (!list || !list.length) {
-    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">🍽</div><p>Mahsulotlar topilmadi</p></div>`;
+    container.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">🍽</div><p>${t("product.notfound")}</p></div>`;
     return;
   }
 
@@ -123,15 +273,16 @@ function renderProducts(list) {
     const card = document.createElement("div");
     card.className = "product-card";
     card.style.animationDelay = `${i * 60}ms`;
+    const displayName = (currentLang === "ru" && p.name_ru) ? p.name_ru : p.name;
     card.innerHTML = `
-      <img src="${p.image}" alt="${p.name}"
+      <img src="${p.image}" alt="${displayName}"
            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
       <div class="img-placeholder" style="display:none">🍽</div>
       <div class="product-info">
-        <h3>${p.name}</h3>
+        <h3>${displayName}</h3>
         <div class="cat">${p.category}</div>
-        <span class="price">${Number(p.price).toLocaleString()} so'm</span>
-        <button class="add-btn" data-id="${p.id}" onclick="addToCart(${p.id})">Qo'shish</button>
+        <span class="price">${Number(p.price).toLocaleString()} ${t("cart.currency")}</span>
+        <button class="add-btn" data-id="${p.id}" onclick="addToCart(${p.id})">${t("product.add")}</button>
       </div>`;
     container.appendChild(card);
   });
@@ -142,7 +293,10 @@ function renderProducts(list) {
 /* ===== FILTER ===== */
 function filterCategory(cat, btn) {
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-  if (btn) btn.classList.add("active");
+  if (btn) {
+    btn.classList.add("active");
+    btn.dataset.cat = cat;
+  }
   renderProducts(cat === "all" ? products : products.filter(p => p.category === cat));
 }
 
@@ -166,17 +320,16 @@ function changeQty(id, delta) {
   updateProductButtons();
 }
 
-// Tugma holatini savatchaga qarab yangilash
 function updateProductButtons() {
   document.querySelectorAll(".add-btn").forEach(btn => {
     const id     = Number(btn.dataset.id);
     const inCart = cart.find(p => p.id === id);
     if (inCart) {
-      btn.innerHTML = "✓ Qo'shildi";
+      btn.innerHTML = t("product.added");
       btn.style.background = "linear-gradient(135deg, #4ade80, #16a34a)";
       btn.style.color = "#0d0a07";
     } else {
-      btn.innerHTML = "Qo'shish";
+      btn.innerHTML = t("product.add");
       btn.style.background = "";
       btn.style.color = "";
     }
@@ -191,21 +344,21 @@ function updateCart() {
   const count = cart.reduce((s, i) => s + i.quantity, 0);
 
   const badge = document.getElementById("cartCount");
-  if (badge) badge.innerText = count;
+  if (badge) badge.textContent = count;
 
   const totalEl = document.getElementById("cartTotal");
-  if (totalEl) totalEl.innerText = Number(total).toLocaleString();
+  if (totalEl) totalEl.textContent = Number(total).toLocaleString();
 
   if (!cart.length) {
-    container.innerHTML = `<div class="empty-state"><div class="icon">🛒</div><p>Savatcha bo'sh</p></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="icon">🛒</div><p>${t("cart.empty")}</p></div>`;
     return;
   }
 
   container.innerHTML = cart.map(item => `
     <div class="cart-item">
       <div>
-        <div class="cart-item-name">${item.name}</div>
-        <div class="cart-item-price">${Number(item.price).toLocaleString()} so'm</div>
+        <div class="cart-item-name">${(currentLang === "ru" && item.name_ru) ? item.name_ru : item.name}</div>
+        <div class="cart-item-price">${Number(item.price).toLocaleString()} ${t("cart.currency")}</div>
       </div>
       <div class="qty-controls">
         <button class="qty-btn" onclick="changeQty(${item.id}, -1)">−</button>
@@ -250,31 +403,29 @@ function selectOrderType(type) {
     btnOnline.style.cssText  += activeStyle;
     btnDineIn.style.cssText  += inactiveStyle;
     tableWrap.style.display   = "none";
-    tableNumber = "Online buyurtma";
+    tableNumber = "Online";
     document.getElementById("tableInput").value = "";
   }
 }
 
 /* ===== CHECKOUT ===== */
 function checkout() {
-  if (!cart.length) { alert("⚠️ Savatcha bo'sh!"); return; }
+  if (!cart.length) { alert(t("alert.emptycart")); return; }
 
   if (!telegramId) {
-    alert("⚠️ Buyurtma berish uchun Telegram bot orqali kiring!\n\n@mini_shop_jahonsher_bot ga /start yuboring");
+    alert(t("alert.notelegram"));
     return;
   }
 
-  // Buyurtma turini tekshirish
   if (!orderType) {
-    alert("⚠️ Buyurtma turini tanlang: Restoranda yoki Online");
+    alert(t("alert.selecttype"));
     return;
   }
 
-  // Stol raqamini tekshirish
   if (orderType === "dine_in") {
     const tableVal = document.getElementById("tableInput")?.value?.trim();
     if (!tableVal) {
-      alert("⚠️ Stol raqamini kiriting!");
+      alert(t("alert.entertable"));
       document.getElementById("tableInput")?.focus();
       return;
     }
@@ -282,7 +433,7 @@ function checkout() {
   }
 
   const btn = document.getElementById("checkoutBtn");
-  if (btn) { btn.disabled = true; btn.innerText = "Yuborilmoqda..."; }
+  if (btn) { btn.disabled = true; btn.textContent = t("cart.sending"); }
 
   const userToSend = {
     first_name: userProfile?.first_name || userData?.first_name || "",
@@ -307,7 +458,6 @@ function checkout() {
     cart = [];
     orderType  = null;
     tableNumber = null;
-    // Tugmalarni reset qilish
     const btnDineIn = document.getElementById("btnDineIn");
     const btnOnline = document.getElementById("btnOnline");
     const tableWrap = document.getElementById("tableInputWrap");
@@ -319,11 +469,11 @@ function checkout() {
     updateCart();
     updateProductButtons();
     closePanels();
-    alert("✅ Buyurtma muvaffaqiyatli qabul qilindi!");
+    alert(t("alert.success"));
   })
-  .catch(err => alert("❌ Xato: " + err.message))
+  .catch(err => alert(t("alert.error") + err.message))
   .finally(() => {
-    if (btn) { btn.disabled = false; btn.innerText = "Buyurtma Berish"; }
+    if (btn) { btn.disabled = false; btn.textContent = t("cart.checkout"); }
   });
 }
 
@@ -338,17 +488,20 @@ function loadUserOrders() {
       if (!c) return;
 
       if (!data || !data.length) {
-        c.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>Hali buyurtma yo'q</p></div>`;
+        c.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>${t("user.noorders")}</p></div>`;
         return;
       }
 
       c.innerHTML = data.map(order => {
-        const items = order.items.map(i => `${i.name} × ${i.quantity}`).join(", ");
-        const date  = new Date(order.createdAt).toLocaleDateString("uz-UZ");
+        const items = order.items.map(i => {
+          const n = (currentLang === "ru" && i.name_ru) ? i.name_ru : i.name;
+          return `${n} × ${i.quantity}`;
+        }).join(", ");
+        const date  = new Date(order.createdAt).toLocaleDateString(currentLang === "ru" ? "ru-RU" : "uz-UZ");
         return `
           <div class="order-card">
             <div class="order-items">${items}</div>
-            <div class="order-total">${Number(order.total).toLocaleString()} so'm</div>
+            <div class="order-total">${Number(order.total).toLocaleString()} ${t("cart.currency")}</div>
             <div><span class="order-status">${order.status || "Yangi"}</span></div>
             <div class="order-date">🕐 ${date}</div>
           </div>`;
@@ -360,5 +513,14 @@ function loadUserOrders() {
 function scrollToMenu() {
   document.getElementById("menu")?.scrollIntoView({ behavior: "smooth" });
 }
+
+// Sahifa yuklanganda tarjimalarni qo'llash
+document.addEventListener("DOMContentLoaded", () => {
+  applyTranslations();
+  // Aktiv til tugmasini belgilash
+  document.querySelectorAll(".lang-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.lang === currentLang);
+  });
+});
 
 loadProducts();
