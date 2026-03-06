@@ -434,10 +434,24 @@ app.get("/admin/stats", authMiddleware, async (req, res) => {
       { $group: { _id: "$status", count: { $sum: 1 } } }
     ]);
 
+    // Ko'p sotilgan mahsulotlar TOP-5
+    const topProducts = await Order.aggregate([
+      { $unwind: "$items" },
+      { $group: {
+          _id:      "$items.name",
+          total:    { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+          quantity: { $sum: "$items.quantity" },
+          count:    { $sum: 1 }
+      }},
+      { $sort: { quantity: -1 } },
+      { $limit: 5 }
+    ]);
+
     res.json({
       today:       { orders: todayOrders.length, revenue: todayRevenue, online: todayOnline, dineIn: todayDineIn },
       month:       { orders: monthOrders.length, revenue: monthRevenue },
       weekly:      weeklyData,
+      topProducts,
       rating:      { avg: avgRating, count: ratedOrders.length },
       totalUsers,
       statusStats
