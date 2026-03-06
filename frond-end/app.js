@@ -220,9 +220,12 @@ function initTelegramUser() {
 }
 
 function showNotTelegramWarning() {
-  const w = document.getElementById("tgWarning");
-  if (w) w.style.display = "flex";
-  telegramId = null;
+  // VAQTINCHALIK: Telegram tekshiruvi o'chirilgan
+  // Keyinchalik yoqib qo'yish uchun quyidagi 3 qatorni uncomment qiling:
+  // const w = document.getElementById("tgWarning");
+  // if (w) w.style.display = "flex";
+  // telegramId = null;
+  console.warn("Telegram WebApp topilmadi — test rejimida ishlayapti");
 }
 
 initTelegramUser();
