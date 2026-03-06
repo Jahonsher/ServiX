@@ -456,7 +456,7 @@ app.get("/admin/users", authMiddleware, async (req, res) => {
 // ===== SUPERADMIN — RESTAURANTS =====
 app.get("/superadmin/restaurants", superMiddleware, async (req, res) => {
   try {
-    const admins = await Admin.find({ role: "admin" }).select("-password").sort({ createdAt: -1 });
+    const admins = await Admin.find({ restaurantId: { $exists: true, $ne: null } }).select("-password").sort({ createdAt: -1 });
     const result = await Promise.all(admins.map(async (a) => {
       const todayStart = new Date(); todayStart.setHours(0,0,0,0);
       return {
@@ -512,7 +512,7 @@ app.get("/superadmin/stats", superMiddleware, async (req, res) => {
       { $sort: { count: -1 } }
     ]);
     res.json({
-      totalRestaurants: await Admin.countDocuments({ role: "admin" }),
+      totalRestaurants: await Admin.countDocuments({ restaurantId: { $exists: true, $ne: null } }),
       totalOrders:      await Order.countDocuments(),
       todayOrders:      await Order.countDocuments({ createdAt: { $gte: todayStart } }),
       monthRevenue:     monthOrders.reduce((s,o)=>s+(o.total||0),0),
