@@ -133,12 +133,16 @@ function setLang(lang) {
   currentLang = lang;
   localStorage.setItem("lang", lang);
   applyTranslations();
+
+  // Aktiv kategoriyani aniqlab, cardlarni qayta chizish
+  const activeTab = document.querySelector(".tab-btn.active");
+  const activeCat = activeTab?.dataset?.cat || "all";
+  const filtered  = activeCat === "all" ? products : products.filter(p => p.category === activeCat);
+  renderProducts(filtered);
+
+  // Savatchani qayta chizish (nomlar yangilansin)
   updateCart();
-  renderProducts(
-    document.querySelector(".tab-btn.active")?.dataset?.cat === "all" || !document.querySelector(".tab-btn.active")?.dataset?.cat
-      ? products
-      : products.filter(p => p.category === document.querySelector(".tab-btn.active")?.dataset?.cat)
-  );
+  updateProductButtons();
   renderProfile();
 
   // Til tugmalarini yangilash
@@ -220,12 +224,9 @@ function initTelegramUser() {
 }
 
 function showNotTelegramWarning() {
-  // VAQTINCHALIK: Telegram tekshiruvi o'chirilgan
-  // Keyinchalik yoqib qo'yish uchun quyidagi 3 qatorni uncomment qiling:
-  // const w = document.getElementById("tgWarning");
-  // if (w) w.style.display = "flex";
-  // telegramId = null;
-  console.warn("Telegram WebApp topilmadi — test rejimida ishlayapti");
+  const w = document.getElementById("tgWarning");
+  if (w) w.style.display = "flex";
+  telegramId = null;
 }
 
 initTelegramUser();
