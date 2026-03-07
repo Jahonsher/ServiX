@@ -464,28 +464,41 @@ app.get("/admin/users", authMiddleware, async (req, res) => {
 app.post("/admin/broadcast", authMiddleware, async (req, res) => {
   try {
     const rId   = req.admin.restaurantId;
-    const { text, imageUrl } = req.body;
-    if (!text && !imageUrl) return res.status(400).json({ error: "Matn yoki rasm kerak" });
+    const { text, imageUrl, imageBase64 } = req.body;
+    if (!text && !imageUrl && !imageBase64) return res.status(400).json({ error: "Matn yoki rasm kerak" });
 
     const users = await User.find({ restaurantId: rId, telegramId: { $exists: true } });
     let sent = 0, failed = 0;
+    const errors = [];
 
     for (const user of users) {
       try {
-        if (imageUrl && text) {
-          await bot.sendPhoto(user.telegramId, imageUrl, { caption: text, parse_mode: "HTML" });
+        const tgId = Number(user.telegramId);
+        if (!tgId) { failed++; continue; }
+
+        if (imageBase64) {
+          // Fayl orqali yuklangan rasm — buffer sifatida yuborish
+          const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+          const imgBuffer  = Buffer.from(base64Data, "base64");
+          await bot.sendPhoto(tgId, imgBuffer, {
+            caption:    text || "",
+            parse_mode: "HTML"
+          });
+        } else if (imageUrl && text) {
+          await bot.sendPhoto(tgId, imageUrl, { caption: text, parse_mode: "HTML" });
         } else if (imageUrl) {
-          await bot.sendPhoto(user.telegramId, imageUrl);
+          await bot.sendPhoto(tgId, imageUrl);
         } else {
-          await bot.sendMessage(user.telegramId, text, { parse_mode: "HTML" });
+          await bot.sendMessage(tgId, text, { parse_mode: "HTML" });
         }
         sent++;
         await new Promise(r => setTimeout(r, 50));
       } catch(e) {
         failed++;
+        errors.push({ id: user.telegramId, err: e.message });
       }
     }
-    res.json({ ok: true, sent, failed, total: users.length });
+    res.json({ ok: true, sent, failed, total: users.length, errors: errors.slice(0, 5) });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
