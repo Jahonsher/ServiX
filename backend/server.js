@@ -190,6 +190,80 @@ bot.onText(/Boglanish/, async (msg) => {
   } catch(e) { console.error("boglanish:", e.message); }
 });
 
+
+// ===== BOT BROADCAST =====
+// Holat saqlash: { step: 'text'|'photo', text: '...' }
+const broadcastSessions = {};
+
+bot.onText(/\/broadcast/, async (msg) => {
+  const chatId = msg.chat.id;
+  // Faqat admin (CHEF_ID) ishlatishi mumkin
+  if (chatId !== CHEF_ID) {
+    return send(chatId, "⛔ Bu buyruq faqat admin uchun.");
+  }
+  broadcastSessions[chatId] = { step: 'text' };
+  send(chatId, "📢 *Broadcast xabari*\n\nYubormoqchi bo'lgan matnni yozing:\n\n_(Bekor qilish uchun /cancel)_",
+    { parse_mode: "Markdown" });
+});
+
+bot.onText(/\/cancel/, async (msg) => {
+  const chatId = msg.chat.id;
+  if (broadcastSessions[chatId]) {
+    delete broadcastSessions[chatId];
+    send(chatId, "❌ Bekor qilindi.");
+  }
+});
+
+bot.on("message", async (msg) => {
+  const chatId  = msg.chat.id;
+  const session = broadcastSessions[chatId];
+  if (!session) return;
+
+  // STEP 1: Matn qabul qilish
+  if (session.step === 'text') {
+    if (!msg.text || msg.text.startsWith('/')) return;
+    session.text = msg.text;
+    session.step = 'photo';
+    send(chatId,
+      "✅ Matn saqlandi.\n\nEndi rasm yuboring yoki rasmiz yuborish uchun /skip yozing.",
+      { parse_mode: "Markdown" }
+    );
+    return;
+  }
+
+  // STEP 2: Rasm qabul qilish
+  if (session.step === 'photo') {
+    let photoFileId = null;
+
+    if (msg.text && msg.text === '/skip') {
+      // Rasmiz yuborish
+      photoFileId = null;
+    } else if (msg.photo) {
+      photoFileId = msg.photo[msg.photo.length - 1].file_id;
+    } else {
+      send(chatId, "⚠️ Rasm yuboring yoki /skip yozing.");
+      return;
+    }
+
+    session.step     = 'confirm';
+    session.photoId  = photoFileId;
+
+    const preview = (session.text || '') + (photoFileId ? '\n🖼 Rasm: bor' : '\n🖼 Rasm: yoq');
+    send(chatId,
+      "📋 *Xabar ko'rinishi:*\n\n" + preview + "\n\nYuborilsinmi?",
+      {
+        parse_mode: "Markdown",
+        reply_markup: {
+          inline_keyboard: [[
+            { text: "✅ Ha, yuborish", callback_data: "bc_confirm" },
+            { text: "❌ Bekor", callback_data: "bc_cancel" }
+          ]]
+        }
+      }
+    );
+  }
+});
+
 bot.on("callback_query", async (q) => {
   try {
     const parts  = q.data.split("_");
@@ -218,6 +292,55 @@ bot.on("callback_query", async (q) => {
       await Order.findByIdAndUpdate(orderId, { rating: Number(stars) });
       await bot.editMessageReplyMarkup({ inline_keyboard: [[{ text: "⭐".repeat(Number(stars)) + " Baholangdi!", callback_data: "done" }]] }, { chat_id: q.message.chat.id, message_id: q.message.message_id });
       await bot.answerCallbackQuery(q.id, { text: "Rahmat!" });
+      return;
+    } else if (q.data === "bc_confirm") {
+      const session = broadcastSessions[q.message.chat.id];
+      if (!session) { await bot.answerCallbackQuery(q.id); return; }
+
+      await bot.answerCallbackQuery(q.id, { text: "Yuborilmoqda..." });
+      await bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: q.message.chat.id, message_id: q.message.message_id });
+      await send(q.message.chat.id, "⏳ Yuborilmoqda, kuting...");
+
+      const rId   = (await Admin.findOne({ chefId: q.message.chat.id }))?.restaurantId || "imperial";
+      const users = await User.find({ restaurantId: rId, telegramId: { $exists: true } });
+      let sent = 0, failed = 0, cachedFileId = null;
+
+      for (const user of users) {
+        try {
+          const tgId = Number(user.telegramId);
+          if (!tgId) { failed++; continue; }
+
+          if (session.photoId || cachedFileId) {
+            const photoSrc = cachedFileId || session.photoId;
+            const msg2 = await bot.sendPhoto(tgId, photoSrc, {
+              caption: session.text || "", parse_mode: "HTML"
+            });
+            if (!cachedFileId && msg2.photo) {
+              cachedFileId = msg2.photo[msg2.photo.length - 1].file_id;
+            }
+          } else {
+            await bot.sendMessage(tgId, session.text, { parse_mode: "HTML" });
+          }
+          sent++;
+          await new Promise(r => setTimeout(r, 50));
+        } catch(e) { failed++; }
+      }
+
+      delete broadcastSessions[q.message.chat.id];
+      await send(q.message.chat.id,
+        "✅ *Broadcast yakunlandi!*\n\n" +
+        "📤 Yuborildi: *" + sent + "* ta\n" +
+        "❌ Xato: *" + failed + "* ta\n" +
+        "👥 Jami: *" + users.length + "* ta",
+        { parse_mode: "Markdown" }
+      );
+      return;
+
+    } else if (q.data === "bc_cancel") {
+      delete broadcastSessions[q.message.chat.id];
+      await bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: q.message.chat.id, message_id: q.message.message_id });
+      await send(q.message.chat.id, "❌ Broadcast bekor qilindi.");
+      await bot.answerCallbackQuery(q.id);
       return;
     }
     await bot.answerCallbackQuery(q.id);
