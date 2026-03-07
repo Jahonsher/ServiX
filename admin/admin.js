@@ -34,7 +34,7 @@ async function doLogin() {
     });
     var d = await r.json();
     if (!d.ok) {
-      showErr(errEl, '❌ Login yoki parol noto`g`ri');
+      showErr(errEl, "❌ Login yoki parol noto'g'ri");
       document.getElementById('loginPass').value = '';
       document.getElementById('loginPass').focus();
       btn.textContent = 'Kirish';
@@ -146,6 +146,7 @@ function showPage(page) {
   if (page === 'categories') renderCategories(main);
   if (page === 'ratings')    renderRatings(main);
   if (page === 'users')      renderUsers(main);
+  if (page === 'broadcast')  renderBroadcast(main);
 }
 
 // ===== HELPERS =====
@@ -612,4 +613,119 @@ async function renderUsers(main) {
     '<table class="w-full border-collapse"><thead><tr>' +
       ['#','Ism','Username','Telefon','Telegram ID','Sana'].map(function(h){return '<th style="'+thStyle+'">'+h+'</th>';}).join('') +
     '</tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+// ===== BROADCAST =====
+async function renderBroadcast(main) {
+  var users = [];
+  try {
+    var res = await apiFetch('/admin/users');
+    users = Array.isArray(res) ? res : [];
+  } catch(e) {}
+
+  main.innerHTML =
+    '<div class="p-6 max-w-2xl mx-auto">' +
+      '<h2 class="text-xl font-bold mb-1" style="color:#f1f5f9">📢 Xabar yuborish</h2>' +
+      '<p class="text-sm mb-6" style="color:#64748b">Jami <b style="color:#60a5fa">' + users.length + '</b> ta mijozga xabar ketadi</p>' +
+
+      '<div class="rounded-xl p-5 mb-4" style="background:#1e293b;border:1px solid rgba(99,179,237,0.12)">' +
+
+        '<label class="block text-xs font-semibold mb-1" style="color:#94a3b8;letter-spacing:1px">RASM URL (ixtiyoriy)</label>' +
+        '<input id="bcImage" type="url" placeholder="https://... (rasm linki)" ' +
+          'class="w-full rounded-lg px-3 py-2 text-sm mb-1" style="background:#0f172a;border:1px solid rgba(99,179,237,0.15);color:#f1f5f9;outline:none" ' +
+          'oninput="previewBcImage(this.value)">' +
+        '<div id="bcImagePreview" style="display:none;margin-top:8px">' +
+          '<img id="bcPreviewImg" src="" style="max-height:160px;border-radius:8px;border:1px solid rgba(99,179,237,0.15)" ' +
+            'onerror="document.getElementById(&quot;bcImagePreview&quot;).style.display=&quot;none&quot;">' +
+        '</div>' +
+
+        '<label class="block text-xs font-semibold mt-4 mb-1" style="color:#94a3b8;letter-spacing:1px">MATN</label>' +
+        '<textarea id="bcText" rows="5" placeholder="Xabar matni..." ' +
+          'class="w-full rounded-lg px-3 py-2 text-sm resize-none" style="background:#0f172a;border:1px solid rgba(99,179,237,0.15);color:#f1f5f9;outline:none"></textarea>' +
+        '<div class="text-xs mt-1" style="color:#475569">HTML teglari ishlaydi: &lt;b&gt;, &lt;i&gt;, &lt;a href=""&gt;</div>' +
+      '</div>' +
+
+      '<div id="bcPreview" class="rounded-xl p-4 mb-4" style="background:#0f172a;border:1px solid rgba(99,179,237,0.12);display:none">' +
+        '<div class="text-xs font-semibold mb-2" style="color:#64748b;letter-spacing:1px">KO&#39;RINISHI</div>' +
+        '<div id="bcPreviewText" class="text-sm" style="color:#f1f5f9;white-space:pre-wrap;line-height:1.6"></div>' +
+      '</div>' +
+
+      '<div class="flex gap-3">' +
+        '<button onclick="previewBroadcast()" class="flex-1 py-2 rounded-lg text-sm font-semibold transition-all" ' +
+          'style="background:rgba(99,179,237,0.1);border:1px solid rgba(99,179,237,0.2);color:#60a5fa">👁 Ko&#39;rish</button>' +
+        '<button id="bcSendBtn" onclick="sendBroadcast()" class="flex-1 py-2 rounded-lg text-sm font-bold transition-all" ' +
+          'style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff">📢 Yuborish</button>' +
+      '</div>' +
+
+      '<div id="bcResult" class="mt-4 rounded-lg p-3 text-sm text-center" style="display:none"></div>' +
+    '</div>';
+}
+
+function previewBcImage(url) {
+  var preview = document.getElementById('bcImagePreview');
+  var img     = document.getElementById('bcPreviewImg');
+  if (url && url.startsWith('http')) {
+    img.src = url;
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
+}
+
+function previewBroadcast() {
+  var text    = document.getElementById('bcText').value.trim();
+  var imgUrl  = document.getElementById('bcImage').value.trim();
+  var preview = document.getElementById('bcPreview');
+  var prevEl  = document.getElementById('bcPreviewText');
+
+  if (!text && !imgUrl) { alert('Matn yoki rasm kiriting'); return; }
+
+  prevEl.innerHTML = text || '';
+  preview.style.display = 'block';
+}
+
+async function sendBroadcast() {
+  var text   = document.getElementById('bcText').value.trim();
+  var imgUrl = document.getElementById('bcImage').value.trim();
+  var btn    = document.getElementById('bcSendBtn');
+  var result = document.getElementById('bcResult');
+
+  if (!text && !imgUrl) { alert('Matn yoki rasm kiriting'); return; }
+
+  var userCount = parseInt(document.querySelector('#mainContent b') && document.querySelector('#mainContent b').textContent) || 0;
+  if (!confirm('Haqiqatan ham barcha mijozlarga xabar yuborilsinmi?')) return;
+
+  btn.disabled    = true;
+  btn.textContent = '⏳ Yuborilmoqda...';
+  result.style.display = 'none';
+
+  try {
+    var d = await apiFetch('/admin/broadcast', {
+      method: 'POST',
+      body: JSON.stringify({ text: text, imageUrl: imgUrl })
+    });
+
+    if (d.ok) {
+      result.style.display = 'block';
+      result.style.background = 'rgba(34,197,94,0.1)';
+      result.style.border = '1px solid rgba(34,197,94,0.2)';
+      result.style.color = '#4ade80';
+      result.textContent = '✅ Yuborildi: ' + d.sent + ' ta | Xato: ' + d.failed + ' ta | Jami: ' + d.total + ' ta';
+      document.getElementById('bcText').value  = '';
+      document.getElementById('bcImage').value = '';
+      document.getElementById('bcImagePreview').style.display = 'none';
+      document.getElementById('bcPreview').style.display = 'none';
+    } else {
+      throw new Error(d.error || 'Xato');
+    }
+  } catch(e) {
+    result.style.display = 'block';
+    result.style.background = 'rgba(239,68,68,0.1)';
+    result.style.border = '1px solid rgba(239,68,68,0.2)';
+    result.style.color = '#f87171';
+    result.textContent = '❌ Xato: ' + e.message;
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = '📢 Yuborish';
+  }
 }

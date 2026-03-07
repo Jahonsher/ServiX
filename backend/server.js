@@ -459,6 +459,36 @@ app.get("/admin/users", authMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+
+// ===== BROADCAST =====
+app.post("/admin/broadcast", authMiddleware, async (req, res) => {
+  try {
+    const rId   = req.admin.restaurantId;
+    const { text, imageUrl } = req.body;
+    if (!text && !imageUrl) return res.status(400).json({ error: "Matn yoki rasm kerak" });
+
+    const users = await User.find({ restaurantId: rId, telegramId: { $exists: true } });
+    let sent = 0, failed = 0;
+
+    for (const user of users) {
+      try {
+        if (imageUrl && text) {
+          await bot.sendPhoto(user.telegramId, imageUrl, { caption: text, parse_mode: "HTML" });
+        } else if (imageUrl) {
+          await bot.sendPhoto(user.telegramId, imageUrl);
+        } else {
+          await bot.sendMessage(user.telegramId, text, { parse_mode: "HTML" });
+        }
+        sent++;
+        await new Promise(r => setTimeout(r, 50));
+      } catch(e) {
+        failed++;
+      }
+    }
+    res.json({ ok: true, sent, failed, total: users.length });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ===== SUPERADMIN — RESTAURANTS =====
 app.get("/superadmin/restaurants", superMiddleware, async (req, res) => {
   try {
