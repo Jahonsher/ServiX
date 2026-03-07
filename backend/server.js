@@ -31,12 +31,14 @@ mongoose.connect(MONGO_URI)
   .catch(err => { console.error("Mongo:", err.message); process.exit(1); });
 
 // ===== MODELS =====
-const User = mongoose.model("User", new mongoose.Schema({
-  telegramId:   { type: Number, unique: true },
+const userSchema = new mongoose.Schema({
+  telegramId:   { type: Number },
   first_name:   String, last_name: String,
   username:     String, phone: String,
   restaurantId: { type: String, default: "imperial" }
-}, { timestamps: true }));
+}, { timestamps: true });
+userSchema.index({ telegramId: 1, restaurantId: 1 }, { unique: true });
+const User = mongoose.model("User", userSchema);
 
 const Order = mongoose.model("Order", new mongoose.Schema({
   telegramId:    Number, items: Array, total: Number,
@@ -133,8 +135,8 @@ async function send(id, text, extra) {
 bot.onText(/\/start/, async (msg) => {
   try {
     const u = await User.findOneAndUpdate(
-      { telegramId: msg.from.id },
-      { telegramId: msg.from.id, first_name: msg.from.first_name || "", last_name: msg.from.last_name || "", username: msg.from.username || "" },
+      { telegramId: msg.from.id, restaurantId: "imperial" },
+      { telegramId: msg.from.id, restaurantId: "imperial", first_name: msg.from.first_name || "", last_name: msg.from.last_name || "", username: msg.from.username || "" },
       { upsert: true, new: true }
     );
     if (!u.phone) {
@@ -247,10 +249,11 @@ app.get("/categories", async (req, res) => {
 
 app.post("/auth", async (req, res) => {
   try {
-    const { id, first_name, last_name, username } = req.body;
+    const { id, first_name, last_name, username, restaurantId } = req.body;
+    const rId = restaurantId || "imperial";
     const user = await User.findOneAndUpdate(
-      { telegramId: id },
-      { $set: { telegramId: id, first_name: first_name||"", last_name: last_name||"", username: username||"" } },
+      { telegramId: id, restaurantId: rId },
+      { $set: { telegramId: id, restaurantId: rId, first_name: first_name||"", last_name: last_name||"", username: username||"" } },
       { upsert: true, new: true }
     );
     res.json({ ok: true, user });
@@ -258,7 +261,10 @@ app.post("/auth", async (req, res) => {
 });
 
 app.get("/user/:id", async (req, res) => {
-  try { res.json(await User.findOne({ telegramId: Number(req.params.id) }) || {}); }
+  try {
+    const rId = req.query.restaurantId || "imperial";
+    res.json(await User.findOne({ telegramId: Number(req.params.id), restaurantId: rId }) || {});
+  }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
