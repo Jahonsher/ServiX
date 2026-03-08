@@ -301,9 +301,11 @@ bot.on("callback_query", async (q) => {
       await bot.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: q.message.chat.id, message_id: q.message.message_id });
       await send(q.message.chat.id, "⏳ Yuborilmoqda, kuting...");
 
-      const rId   = (await Admin.findOne({ chefId: q.message.chat.id }))?.restaurantId || "imperial";
-      const users = await User.find({ restaurantId: rId, telegramId: { $exists: true } });
+      // Barcha userlarni olish (restaurantId filter olib tashlandi)
+      const users = await User.find({ telegramId: { $exists: true } });
       let sent = 0, failed = 0, cachedFileId = null;
+
+      console.log("Broadcast boshlandi. Userlar soni:", users.length);
 
       for (const user of users) {
         try {
@@ -322,8 +324,12 @@ bot.on("callback_query", async (q) => {
             await bot.sendMessage(tgId, session.text, { parse_mode: "HTML" });
           }
           sent++;
+          console.log("Yuborildi:", tgId);
           await new Promise(r => setTimeout(r, 50));
-        } catch(e) { failed++; }
+        } catch(e) { 
+          failed++;
+          console.log("Xato user:", user.telegramId, e.message);
+        }
       }
 
       delete broadcastSessions[q.message.chat.id];
