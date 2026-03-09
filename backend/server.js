@@ -108,6 +108,8 @@ const employeeSchema = new mongoose.Schema({
   telegramId:   Number,
   branchId:     { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
   weeklyOff:    { type: String, default: "sunday" }, // dam olish kuni
+  photo:        String,  // etalon yuz rasmi (base64)
+  faceDescriptor: [Number], // face-api.js 128-o'lchamli vektor
   active:       { type: Boolean, default: true }
 }, { timestamps: true });
 const Employee = mongoose.model("Employee", employeeSchema);
@@ -829,6 +831,33 @@ app.delete("/admin/branches/:id", authMiddleware, async (req, res) => {
 });
 
 // Employee login — branchId ham qaytarsin
+
+// --- Face descriptor olish (admin ishchi qo'shganda) ---
+app.get("/admin/employees/:id/face", authMiddleware, async (req, res) => {
+  try {
+    const emp = await Employee.findById(req.params.id).select("name photo faceDescriptor");
+    if (!emp) return res.status(404).json({ error: "Ishchi topilmadi" });
+    res.json({ ok: true, name: emp.name, photo: emp.photo, faceDescriptor: emp.faceDescriptor });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Face descriptor saqlash ---
+app.put("/admin/employees/:id/face", authMiddleware, async (req, res) => {
+  try {
+    const { photo, faceDescriptor } = req.body;
+    await Employee.findByIdAndUpdate(req.params.id, { photo, faceDescriptor });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Employee face descriptor olish (checkin uchun) ---
+app.get("/employee/face-descriptor", empMiddleware, async (req, res) => {
+  try {
+    const emp = await Employee.findById(req.employee.id).select("faceDescriptor photo");
+    res.json({ ok: true, faceDescriptor: emp.faceDescriptor || [], hasPhoto: !!(emp.photo) });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // ===================================================
 // ===== EMPLOYEE ENDPOINTS ==========================
 // ===================================================
@@ -849,6 +878,7 @@ app.post("/employee/login", async (req, res) => {
     res.json({ ok: true, token, employee: {
       id: emp._id, name: emp.name, position: emp.position,
       workStart: emp.workStart, workEnd: emp.workEnd,
+      weeklyOff: emp.weeklyOff || "sunday",
       restaurantId: emp.restaurantId,
       branchId:   emp.branchId || null,
       branchName: branch?.name || null
@@ -934,17 +964,6 @@ app.post("/employee/checkin", empMiddleware, async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Telegram xabar — kechiksa yoki dam kuni kelsa
-    const adminDoc = await Admin.findOne({ restaurantId: emp.restaurantId });
-    if (adminDoc?.chefId) {
-      const branchName = branch?.name ? " (" + branch.name + ")" : "";
-      if (isWeeklyOff) {
-        send(adminDoc.chefId, emp.name + branchName + " dam kuni ishga keldi. Vaqt: " + checkInStr);
-      } else if (late > 0) {
-        send(adminDoc.chefId, emp.name + branchName + " " + late + " daqiqa kechikib keldi. Kelgan vaqt: " + checkInStr);
-      }
-    }
-
     res.json({ ok: true, attendance: att, lateMinutes: late, isWeeklyOff, checkIn: checkInStr });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -1017,7 +1036,7 @@ app.get("/admin/employees", authMiddleware, async (req, res) => {
 // --- Ishchi qo'shish ---
 app.post("/admin/employees", authMiddleware, async (req, res) => {
   try {
-    const { name, phone, position, username, password, salary, workStart, workEnd, telegramId, branchId, weeklyOff } = req.body;
+    const { name, phone, position, username, password, salary, workStart, workEnd, telegramId, branchId, weeklyOff, photo, faceDescriptor } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Login va parol kerak" });
     const hash = await bcrypt.hash(password, 10);
     const emp  = await Employee.create({
@@ -1025,6 +1044,7 @@ app.post("/admin/employees", authMiddleware, async (req, res) => {
       salary: salary || 0, workStart: workStart || "09:00",
       workEnd: workEnd || "18:00", telegramId: telegramId || null,
       branchId: branchId || null, weeklyOff: weeklyOff || "sunday",
+      photo: photo || null, faceDescriptor: faceDescriptor || [],
       restaurantId: req.admin.restaurantId, active: true
     });
     res.json({ ok: true, employee: { ...emp.toObject(), password: undefined } });
@@ -1108,8 +1128,9 @@ app.get("/admin/attendance/branches-summary", authMiddleware, async (req, res) =
 app.get("/admin/attendance/today", authMiddleware, async (req, res) => {
   try {
     const rId     = req.admin.restaurantId;
-    const { branchId } = req.query;
-    const today   = new Date().toISOString().split("T")[0];
+    const { branchId, date } = req.query;
+    // date parametri bo'lsa o'sha kun, bo'lmasa bugun
+    const today   = date || new Date().toISOString().split("T")[0];
 
     // branchId filter
     const empFilter = { restaurantId: rId, active: true };

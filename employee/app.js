@@ -1,3 +1,42 @@
+// ===== FACE-API INIT =====
+var faceModelsLoaded = false;
+var FACE_MODELS_URL  = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+
+async function loadFaceModels() {
+  if (faceModelsLoaded || typeof faceapi === 'undefined') return;
+  try {
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODELS_URL),
+      faceapi.nets.faceLandmark68TinyNet.loadFromUri(FACE_MODELS_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(FACE_MODELS_URL)
+    ]);
+    faceModelsLoaded = true;
+    console.log('Face models yuklandi');
+  } catch(e) {
+    console.log('Face models yuklanmadi (offline?):', e.message);
+  }
+}
+
+// Selfie + etalon rasmni taqqoslash
+// etalonDescriptor — server dan kelgan 128-element array
+// selfieEl — video yoki canvas element
+// return: { match: true/false, distance: 0.0-1.0 }
+async function verifyFace(selfieEl, etalonDescriptor) {
+  if (!faceModelsLoaded || !etalonDescriptor || etalonDescriptor.length === 0) {
+    return { match: true, distance: 0, skipped: true }; // descriptor yo'q → o'tkazib yuborish
+  }
+  try {
+    var opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
+    var det  = await faceapi.detectSingleFace(selfieEl, opts).withFaceLandmarks(true).withFaceDescriptor();
+    if (!det) return { match: false, distance: 1, error: 'Yuz topilmadi' };
+    var dist = faceapi.euclideanDistance(etalonDescriptor, Array.from(det.descriptor));
+    return { match: dist < 0.5, distance: Math.round(dist * 100) / 100 };
+  } catch(e) {
+    console.log('Face verify error:', e);
+    return { match: true, distance: 0, skipped: true };
+  }
+}
+
 const API = window.location.hostname === 'localhost'
   ? 'http://localhost:5000'
   : 'https://e-comerce-bot-main-production.up.railway.app';
@@ -74,11 +113,13 @@ function startApp() {
   document.getElementById('headerName').textContent     = empInfo.name || '—';
   document.getElementById('headerPosition').textContent = empInfo.position || 'Ishchi';
   showPage('home', document.querySelector('[data-page="home"]'));
+  // Background da face models yuklash
+  loadFaceModels();
 }
 
 // ===== LOGOUT =====
 function doLogout() {
-  if (!confirm('Chiqmoqchimisiz?')) return;
+  if (!confirm("Yuz " + pct + "% mos keldi. Oxshashlik past. Bariban davom etasizmi?")) return;
   localStorage.removeItem('empToken');
   localStorage.removeItem('empInfo');
   token   = null;
@@ -328,6 +369,30 @@ async function takePhoto() {
   canvas.getContext('2d').drawImage(video, 0, 0);
   capturedPhoto = canvas.toDataURL('image/jpeg', 0.6);
   closeCam();
+
+  // Face verify
+  var toast = showToast('🔍 Yuz taqqoslanmoqda...');
+  try {
+    // Server dan etalon descriptor olish
+    var fd = await apiFetch('/employee/face-descriptor');
+    hideToast(toast);
+    if (fd.hasPhoto && fd.faceDescriptor && fd.faceDescriptor.length > 0 && faceModelsLoaded) {
+      var img = new Image();
+      img.src = capturedPhoto;
+      await new Promise(function(r){ img.onload = r; });
+      var result = await verifyFace(img, fd.faceDescriptor);
+      if (!result.skipped && !result.match) {
+        var pct = Math.round((1 - result.distance) * 100);
+        if (!confirm("Yuz " + pct + "% mos keldi. Oxshashlik past. Bariban davom etasizmi?")) {
+          return;
+        }
+      }
+    }
+  } catch(e) {
+    hideToast(toast);
+    // Face verify ishlamasa ham checkin ni to'sib qo'ymaymiz
+  }
+
   await submitCheckin(capturedPhoto);
 }
 

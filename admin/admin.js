@@ -984,6 +984,83 @@ function formatMins(mins) {
   return h > 0 ? h + 'h ' + (m>0?m+'m':'') : m + 'min';
 }
 
+
+function previewEmpPhoto(input) {
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    input._base64 = e.target.result;
+    document.getElementById('empPhotoImg').src = e.target.result;
+    document.getElementById('empPhotoPreview').style.display = 'block';
+    // face descriptor hisoblash
+    computeFaceDescriptor(e.target.result);
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+var _empCamStream = null;
+function captureEmpPhoto() {
+  // Kameradan selfie olish uchun
+  var wrap = document.createElement('div');
+  wrap.id  = 'empCamWrap';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:500;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px';
+  wrap.innerHTML =
+    '<div style="color:#f1f5f9;font-size:15px;font-weight:600;margin-bottom:12px">📸 Ishchi rasmi</div>' +
+    '<video id="empCamVideo" autoplay playsinline style="width:100%;max-width:320px;border-radius:12px;border:2px solid #3b82f6;background:#000"></video>' +
+    '<canvas id="empCamCanvas" style="display:none"></canvas>' +
+    '<div style="display:flex;gap:10px;margin-top:14px">' +
+      '<button onclick="closeEmpCam()" style="padding:10px 20px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#f87171;border-radius:8px;cursor:pointer;font-family:inherit">Bekor</button>' +
+      '<button onclick="snapEmpCam()" style="padding:10px 20px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border:none;color:#fff;border-radius:8px;font-weight:600;cursor:pointer;font-family:inherit">📸 Olish</button>' +
+    '</div>';
+  document.body.appendChild(wrap);
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+    .then(function(s) {
+      _empCamStream = s;
+      document.getElementById('empCamVideo').srcObject = s;
+    }).catch(function() { closeEmpCam(); alert('Kamera ochilmadi'); });
+}
+
+function closeEmpCam() {
+  if (_empCamStream) { _empCamStream.getTracks().forEach(function(t){ t.stop(); }); _empCamStream = null; }
+  var w = document.getElementById('empCamWrap');
+  if (w) w.remove();
+}
+
+function snapEmpCam() {
+  var video  = document.getElementById('empCamVideo');
+  var canvas = document.getElementById('empCamCanvas');
+  canvas.width  = video.videoWidth  || 320;
+  canvas.height = video.videoHeight || 240;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  var dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+  closeEmpCam();
+
+  // Preview
+  var inp = document.getElementById('empPhotoInput');
+  if (inp) inp._base64 = dataUrl;
+  var img = document.getElementById('empPhotoImg');
+  var prv = document.getElementById('empPhotoPreview');
+  if (img) { img.src = dataUrl; prv.style.display = 'block'; }
+
+  computeFaceDescriptor(dataUrl);
+}
+
+// face-api.js descriptor hisoblash
+window._empFaceDescriptor = null;
+async function computeFaceDescriptor(imageDataUrl) {
+  if (typeof faceapi === 'undefined') return; // face-api yuklangan bo'lsa
+  try {
+    var img = new Image();
+    img.src = imageDataUrl;
+    await new Promise(function(r){ img.onload = r; });
+    var detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+    if (detection) {
+      window._empFaceDescriptor = Array.from(detection.descriptor);
+    }
+  } catch(e) { console.log('face descriptor error:', e); }
+}
+
 // ===================================================
 // ===== EMPLOYEES (Ishchilar) =======================
 // ===================================================
@@ -1122,8 +1199,14 @@ async function saveEmp(id) {
   if (!id && !password) { errEl.textContent = 'Parol kiritilmagan'; errEl.style.display='block'; return; }
 
   var branchId = document.getElementById('empBranchId')?.value || null;
-  var weeklyOff = document.getElementById('empWeeklyOff')?.value || 'sunday';
-  var body = { name, phone, position, username, salary, workStart, workEnd, branchId: branchId||null, weeklyOff };
+  var weeklyOff  = document.getElementById('empWeeklyOff')?.value || 'sunday';
+  var photoData  = document.getElementById('empPhotoInput')?._base64 || null;
+  var faceDesc   = window._empFaceDescriptor || null;
+
+  if (!branchId) { errEl.textContent = 'Filial tanlanmagan! Avval filial tanlang.'; errEl.style.display='block'; return; }
+
+  var body = { name, phone, position, username, salary, workStart, workEnd, branchId: branchId||null, weeklyOff,
+    photo: photoData, faceDescriptor: faceDesc };
   if (password)  body.password  = password;
   if (telegramId) body.telegramId = Number(telegramId);
 
