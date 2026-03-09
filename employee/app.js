@@ -51,7 +51,7 @@ async function doLogin() {
     token   = d.token;
     empInfo = d.employee;
     localStorage.setItem('empToken', token);
-    localStorage.setItem('empInfo', JSON.stringify(empInfo));
+    localStorage.setItem('empInfo', JSON.stringify({ ...d.employee, weeklyOff: d.employee.weeklyOff || 'sunday' }));
     btn.textContent = '✓ Kirish...';
     startApp();
 
@@ -177,6 +177,22 @@ async function renderHome() {
         '<div style="font-size:13px;color:#64748b;text-transform:capitalize">' + dateStr + '</div>' +
         '<div style="font-size:36px;font-weight:700;color:#f1f5f9;letter-spacing:2px" id="liveClock">' + timeStr + '</div>' +
       '</div>' +
+
+      // Dam kuni tekshiruvi
+      (function() {
+        var dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+        var todayDay = dayNames[now.getDay()];
+        var isOff = empInfo.weeklyOff === todayDay;
+        var dayNamesUz = {monday:'Dushanba',tuesday:'Seshanba',wednesday:'Chorshanba',thursday:'Payshanba',friday:'Juma',saturday:'Shanba',sunday:'Yakshanba'};
+        var offDayUz = dayNamesUz[empInfo.weeklyOff||'sunday'];
+        return (isOff
+          ? '<div style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.25);border-radius:10px;padding:12px;text-align:center;margin-bottom:12px">' +
+              '<div style="font-size:22px">🛌</div>' +
+              '<div style="font-size:13px;font-weight:600;color:#a78bfa;margin-top:4px">Bugun sizning dam kunigiz</div>' +
+              '<div style="font-size:11px;color:#64748b;margin-top:2px">Ishga kelgan bolsangiz — bu ish atrabotka hisoblanadi</div>' +
+            '</div>'
+          : '<div style="font-size:11px;color:#475569;text-align:center;margin-bottom:8px">Dam olish kuni: <span style="color:#a78bfa">' + offDayUz + '</span></div>');
+      })() +
 
       // Ish vaqti
       '<div style="display:flex;gap:8px;margin-bottom:20px">' +

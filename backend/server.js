@@ -107,6 +107,7 @@ const employeeSchema = new mongoose.Schema({
   salary:       { type: Number, default: 0 },       // oylik maosh
   telegramId:   Number,
   branchId:     { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
+  weeklyOff:    { type: String, default: "sunday" }, // dam olish kuni
   active:       { type: Boolean, default: true }
 }, { timestamps: true });
 const Employee = mongoose.model("Employee", employeeSchema);
@@ -123,8 +124,10 @@ const attendanceSchema = new mongoose.Schema({
   checkInLng:   Number,
   lateMinutes:  { type: Number, default: 0 },
   totalMinutes: { type: Number, default: 0 },
-  status:       { type: String, default: "keldi" }, // keldi | kelmadi | kasal | tatil
-  note:         String
+  status:          { type: String, default: "keldi" }, // keldi | kelmadi | kasal | tatil | dam
+  isWeeklyOff:     { type: Boolean, default: false },  // dam kuni ishladi
+  overtimeMinutes: { type: Number, default: 0 },        // dam kuni ishlagan vaqt
+  note:            String
 }, { timestamps: true });
 const Attendance = mongoose.model("Attendance", attendanceSchema);
 
@@ -889,45 +892,60 @@ app.post("/employee/checkin", empMiddleware, async (req, res) => {
       return res.status(400).json({ error: "Bugun allaqachon keldi qayd qilingan" });
     }
 
-    // Kechikish hisoblash — CLIENT vaqtidan (Toshkent vaqti to'g'ri)
-    const [wh, wm]  = emp.workStart.split(":").map(Number);
-    const workStartMin = wh * 60 + wm;
-    const nowMin    = clientTimeMinutes != null ? clientTimeMinutes : (new Date().getHours() * 60 + new Date().getMinutes());
-    const late      = Math.max(0, nowMin - workStartMin);
+    // Dam olish kunini tekshirish
+    const dayNames = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+    const todayDayName = dayNames[new Date(today).getDay()];
+    const isWeeklyOff  = emp.weeklyOff === todayDayName;
 
-    // HH:MM formatda saqlash
+    // Vaqtni hisoblash
+    const nowMin = clientTimeMinutes != null
+      ? clientTimeMinutes
+      : (new Date().getHours() * 60 + new Date().getMinutes());
     const hh = String(Math.floor(nowMin / 60)).padStart(2, "0");
     const mm = String(nowMin % 60).padStart(2, "0");
     const checkInStr = hh + ":" + mm;
 
+    let late = 0;
+    let overtimeMinutes = 0;
+
+    if (isWeeklyOff) {
+      // Dam kuni — kechikish yo'q, overtime hisoblanadi
+      overtimeMinutes = 0; // checkout da to'ldiriladi
+    } else {
+      const [wh, wm] = emp.workStart.split(":").map(Number);
+      late = Math.max(0, nowMin - (wh * 60 + wm));
+    }
+
     const att = await Attendance.findOneAndUpdate(
       { employeeId: emp._id, date: today },
       {
-        employeeId:   emp._id,
-        restaurantId: emp.restaurantId,
-        date:         today,
-        checkIn:      checkInStr,
-        checkInPhoto: photo || "",
-        checkInLat:   lat,
-        checkInLng:   lng,
-        lateMinutes:  late,
-        status:       "keldi"
+        employeeId:      emp._id,
+        restaurantId:    emp.restaurantId,
+        date:            today,
+        checkIn:         checkInStr,
+        checkInPhoto:    photo || "",
+        checkInLat:      lat,
+        checkInLng:      lng,
+        lateMinutes:     late,
+        isWeeklyOff:     isWeeklyOff,
+        overtimeMinutes: 0,
+        status:          isWeeklyOff ? "dam" : "keldi"
       },
       { upsert: true, new: true }
     );
 
-    // Kechiksa admin ga Telegram xabar
-    if (late > 0) {
-      const adminDoc = await Admin.findOne({ restaurantId: emp.restaurantId });
-      if (adminDoc?.chefId) {
-        const branchName = branch?.name ? " (" + branch.name + ")" : "";
-        send(adminDoc.chefId,
-          emp.name + branchName + " " + late + " daqiqa kechikib keldi. Kelgan vaqt: " + checkInStr
-        );
+    // Telegram xabar — kechiksa yoki dam kuni kelsa
+    const adminDoc = await Admin.findOne({ restaurantId: emp.restaurantId });
+    if (adminDoc?.chefId) {
+      const branchName = branch?.name ? " (" + branch.name + ")" : "";
+      if (isWeeklyOff) {
+        send(adminDoc.chefId, emp.name + branchName + " dam kuni ishga keldi. Vaqt: " + checkInStr);
+      } else if (late > 0) {
+        send(adminDoc.chefId, emp.name + branchName + " " + late + " daqiqa kechikib keldi. Kelgan vaqt: " + checkInStr);
       }
     }
 
-    res.json({ ok: true, attendance: att, lateMinutes: late, checkIn: checkInStr });
+    res.json({ ok: true, attendance: att, lateMinutes: late, isWeeklyOff, checkIn: checkInStr });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -941,16 +959,23 @@ app.post("/employee/checkout", empMiddleware, async (req, res) => {
     if (!att?.checkIn) return res.status(400).json({ error: "Avval check-in qiling" });
     if (att.checkOut)  return res.status(400).json({ error: "Bugun allaqachon ketdi qayd qilingan" });
 
-    const now        = new Date();
-    const checkOutStr = now.toTimeString().slice(0,5);
+    const { clientTimeMinutes: coTime, clientDate: coDate } = req.body;
+    const nowMin2    = coTime != null ? coTime : (new Date().getHours() * 60 + new Date().getMinutes());
+    const hh2 = String(Math.floor(nowMin2 / 60)).padStart(2, "0");
+    const mm2 = String(nowMin2 % 60).padStart(2, "0");
+    const checkOutStr = hh2 + ":" + mm2;
 
     // Jami vaqt hisoblash
     const [ih, im] = att.checkIn.split(":").map(Number);
-    const total    = (now.getHours() * 60 + now.getMinutes()) - (ih * 60 + im);
+    const total    = Math.max(0, nowMin2 - (ih * 60 + im));
+
+    // Dam kuni bo'lsa — overtime = total
+    const overtimeMinutes = att.isWeeklyOff ? total : 0;
 
     const updated = await Attendance.findByIdAndUpdate(att._id, {
-      checkOut:     checkOutStr,
-      totalMinutes: Math.max(0, total)
+      checkOut:        checkOutStr,
+      totalMinutes:    total,
+      overtimeMinutes: overtimeMinutes
     }, { new: true });
 
     res.json({ ok: true, attendance: updated, totalMinutes: total });
@@ -992,14 +1017,14 @@ app.get("/admin/employees", authMiddleware, async (req, res) => {
 // --- Ishchi qo'shish ---
 app.post("/admin/employees", authMiddleware, async (req, res) => {
   try {
-    const { name, phone, position, username, password, salary, workStart, workEnd, telegramId, lat, lng, radius } = req.body;
+    const { name, phone, position, username, password, salary, workStart, workEnd, telegramId, branchId, weeklyOff } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Login va parol kerak" });
     const hash = await bcrypt.hash(password, 10);
     const emp  = await Employee.create({
       name, phone, position, username, password: hash,
       salary: salary || 0, workStart: workStart || "09:00",
       workEnd: workEnd || "18:00", telegramId: telegramId || null,
-      lat: lat || null, lng: lng || null, radius: radius || 100,
+      branchId: branchId || null, weeklyOff: weeklyOff || "sunday",
       restaurantId: req.admin.restaurantId, active: true
     });
     res.json({ ok: true, employee: { ...emp.toObject(), password: undefined } });
@@ -1031,33 +1056,96 @@ app.delete("/admin/employees/:id", authMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// --- Bugungi davomat (admin) ---
-app.get("/admin/attendance/today", authMiddleware, async (req, res) => {
-  try {
-    const rId  = req.admin.restaurantId;
-    const today = new Date().toISOString().split("T")[0];
 
+// --- Filiallar bo'yicha davomat summasi ---
+app.get("/admin/attendance/branches-summary", authMiddleware, async (req, res) => {
+  try {
+    const rId   = req.admin.restaurantId;
+    const today = new Date().toISOString().split("T")[0];
+    const dayNames = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+    const todayDay = dayNames[new Date(today).getDay()];
+
+    const branches    = await Branch.find({ restaurantId: rId, active: true });
     const employees   = await Employee.find({ restaurantId: rId, active: true }).select("-password");
     const attendances = await Attendance.find({ restaurantId: rId, date: today });
 
-    const result = employees.map(emp => {
-      const att = attendances.find(a => a.employeeId.toString() === emp._id.toString());
+    const result = branches.map(branch => {
+      const branchEmps = employees.filter(e => e.branchId?.toString() === branch._id.toString());
+      const branchAtts = attendances.filter(a =>
+        branchEmps.some(e => e._id.toString() === a.employeeId.toString())
+      );
+      const came    = branchAtts.filter(a => a.status === "keldi").length;
+      const late    = branchAtts.filter(a => a.lateMinutes > 0).length;
+      const dayOff  = branchEmps.filter(e => e.weeklyOff === todayDay).length;
+      const absent  = branchEmps.length - came - dayOff;
       return {
-        employee:    emp,
-        attendance:  att || null,
-        status:      att?.status || "kelmadi",
-        checkIn:     att?.checkIn || null,
-        checkOut:    att?.checkOut || null,
-        lateMinutes: att?.lateMinutes || 0,
-        totalMinutes: att?.totalMinutes || 0
+        branch:   { id: branch._id, name: branch.name, address: branch.address },
+        total:    branchEmps.length,
+        came, late, absent: Math.max(0, absent), dayOff
+      };
+    });
+
+    // Filialsiz ishchilar
+    const noBranch = employees.filter(e => !e.branchId);
+    if (noBranch.length > 0) {
+      const nbAtts  = attendances.filter(a => noBranch.some(e => e._id.toString() === a.employeeId.toString()));
+      const came    = nbAtts.filter(a => a.status === "keldi").length;
+      const dayOff  = noBranch.filter(e => e.weeklyOff === todayDay).length;
+      result.push({
+        branch: { id: null, name: "Filialsiz ishchilar", address: "" },
+        total: noBranch.length, came,
+        late:   nbAtts.filter(a => a.lateMinutes > 0).length,
+        absent: Math.max(0, noBranch.length - came - dayOff),
+        dayOff
+      });
+    }
+
+    res.json({ ok: true, today, summary: result });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Bugungi davomat (admin) --- branchId filter bilan
+app.get("/admin/attendance/today", authMiddleware, async (req, res) => {
+  try {
+    const rId     = req.admin.restaurantId;
+    const { branchId } = req.query;
+    const today   = new Date().toISOString().split("T")[0];
+
+    // branchId filter
+    const empFilter = { restaurantId: rId, active: true };
+    if (branchId) empFilter.branchId = branchId;
+
+    const employees   = await Employee.find(empFilter).select("-password").populate("branchId", "name");
+    const attendances = await Attendance.find({ restaurantId: rId, date: today });
+
+    // Bugunning dam kuni nomini aniqlaymiz
+    const dayNames   = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+    const todayDay   = dayNames[new Date(today).getDay()];
+
+    const result = employees.map(emp => {
+      const att        = attendances.find(a => a.employeeId.toString() === emp._id.toString());
+      const isOff      = emp.weeklyOff === todayDay;
+      const statusVal  = att?.status || (isOff ? "dam" : "kelmadi");
+      return {
+        employee:        emp,
+        attendance:      att || null,
+        status:          statusVal,
+        isWeeklyOff:     isOff,
+        checkIn:         att?.checkIn || null,
+        checkOut:        att?.checkOut || null,
+        lateMinutes:     att?.lateMinutes || 0,
+        totalMinutes:    att?.totalMinutes || 0,
+        overtimeMinutes: att?.overtimeMinutes || 0
       };
     });
 
     const summary = {
-      total:   employees.length,
-      came:    result.filter(r => r.status === "keldi").length,
-      absent:  result.filter(r => r.status === "kelmadi").length,
-      late:    result.filter(r => r.lateMinutes > 0).length,
+      total:    employees.length,
+      came:     result.filter(r => r.status === "keldi").length,
+      absent:   result.filter(r => r.status === "kelmadi").length,
+      late:     result.filter(r => r.lateMinutes > 0).length,
+      dayOff:   result.filter(r => r.isWeeklyOff).length,
+      overtime: result.filter(r => r.overtimeMinutes > 0).length,
       working: result.filter(r => r.checkIn && !r.checkOut).length
     };
 

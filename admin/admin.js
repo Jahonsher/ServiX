@@ -1069,6 +1069,18 @@ function openEmpModal(empJson) {
       '</div>' +
       empInp('empTgId', 'TELEGRAM ID (ixtiyoriy)', 'number', emp?.telegramId||'') +
 
+      // Dam olish kuni
+      '<div>' +
+        '<label style="font-size:10px;font-weight:600;color:#64748b;letter-spacing:1px;display:block;margin-bottom:5px">DAM OLISH KUNI</label>' +
+        '<select id="empWeeklyOff" style="width:100%;padding:10px 12px;background:#0f172a;border:1px solid rgba(99,179,237,0.15);border-radius:8px;color:#f1f5f9;font-size:13px">' +
+          ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'].map(function(d) {
+            var names = {monday:'Dushanba',tuesday:'Seshanba',wednesday:'Chorshanba',thursday:'Payshanba',friday:'Juma',saturday:'Shanba',sunday:'Yakshanba'};
+            var sel = (emp?.weeklyOff||'sunday') === d ? 'selected' : '';
+            return '<option value="' + d + '" ' + sel + '>' + names[d] + '</option>';
+          }).join('') +
+        '</select>' +
+      '</div>' +
+
       '<div id="empErr" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#f87171;padding:10px;border-radius:8px;font-size:13px"></div>' +
 
       '<button onclick="saveEmp(\'' + (emp?._id||'') + '\')" style="width:100%;padding:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-top:4px">' +
@@ -1110,7 +1122,8 @@ async function saveEmp(id) {
   if (!id && !password) { errEl.textContent = 'Parol kiritilmagan'; errEl.style.display='block'; return; }
 
   var branchId = document.getElementById('empBranchId')?.value || null;
-  var body = { name, phone, position, username, salary, workStart, workEnd, branchId: branchId||null };
+  var weeklyOff = document.getElementById('empWeeklyOff')?.value || 'sunday';
+  var body = { name, phone, position, username, salary, workStart, workEnd, branchId: branchId||null, weeklyOff };
   if (password)  body.password  = password;
   if (telegramId) body.telegramId = Number(telegramId);
 
