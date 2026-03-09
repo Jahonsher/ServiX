@@ -687,6 +687,9 @@ async function renderEmployees(main) {
 
 async function openEmpModal(empJson) {
   var emp = empJson ? JSON.parse(empJson) : null;
+  // Reset global photo state
+  _empPhotoBase64 = emp?.photo || null;
+  window._empFaceDescriptor = null;
   document.getElementById('empModalTitle').textContent = emp ? 'Ishchi tahrirlash' : 'Yangi ishchi';
   document.getElementById('empModalBody').innerHTML = '<div style="text-align:center;padding:20px;color:#475569">Yuklanmoqda...</div>';
   document.getElementById('empModal').style.display = 'flex';
@@ -789,7 +792,7 @@ async function saveEmp(id) {
 
   var branchId = document.getElementById('empBranchId')?.value || null;
   var weeklyOff  = document.getElementById('empWeeklyOff')?.value || 'sunday';
-  var photoData  = document.getElementById('empPhotoInput')?._base64 || null;
+  var photoData  = _empPhotoBase64 || null;
   var faceDesc   = window._empFaceDescriptor || null;
 
   if (!branchId) {
@@ -1063,6 +1066,84 @@ function miniStat(icon, val, color) {
     '<div style="font-size:14px">' + icon + '</div>' +
     '<div style="font-size:11px;font-weight:600;color:' + color + ';margin-top:2px">' + val + '</div>' +
   '</div>';
+}
+
+
+// ===================================================
+// ===== EMP PHOTO FUNCTIONS =========================
+// ===================================================
+var _empPhotoBase64 = null;
+var _empCamStream   = null;
+
+function previewEmpPhoto(input) {
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    _empPhotoBase64 = e.target.result;
+    var img = document.getElementById('empPhotoImg');
+    var prv = document.getElementById('empPhotoPreview');
+    if (img) img.src = _empPhotoBase64;
+    if (prv) prv.style.display = 'block';
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function captureEmpPhoto() {
+  // Kamera modali yaratamiz
+  var existing = document.getElementById('empCamWrap');
+  if (existing) existing.remove();
+
+  var wrap = document.createElement('div');
+  wrap.id  = 'empCamWrap';
+  wrap.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px';
+  wrap.innerHTML =
+    '<div style="color:#f1f5f9;font-size:15px;font-weight:600;margin-bottom:14px">📸 Ishchi rasmi</div>' +
+    '<video id="empCamVideo" autoplay playsinline style="width:100%;max-width:340px;border-radius:12px;border:2px solid #3b82f6;background:#000;display:block"></video>' +
+    '<canvas id="empCamCanvas" style="display:none"></canvas>' +
+    '<div style="display:flex;gap:12px;margin-top:16px">' +
+      '<button onclick="closeEmpCam()" style="padding:11px 24px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#f87171;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit">Bekor</button>' +
+      '<button onclick="snapEmpCam()" style="padding:11px 24px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">📸 Olish</button>' +
+    '</div>';
+  document.body.appendChild(wrap);
+
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false })
+    .then(function(stream) {
+      _empCamStream = stream;
+      var video = document.getElementById('empCamVideo');
+      if (video) video.srcObject = stream;
+    })
+    .catch(function(err) {
+      closeEmpCam();
+      alert('Kamera ochilmadi: ' + err.message);
+    });
+}
+
+function closeEmpCam() {
+  if (_empCamStream) {
+    _empCamStream.getTracks().forEach(function(t) { t.stop(); });
+    _empCamStream = null;
+  }
+  var w = document.getElementById('empCamWrap');
+  if (w) w.remove();
+}
+
+function snapEmpCam() {
+  var video  = document.getElementById('empCamVideo');
+  var canvas = document.getElementById('empCamCanvas');
+  if (!video || !canvas) return;
+
+  canvas.width  = video.videoWidth  || 640;
+  canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  _empPhotoBase64 = canvas.toDataURL('image/jpeg', 0.85);
+
+  closeEmpCam();
+
+  // Previewni yangilaymiz
+  var img = document.getElementById('empPhotoImg');
+  var prv = document.getElementById('empPhotoPreview');
+  if (img) img.src = _empPhotoBase64;
+  if (prv) prv.style.display = 'block';
 }
 
 function fmtSalary(n) {
