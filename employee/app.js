@@ -317,10 +317,20 @@ async function takePhoto() {
 
 async function submitCheckin(photo) {
   var toast = showToast('⏳ Qayd qilinmoqda...');
-  var body  = {
-    lat:   gpsCoords?.lat || null,
-    lng:   gpsCoords?.lng || null,
-    photo: photo || ''
+
+  // Browser Toshkent vaqtini yuboramiz (server UTC bo'lishi mumkin)
+  var now = new Date();
+  var clientTimeMinutes = now.getHours() * 60 + now.getMinutes();
+  var clientDate = now.getFullYear() + '-' +
+    String(now.getMonth() + 1).padStart(2, '0') + '-' +
+    String(now.getDate()).padStart(2, '0');
+
+  var body = {
+    lat:               gpsCoords ? gpsCoords.lat : null,
+    lng:               gpsCoords ? gpsCoords.lng : null,
+    photo:             photo || '',
+    clientTimeMinutes: clientTimeMinutes,
+    clientDate:        clientDate
   };
 
   var d = await apiFetch('/employee/checkin', {

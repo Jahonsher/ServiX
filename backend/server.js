@@ -83,6 +83,17 @@ const Admin = mongoose.model("Admin", new mongoose.Schema({
 }, { timestamps: true }));
 
 
+// ===== BRANCH MODEL =====
+const Branch = mongoose.model("Branch", new mongoose.Schema({
+  name:         { type: String, required: true },
+  restaurantId: { type: String, default: "imperial" },
+  address:      String,
+  lat:          Number,
+  lng:          Number,
+  radius:       { type: Number, default: 100 },
+  active:       { type: Boolean, default: true }
+}, { timestamps: true }));
+
 // ===== EMPLOYEE MODEL =====
 const employeeSchema = new mongoose.Schema({
   name:         { type: String, required: true },
@@ -94,11 +105,9 @@ const employeeSchema = new mongoose.Schema({
   workStart:    { type: String, default: "09:00" }, // ish boshlanish
   workEnd:      { type: String, default: "18:00" }, // ish tugash
   salary:       { type: Number, default: 0 },       // oylik maosh
-  telegramId:   Number,                             // xabar yuborish uchun
-  active:       { type: Boolean, default: true },
-  lat:          Number,   // restoran koordinatasi (geofencing)
-  lng:          Number,
-  radius:       { type: Number, default: 100 }  // metr
+  telegramId:   Number,
+  branchId:     { type: mongoose.Schema.Types.ObjectId, ref: "Branch" },
+  active:       { type: Boolean, default: true }
 }, { timestamps: true });
 const Employee = mongoose.model("Employee", employeeSchema);
 
@@ -775,6 +784,49 @@ app.get("/superadmin/stats", superMiddleware, async (req, res) => {
 process.on("uncaughtException",  e => console.error("uncaught:", e.message));
 
 // ===================================================
+// ===== BRANCH ENDPOINTS ============================
+// ===================================================
+
+// Filiallar ro'yxati
+app.get("/admin/branches", authMiddleware, async (req, res) => {
+  try {
+    const branches = await Branch.find({ restaurantId: req.admin.restaurantId, active: true }).sort({ name: 1 });
+    res.json({ ok: true, branches });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Filial qo'shish
+app.post("/admin/branches", authMiddleware, async (req, res) => {
+  try {
+    const { name, address, lat, lng, radius } = req.body;
+    if (!name) return res.status(400).json({ error: "Filial nomi kerak" });
+    const branch = await Branch.create({
+      name, address, lat, lng,
+      radius: radius || 100,
+      restaurantId: req.admin.restaurantId
+    });
+    res.json({ ok: true, branch });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Filial tahrirlash
+app.put("/admin/branches/:id", authMiddleware, async (req, res) => {
+  try {
+    const branch = await Branch.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json({ ok: true, branch });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Filial o'chirish
+app.delete("/admin/branches/:id", authMiddleware, async (req, res) => {
+  try {
+    await Branch.findByIdAndUpdate(req.params.id, { active: false });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Employee login — branchId ham qaytarsin
+// ===================================================
 // ===== EMPLOYEE ENDPOINTS ==========================
 // ===================================================
 
@@ -790,10 +842,13 @@ app.post("/employee/login", async (req, res) => {
       { id: emp._id, restaurantId: emp.restaurantId, name: emp.name },
       JWT_SECRET, { expiresIn: "30d" }
     );
+    const branch = emp.branchId ? await Branch.findById(emp.branchId) : null;
     res.json({ ok: true, token, employee: {
       id: emp._id, name: emp.name, position: emp.position,
       workStart: emp.workStart, workEnd: emp.workEnd,
-      restaurantId: emp.restaurantId
+      restaurantId: emp.restaurantId,
+      branchId:   emp.branchId || null,
+      branchName: branch?.name || null
     }});
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
@@ -811,14 +866,17 @@ app.get("/employee/today", empMiddleware, async (req, res) => {
 // --- Check-in (keldi) ---
 app.post("/employee/checkin", empMiddleware, async (req, res) => {
   try {
-    const { lat, lng, photo } = req.body;
-    const today = new Date().toISOString().split("T")[0];
-    const emp   = await Employee.findById(req.employee.id);
+    // clientTimeMinutes — browser Toshkent vaqtini yuboradi (UTC+5)
+    const { lat, lng, photo, clientTimeMinutes, clientDate } = req.body;
 
-    // Geofencing tekshirish
-    if (emp.lat && emp.lng) {
-      const dist = getDistance(lat, lng, emp.lat, emp.lng);
-      if (dist > emp.radius) {
+    const today = clientDate || new Date().toISOString().split("T")[0];
+    const emp   = await Employee.findById(req.employee.id).populate("branchId");
+
+    // Geofencing — Branch koordinatasidan tekshirish
+    const branch = emp.branchId;
+    if (branch && branch.lat && branch.lng && lat && lng) {
+      const dist = getDistance(lat, lng, branch.lat, branch.lng);
+      if (dist > (branch.radius || 100)) {
         return res.status(400).json({
           error: "Siz ish joyidan " + Math.round(dist) + "m uzoqdasiz! Qayd qilib bo'lmaydi."
         });
@@ -831,13 +889,16 @@ app.post("/employee/checkin", empMiddleware, async (req, res) => {
       return res.status(400).json({ error: "Bugun allaqachon keldi qayd qilingan" });
     }
 
-    // Kechikish hisoblash
-    const now       = new Date();
-    const nowTime   = now.getHours() * 60 + now.getMinutes();
+    // Kechikish hisoblash — CLIENT vaqtidan (Toshkent vaqti to'g'ri)
     const [wh, wm]  = emp.workStart.split(":").map(Number);
-    const workStart = wh * 60 + wm;
-    const late      = Math.max(0, nowTime - workStart);
-    const checkInStr = now.toTimeString().slice(0,5);
+    const workStartMin = wh * 60 + wm;
+    const nowMin    = clientTimeMinutes != null ? clientTimeMinutes : (new Date().getHours() * 60 + new Date().getMinutes());
+    const late      = Math.max(0, nowMin - workStartMin);
+
+    // HH:MM formatda saqlash
+    const hh = String(Math.floor(nowMin / 60)).padStart(2, "0");
+    const mm = String(nowMin % 60).padStart(2, "0");
+    const checkInStr = hh + ":" + mm;
 
     const att = await Attendance.findOneAndUpdate(
       { employeeId: emp._id, date: today },
@@ -855,18 +916,18 @@ app.post("/employee/checkin", empMiddleware, async (req, res) => {
       { upsert: true, new: true }
     );
 
-    // Kechiksa Telegram xabar (admin ga)
-    if (late > 0 && emp.telegramId) {
+    // Kechiksa admin ga Telegram xabar
+    if (late > 0) {
       const adminDoc = await Admin.findOne({ restaurantId: emp.restaurantId });
       if (adminDoc?.chefId) {
+        const branchName = branch?.name ? " (" + branch.name + ")" : "";
         send(adminDoc.chefId,
-          "Ishchi " + emp.name + " " + late + " daqiqa kechikib keldi! Kelgan vaqt: " + checkInStr,
-          { parse_mode: "HTML" }
+          emp.name + branchName + " " + late + " daqiqa kechikib keldi. Kelgan vaqt: " + checkInStr
         );
       }
     }
 
-    res.json({ ok: true, attendance: att, lateMinutes: late });
+    res.json({ ok: true, attendance: att, lateMinutes: late, checkIn: checkInStr });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

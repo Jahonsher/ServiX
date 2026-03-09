@@ -146,6 +146,7 @@ function showPage(page) {
   if (page === 'categories') renderCategories(main);
   if (page === 'ratings')    renderRatings(main);
   if (page === 'users')      renderUsers(main);
+  if (page === 'branches')   renderBranches(main);
   if (page === 'employees')  renderEmployees(main);
   if (page === 'attendance') renderAttendance(main);
   if (page === 'empReport')  renderEmpReport(main);
@@ -1108,7 +1109,8 @@ async function saveEmp(id) {
   if (!username) { errEl.textContent = 'Login kiritilmagan'; errEl.style.display='block'; return; }
   if (!id && !password) { errEl.textContent = 'Parol kiritilmagan'; errEl.style.display='block'; return; }
 
-  var body = { name, phone, position, username, salary, workStart, workEnd };
+  var branchId = document.getElementById('empBranchId')?.value || null;
+  var body = { name, phone, position, username, salary, workStart, workEnd, branchId: branchId||null };
   if (password)  body.password  = password;
   if (telegramId) body.telegramId = Number(telegramId);
 
@@ -1364,4 +1366,198 @@ function miniStat(icon, val, color) {
 function fmtSalary(n) {
   if (!n) return '0 so\'m';
   return Number(n).toLocaleString('uz-UZ') + ' so\'m';
+}
+
+// ===================================================
+// ===== BRANCHES (Filiallar) ========================
+// ===================================================
+var branchMap = null;
+var branchMarker = null;
+
+async function renderBranches(main) {
+  main.innerHTML = '<div style="text-align:center;padding:40px;color:#475569">Yuklanmoqda...</div>';
+  var d = await apiFetch('/admin/branches');
+  var branches = d.branches || [];
+
+  var cards = branches.map(function(b) {
+    return '<div style="background:#0f172a;border:1px solid rgba(99,179,237,0.1);border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:center;gap:10px">' +
+      '<div>' +
+        '<div style="font-size:14px;font-weight:600;color:#f1f5f9">' + b.name + '</div>' +
+        '<div style="font-size:11px;color:#64748b;margin-top:3px">' + (b.address||'Manzil kiritilmagan') + '</div>' +
+        (b.lat ? '<div style="font-size:11px;color:#3b82f6;margin-top:2px">📍 ' + b.lat.toFixed(5) + ', ' + b.lng.toFixed(5) + ' &nbsp;·&nbsp; ' + (b.radius||100) + 'm</div>' : '<div style="font-size:11px;color:#f59e0b;margin-top:2px">⚠️ Lokatsiya belgilanmagan</div>') +
+      '</div>' +
+      '<div style="display:flex;gap:6px;flex-shrink:0">' +
+        '<button onclick="openBranchModal(' + JSON.stringify(JSON.stringify(b)) + ')" style="padding:6px 12px;background:rgba(59,130,246,0.15);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;border-radius:7px;font-size:12px;cursor:pointer">✏️</button>' +
+        '<button onclick="deleteBranch(\'' + b._id + '\')" style="padding:6px 12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#f87171;border-radius:7px;font-size:12px;cursor:pointer">🗑</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  main.innerHTML =
+    '<div class="fade-up">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">' +
+        '<div style="font-size:18px;font-weight:700;color:#f1f5f9">🏢 Filiallar <span style="font-size:13px;color:#64748b;font-weight:400">(' + branches.length + ' ta)</span></div>' +
+        '<button onclick="openBranchModal(null)" style="padding:9px 18px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border:none;color:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">+ Filial qo\'shish</button>' +
+      '</div>' +
+
+      (branches.length ? '<div style="display:flex;flex-direction:column;gap:10px">' + cards + '</div>' :
+        '<div style="text-align:center;padding:60px;color:#475569">' +
+          '<div style="font-size:40px;margin-bottom:12px">🏢</div>' +
+          '<div style="margin-bottom:16px">Hali filial qo\'shilmagan</div>' +
+          '<button onclick="openBranchModal(null)" style="padding:10px 24px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border:none;color:#fff;border-radius:8px;cursor:pointer;font-size:14px">+ Birinchi filial qo\'shish</button>' +
+        '</div>'
+      ) +
+
+      // Modal
+      '<div id="branchModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center;padding:16px">' +
+        '<div style="background:#1e293b;border:1px solid rgba(99,179,237,0.15);border-radius:16px;padding:24px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">' +
+            '<div id="branchModalTitle" style="font-size:16px;font-weight:700;color:#f1f5f9">Filial qo\'shish</div>' +
+            '<button onclick="closeBranchModal()" style="background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;line-height:1">✕</button>' +
+          '</div>' +
+          '<div id="branchModalBody"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}
+
+function openBranchModal(branchJson) {
+  var b = branchJson ? JSON.parse(branchJson) : null;
+  document.getElementById('branchModalTitle').textContent = b ? 'Filial tahrirlash' : 'Yangi filial';
+
+  document.getElementById('branchModalBody').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:14px">' +
+      empInp('bName',    'FILIAL NOMI', 'text', b?.name||'') +
+      empInp('bAddress', 'MANZIL',      'text', b?.address||'') +
+      empInp('bRadius',  'RADIUS (metr)', 'number', b?.radius||100) +
+
+      // Karta
+      '<div>' +
+        '<div style="font-size:10px;font-weight:600;color:#64748b;letter-spacing:1px;margin-bottom:8px">LOKATSIYA (kartadan tanlang)</div>' +
+        '<div style="font-size:12px;color:#64748b;margin-bottom:8px">💡 Kartaga bosib lokatsiyani belgilang. Siz ham "Mening joylashuvim" tugmasini bosishingiz mumkin.</div>' +
+        '<div id="branchMapEl" style="height:280px;border-radius:10px;border:1px solid rgba(99,179,237,0.2);overflow:hidden;background:#0f172a"></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">' +
+          '<div>' +
+            '<label style="font-size:10px;color:#64748b;letter-spacing:1px;display:block;margin-bottom:4px">KENGLIK (LAT)</label>' +
+            '<input id="bLat" type="number" step="0.000001" value="' + (b?.lat||'') + '" style="width:100%;padding:8px;background:#0f172a;border:1px solid rgba(99,179,237,0.15);border-radius:7px;color:#f1f5f9;font-size:12px;box-sizing:border-box" oninput="updateMarkerFromInputs()">' +
+          '</div>' +
+          '<div>' +
+            '<label style="font-size:10px;color:#64748b;letter-spacing:1px;display:block;margin-bottom:4px">UZUNLIK (LNG)</label>' +
+            '<input id="bLng" type="number" step="0.000001" value="' + (b?.lng||'') + '" style="width:100%;padding:8px;background:#0f172a;border:1px solid rgba(99,179,237,0.15);border-radius:7px;color:#f1f5f9;font-size:12px;box-sizing:border-box" oninput="updateMarkerFromInputs()">' +
+          '</div>' +
+        '</div>' +
+        '<button onclick="useMyLocation()" style="margin-top:8px;width:100%;padding:9px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);color:#4ade80;border-radius:8px;font-size:13px;cursor:pointer">📍 Mening joylashuvimni ishlatish</button>' +
+      '</div>' +
+
+      '<div id="bErr" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#f87171;padding:10px;border-radius:8px;font-size:13px"></div>' +
+      '<button onclick="saveBranch(\'' + (b?._id||'') + '\')" style="width:100%;padding:12px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">' +
+        (b ? '💾 Saqlash' : '+ Qo\'shish') +
+      '</button>' +
+    '</div>';
+
+  document.getElementById('branchModal').style.display = 'flex';
+
+  // Leaflet karta init
+  setTimeout(function() {
+    if (branchMap) { branchMap.remove(); branchMap = null; branchMarker = null; }
+
+    var initLat = b?.lat || 41.2995;
+    var initLng = b?.lng || 69.2401;
+    var zoom    = b?.lat ? 16 : 12;
+
+    branchMap = L.map('branchMapEl').setView([initLat, initLng], zoom);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(branchMap);
+
+    // Mavjud marker
+    if (b?.lat && b?.lng) {
+      branchMarker = L.marker([b.lat, b.lng], { draggable: true }).addTo(branchMap);
+      branchMarker.on('dragend', function(e) {
+        var pos = e.target.getLatLng();
+        document.getElementById('bLat').value = pos.lat.toFixed(6);
+        document.getElementById('bLng').value = pos.lng.toFixed(6);
+      });
+    }
+
+    // Kartaga bosish → marker qo'yish
+    branchMap.on('click', function(e) {
+      var lat = e.latlng.lat;
+      var lng = e.latlng.lng;
+      document.getElementById('bLat').value = lat.toFixed(6);
+      document.getElementById('bLng').value = lng.toFixed(6);
+      if (branchMarker) {
+        branchMarker.setLatLng([lat, lng]);
+      } else {
+        branchMarker = L.marker([lat, lng], { draggable: true }).addTo(branchMap);
+        branchMarker.on('dragend', function(ev) {
+          var pos = ev.target.getLatLng();
+          document.getElementById('bLat').value = pos.lat.toFixed(6);
+          document.getElementById('bLng').value = pos.lng.toFixed(6);
+        });
+      }
+    });
+  }, 100);
+}
+
+function updateMarkerFromInputs() {
+  var lat = parseFloat(document.getElementById('bLat').value);
+  var lng = parseFloat(document.getElementById('bLng').value);
+  if (!lat || !lng || !branchMap) return;
+  if (branchMarker) {
+    branchMarker.setLatLng([lat, lng]);
+  } else {
+    branchMarker = L.marker([lat, lng], { draggable: true }).addTo(branchMap);
+  }
+  branchMap.setView([lat, lng], 16);
+}
+
+function useMyLocation() {
+  if (!navigator.geolocation) { alert('GPS mavjud emas'); return; }
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    var lat = pos.coords.latitude;
+    var lng = pos.coords.longitude;
+    document.getElementById('bLat').value = lat.toFixed(6);
+    document.getElementById('bLng').value = lng.toFixed(6);
+    updateMarkerFromInputs();
+  }, function() {
+    alert('GPS ruxsati berilmadi');
+  });
+}
+
+function closeBranchModal() {
+  if (branchMap) { branchMap.remove(); branchMap = null; branchMarker = null; }
+  document.getElementById('branchModal').style.display = 'none';
+}
+
+async function saveBranch(id) {
+  var errEl = document.getElementById('bErr');
+  errEl.style.display = 'none';
+  var name    = document.getElementById('bName').value.trim();
+  var address = document.getElementById('bAddress').value.trim();
+  var radius  = Number(document.getElementById('bRadius').value) || 100;
+  var lat     = parseFloat(document.getElementById('bLat').value) || null;
+  var lng     = parseFloat(document.getElementById('bLng').value) || null;
+
+  if (!name) { errEl.textContent = 'Filial nomi kiritilmagan'; errEl.style.display='block'; return; }
+
+  var body   = { name, address, lat, lng, radius };
+  var url    = id ? '/admin/branches/' + id : '/admin/branches';
+  var method = id ? 'PUT' : 'POST';
+
+  var d = await apiFetch(url, { method, body: JSON.stringify(body) });
+  if (d.ok) {
+    closeBranchModal();
+    renderBranches(document.getElementById('mainContent'));
+  } else {
+    errEl.textContent = d.error || 'Xato yuz berdi';
+    errEl.style.display = 'block';
+  }
+}
+
+async function deleteBranch(id) {
+  if (!confirm('Filialni o\'chirishni tasdiqlaysizmi?')) return;
+  var d = await apiFetch('/admin/branches/' + id, { method: 'DELETE' });
+  if (d.ok) renderBranches(document.getElementById('mainContent'));
 }
