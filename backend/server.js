@@ -82,6 +82,43 @@ const Admin = mongoose.model("Admin", new mongoose.Schema({
   active:         { type: Boolean, default: true }
 }, { timestamps: true }));
 
+
+// ===== EMPLOYEE MODEL =====
+const employeeSchema = new mongoose.Schema({
+  name:         { type: String, required: true },
+  phone:        String,
+  position:     String,                          // lavozim: ofitsiant, oshpaz...
+  username:     { type: String, unique: true },
+  password:     String,
+  restaurantId: { type: String, default: "imperial" },
+  workStart:    { type: String, default: "09:00" }, // ish boshlanish
+  workEnd:      { type: String, default: "18:00" }, // ish tugash
+  salary:       { type: Number, default: 0 },       // oylik maosh
+  telegramId:   Number,                             // xabar yuborish uchun
+  active:       { type: Boolean, default: true },
+  lat:          Number,   // restoran koordinatasi (geofencing)
+  lng:          Number,
+  radius:       { type: Number, default: 100 }  // metr
+}, { timestamps: true });
+const Employee = mongoose.model("Employee", employeeSchema);
+
+// ===== ATTENDANCE MODEL =====
+const attendanceSchema = new mongoose.Schema({
+  employeeId:   { type: mongoose.Schema.Types.ObjectId, ref: "Employee", required: true },
+  restaurantId: { type: String, default: "imperial" },
+  date:         { type: String, required: true },   // "2026-03-07"
+  checkIn:      String,    // "09:15"
+  checkOut:     String,    // "18:30"
+  checkInPhoto: String,    // base64 yoki URL
+  checkInLat:   Number,
+  checkInLng:   Number,
+  lateMinutes:  { type: Number, default: 0 },
+  totalMinutes: { type: Number, default: 0 },
+  status:       { type: String, default: "keldi" }, // keldi | kelmadi | kasal | tatil
+  note:         String
+}, { timestamps: true });
+const Attendance = mongoose.model("Attendance", attendanceSchema);
+
 // ===== MIDDLEWARE =====
 function authMiddleware(req, res, next) {
   const token = req.headers.authorization?.split(" ")[1];
@@ -190,6 +227,27 @@ bot.onText(/Boglanish/, async (msg) => {
   } catch(e) { console.error("boglanish:", e.message); }
 });
 
+
+
+// ===== EMPLOYEE MIDDLEWARE =====
+function empMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Token kerak" });
+  try { req.employee = jwt.verify(token, JWT_SECRET); next(); }
+  catch(e) { res.status(401).json({ error: "Token yaroqsiz" }); }
+}
+
+
+// ===== GEO HELPER =====
+function getDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371000; // metr
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
 
 // ===== BOT BROADCAST =====
 // Holat saqlash: { step: 'text'|'photo', text: '...' }
@@ -715,6 +773,306 @@ app.get("/superadmin/stats", superMiddleware, async (req, res) => {
 });
 
 process.on("uncaughtException",  e => console.error("uncaught:", e.message));
+
+// ===================================================
+// ===== EMPLOYEE ENDPOINTS ==========================
+// ===================================================
+
+// --- Employee login ---
+app.post("/employee/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const emp = await Employee.findOne({ username, active: true });
+    if (!emp) return res.status(401).json({ error: "Ishchi topilmadi" });
+    const ok = await bcrypt.compare(password, emp.password);
+    if (!ok) return res.status(401).json({ error: "Parol noto'g'ri" });
+    const token = jwt.sign(
+      { id: emp._id, restaurantId: emp.restaurantId, name: emp.name },
+      JWT_SECRET, { expiresIn: "30d" }
+    );
+    res.json({ ok: true, token, employee: {
+      id: emp._id, name: emp.name, position: emp.position,
+      workStart: emp.workStart, workEnd: emp.workEnd,
+      restaurantId: emp.restaurantId
+    }});
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Bugungi davomat holati ---
+app.get("/employee/today", empMiddleware, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const att   = await Attendance.findOne({ employeeId: req.employee.id, date: today });
+    const emp   = await Employee.findById(req.employee.id);
+    res.json({ ok: true, attendance: att, employee: emp });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Check-in (keldi) ---
+app.post("/employee/checkin", empMiddleware, async (req, res) => {
+  try {
+    const { lat, lng, photo } = req.body;
+    const today = new Date().toISOString().split("T")[0];
+    const emp   = await Employee.findById(req.employee.id);
+
+    // Geofencing tekshirish
+    if (emp.lat && emp.lng) {
+      const dist = getDistance(lat, lng, emp.lat, emp.lng);
+      if (dist > emp.radius) {
+        return res.status(400).json({
+          error: "Siz ish joyidan " + Math.round(dist) + "m uzoqdasiz! Qayd qilib bo'lmaydi."
+        });
+      }
+    }
+
+    // Avval keldi qaydimi?
+    const existing = await Attendance.findOne({ employeeId: emp._id, date: today });
+    if (existing?.checkIn) {
+      return res.status(400).json({ error: "Bugun allaqachon keldi qayd qilingan" });
+    }
+
+    // Kechikish hisoblash
+    const now       = new Date();
+    const nowTime   = now.getHours() * 60 + now.getMinutes();
+    const [wh, wm]  = emp.workStart.split(":").map(Number);
+    const workStart = wh * 60 + wm;
+    const late      = Math.max(0, nowTime - workStart);
+    const checkInStr = now.toTimeString().slice(0,5);
+
+    const att = await Attendance.findOneAndUpdate(
+      { employeeId: emp._id, date: today },
+      {
+        employeeId:   emp._id,
+        restaurantId: emp.restaurantId,
+        date:         today,
+        checkIn:      checkInStr,
+        checkInPhoto: photo || "",
+        checkInLat:   lat,
+        checkInLng:   lng,
+        lateMinutes:  late,
+        status:       "keldi"
+      },
+      { upsert: true, new: true }
+    );
+
+    // Kechiksa Telegram xabar (admin ga)
+    if (late > 0 && emp.telegramId) {
+      const adminDoc = await Admin.findOne({ restaurantId: emp.restaurantId });
+      if (adminDoc?.chefId) {
+        send(adminDoc.chefId,
+          "Ishchi " + emp.name + " " + late + " daqiqa kechikib keldi! Kelgan vaqt: " + checkInStr,
+          { parse_mode: "HTML" }
+        );
+      }
+    }
+
+    res.json({ ok: true, attendance: att, lateMinutes: late });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Check-out (ketdi) ---
+app.post("/employee/checkout", empMiddleware, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const emp   = await Employee.findById(req.employee.id);
+    const att   = await Attendance.findOne({ employeeId: emp._id, date: today });
+
+    if (!att?.checkIn) return res.status(400).json({ error: "Avval check-in qiling" });
+    if (att.checkOut)  return res.status(400).json({ error: "Bugun allaqachon ketdi qayd qilingan" });
+
+    const now        = new Date();
+    const checkOutStr = now.toTimeString().slice(0,5);
+
+    // Jami vaqt hisoblash
+    const [ih, im] = att.checkIn.split(":").map(Number);
+    const total    = (now.getHours() * 60 + now.getMinutes()) - (ih * 60 + im);
+
+    const updated = await Attendance.findByIdAndUpdate(att._id, {
+      checkOut:     checkOutStr,
+      totalMinutes: Math.max(0, total)
+    }, { new: true });
+
+    res.json({ ok: true, attendance: updated, totalMinutes: total });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Ishchining o'z statistikasi ---
+app.get("/employee/stats", empMiddleware, async (req, res) => {
+  try {
+    const { month } = req.query; // "2026-03"
+    const prefix = month || new Date().toISOString().slice(0, 7);
+    const records = await Attendance.find({
+      employeeId: req.employee.id,
+      date: { $regex: "^" + prefix }
+    }).sort({ date: 1 });
+
+    const totalDays    = records.filter(r => r.status === "keldi").length;
+    const totalMinutes = records.reduce((s, r) => s + (r.totalMinutes || 0), 0);
+    const totalLate    = records.filter(r => r.lateMinutes > 0).length;
+    const absent       = records.filter(r => r.status === "kelmadi").length;
+
+    res.json({ ok: true, records, stats: { totalDays, totalMinutes, totalLate, absent } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ===================================================
+// ===== ADMIN — EMPLOYEE ENDPOINTS ==================
+// ===================================================
+
+// --- Ishchilar ro'yxati ---
+app.get("/admin/employees", authMiddleware, async (req, res) => {
+  try {
+    const rId = req.admin.restaurantId;
+    const emps = await Employee.find({ restaurantId: rId }).select("-password").sort({ name: 1 });
+    res.json(emps);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Ishchi qo'shish ---
+app.post("/admin/employees", authMiddleware, async (req, res) => {
+  try {
+    const { name, phone, position, username, password, salary, workStart, workEnd, telegramId, lat, lng, radius } = req.body;
+    if (!username || !password) return res.status(400).json({ error: "Login va parol kerak" });
+    const hash = await bcrypt.hash(password, 10);
+    const emp  = await Employee.create({
+      name, phone, position, username, password: hash,
+      salary: salary || 0, workStart: workStart || "09:00",
+      workEnd: workEnd || "18:00", telegramId: telegramId || null,
+      lat: lat || null, lng: lng || null, radius: radius || 100,
+      restaurantId: req.admin.restaurantId, active: true
+    });
+    res.json({ ok: true, employee: { ...emp.toObject(), password: undefined } });
+  } catch(e) {
+    if (e.code === 11000) return res.status(400).json({ error: "Bu username band" });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// --- Ishchi tahrirlash ---
+app.put("/admin/employees/:id", authMiddleware, async (req, res) => {
+  try {
+    const data = { ...req.body };
+    if (data.password) {
+      data.password = await bcrypt.hash(data.password, 10);
+    } else {
+      delete data.password;
+    }
+    const emp = await Employee.findByIdAndUpdate(req.params.id, data, { new: true }).select("-password");
+    res.json({ ok: true, employee: emp });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Ishchi o'chirish ---
+app.delete("/admin/employees/:id", authMiddleware, async (req, res) => {
+  try {
+    await Employee.findByIdAndUpdate(req.params.id, { active: false });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Bugungi davomat (admin) ---
+app.get("/admin/attendance/today", authMiddleware, async (req, res) => {
+  try {
+    const rId  = req.admin.restaurantId;
+    const today = new Date().toISOString().split("T")[0];
+
+    const employees   = await Employee.find({ restaurantId: rId, active: true }).select("-password");
+    const attendances = await Attendance.find({ restaurantId: rId, date: today });
+
+    const result = employees.map(emp => {
+      const att = attendances.find(a => a.employeeId.toString() === emp._id.toString());
+      return {
+        employee:    emp,
+        attendance:  att || null,
+        status:      att?.status || "kelmadi",
+        checkIn:     att?.checkIn || null,
+        checkOut:    att?.checkOut || null,
+        lateMinutes: att?.lateMinutes || 0,
+        totalMinutes: att?.totalMinutes || 0
+      };
+    });
+
+    const summary = {
+      total:   employees.length,
+      came:    result.filter(r => r.status === "keldi").length,
+      absent:  result.filter(r => r.status === "kelmadi").length,
+      late:    result.filter(r => r.lateMinutes > 0).length,
+      working: result.filter(r => r.checkIn && !r.checkOut).length
+    };
+
+    res.json({ ok: true, today, employees: result, summary });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Oylik hisobot (admin) ---
+app.get("/admin/attendance/report", authMiddleware, async (req, res) => {
+  try {
+    const rId    = req.admin.restaurantId;
+    const { month, employeeId } = req.query;
+    const prefix = month || new Date().toISOString().slice(0, 7);
+
+    const filter = { restaurantId: rId, date: { $regex: "^" + prefix } };
+    if (employeeId) filter.employeeId = employeeId;
+
+    const records  = await Attendance.find(filter).populate("employeeId", "name position salary").sort({ date: 1 });
+    const employees = await Employee.find({ restaurantId: rId, active: true }).select("-password");
+
+    // Har ishchi uchun hisobot
+    const report = employees.map(emp => {
+      const empRecords = records.filter(r => r.employeeId?._id?.toString() === emp._id.toString());
+      const totalDays    = empRecords.filter(r => r.status === "keldi").length;
+      const totalMinutes = empRecords.reduce((s, r) => s + (r.totalMinutes || 0), 0);
+      const lateCount    = empRecords.filter(r => r.lateMinutes > 0).length;
+      const absentCount  = empRecords.filter(r => r.status === "kelmadi").length;
+
+      // Maosh hisoblash (kunlik)
+      const workingDays  = 26; // oyda o'rtacha ish kunlari
+      const dailySalary  = emp.salary / workingDays;
+      const earnedSalary = Math.round(dailySalary * totalDays);
+
+      return {
+        employee: { id: emp._id, name: emp.name, position: emp.position, salary: emp.salary },
+        stats: { totalDays, totalMinutes, lateCount, absentCount, earnedSalary },
+        records: empRecords
+      };
+    });
+
+    res.json({ ok: true, month: prefix, report });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Manual davomat qo'shish/o'zgartirish (admin) ---
+app.post("/admin/attendance/manual", authMiddleware, async (req, res) => {
+  try {
+    const { employeeId, date, status, checkIn, checkOut, note } = req.body;
+    const emp = await Employee.findById(employeeId);
+    if (!emp) return res.status(404).json({ error: "Ishchi topilmadi" });
+
+    let totalMinutes = 0;
+    if (checkIn && checkOut) {
+      const [ih, im] = checkIn.split(":").map(Number);
+      const [oh, om] = checkOut.split(":").map(Number);
+      totalMinutes = (oh * 60 + om) - (ih * 60 + im);
+    }
+
+    const att = await Attendance.findOneAndUpdate(
+      { employeeId, date },
+      { employeeId, restaurantId: emp.restaurantId, date, status: status || "keldi", checkIn, checkOut, totalMinutes, note },
+      { upsert: true, new: true }
+    );
+    res.json({ ok: true, attendance: att });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// --- Restoran koordinatalarini saqlash (geofencing uchun) ---
+app.put("/admin/employees/:id/location", authMiddleware, async (req, res) => {
+  try {
+    const { lat, lng, radius } = req.body;
+    await Employee.findByIdAndUpdate(req.params.id, { lat, lng, radius: radius || 100 });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 process.on("unhandledRejection", e => console.error("unhandled:", e));
 
 app.listen(PORT, async () => {
