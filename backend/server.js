@@ -1113,19 +1113,42 @@ app.post("/employee/checkout", empMiddleware, async (req, res) => {
 // --- Ishchining o'z statistikasi ---
 app.get("/employee/stats", empMiddleware, async (req, res) => {
   try {
-    const { month } = req.query; // "2026-03"
+    const { month } = req.query;
     const prefix = month || new Date().toISOString().slice(0, 7);
+    const emp = await Employee.findById(req.employee.id).select("-password");
     const records = await Attendance.find({
       employeeId: req.employee.id,
       date: { $regex: "^" + prefix }
     }).sort({ date: 1 });
 
-    const totalDays    = records.filter(r => r.status === "keldi").length;
+    const workedDays   = records.filter(r => r.status === "keldi").length;
+    const totalDays    = workedDays;
     const totalMinutes = records.reduce((s, r) => s + (r.totalMinutes || 0), 0);
     const totalLate    = records.filter(r => r.lateMinutes > 0).length;
     const absent       = records.filter(r => r.status === "kelmadi").length;
+    const overtimeMin  = records.reduce((s, r) => s + (r.overtimeMinutes || 0), 0);
 
-    res.json({ ok: true, records, stats: { totalDays, totalMinutes, totalLate, absent } });
+    // Maosh hisoblash
+    const workingDaysInMonth = calcWorkingDays(prefix, emp.weeklyOff);
+    const dailySalary  = emp.salary > 0 ? Math.round(emp.salary / workingDaysInMonth) : 0;
+    const earnedSalary = Math.round(dailySalary * workedDays);
+
+    // Oxirgi 7 kun (heatmap uchun)
+    const last7 = [];
+    for (let i = 6; i >= 0; i--) {
+      const dt = new Date(); dt.setDate(dt.getDate() - i);
+      const ds = dt.toISOString().split("T")[0];
+      const rec = records.find(r => r.date === ds);
+      last7.push({ date: ds, status: rec?.status || null, checkIn: rec?.checkIn || null, checkOut: rec?.checkOut || null });
+    }
+
+    res.json({
+      ok: true,
+      records,
+      stats: { totalDays, workedDays, totalMinutes, totalLate, absent, overtimeMin,
+               workingDaysInMonth, dailySalary, earnedSalary, salary: emp.salary },
+      last7
+    });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

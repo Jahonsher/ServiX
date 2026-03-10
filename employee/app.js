@@ -472,43 +472,108 @@ async function renderStats() {
   var main = document.getElementById('mainContent');
   main.innerHTML = '<div style="text-align:center;padding:40px 0;color:#475569">Yuklanmoqda...</div>';
 
-  var now    = new Date();
-  var month  = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  var d      = await apiFetch('/employee/stats?month=' + month);
+  var now   = new Date();
+  var month = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  var d     = await apiFetch('/employee/stats?month=' + month);
 
   if (!d.ok) { main.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171">Yuklanmadi</div>'; return; }
 
-  var s = d.stats;
+  var s         = d.stats;
+  var last7     = d.last7 || [];
   var monthName = now.toLocaleDateString('uz-UZ', { month:'long', year:'numeric' });
+  var pct       = s.workingDaysInMonth > 0 ? Math.min(100, Math.round((s.workedDays / s.workingDaysInMonth) * 100)) : 0;
+  var pctColor  = pct >= 90 ? '#22c55e' : pct >= 70 ? '#f59e0b' : '#ef4444';
+
+  // Heatmap — oxirgi 7 kun
+  var dayNames = ['Ya','Du','Se','Ch','Pa','Ju','Sh'];
+  var heatCells = last7.map(function(day) {
+    var color = !day.status ? '#0f172a' :
+                day.status === 'keldi'  ? '#22c55e' :
+                day.status === 'dam'    ? '#a78bfa' :
+                day.status === 'kasal'  ? '#60a5fa' : '#ef4444';
+    var dt = new Date(day.date + 'T12:00:00');
+    var tip = day.checkIn ? (day.checkIn + (day.checkOut ? ' → ' + day.checkOut : '')) : (day.status || '—');
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px">' +
+      '<div style="font-size:9px;color:#475569">' + dayNames[dt.getDay()] + '</div>' +
+      '<div title="' + tip + '" style="width:32px;height:32px;border-radius:6px;background:' + color + '"></div>' +
+      '<div style="font-size:8px;color:#475569">' + dt.getDate() + '</div>' +
+    '</div>';
+  }).join('');
 
   main.innerHTML =
     '<div class="fade-up">' +
       '<div style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:16px;text-transform:capitalize">' + monthName + '</div>' +
 
-      // Stats grid
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">' +
-        statBox('📅', 'Ish kunlari', s.totalDays + ' kun', '#3b82f6') +
-        statBox('⏱', 'Jami vaqt', formatMinutes(s.totalMinutes), '#22c55e') +
-        statBox('⚠️', 'Kechikishlar', s.totalLate + ' marta', '#f59e0b') +
-        statBox('❌', 'Kelmagan kun', s.absent + ' kun', '#ef4444') +
+      // ===== MAOSH KARTA =====
+      '<div style="background:linear-gradient(135deg,#1e3a5f,#1a2f4a);border:1px solid rgba(59,130,246,0.3);border-radius:16px;padding:20px;margin-bottom:16px">' +
+        '<div style="font-size:11px;color:#64748b;letter-spacing:1px;margin-bottom:8px">BU OY TOPGANINGIZ</div>' +
+        '<div style="font-size:36px;font-weight:800;color:#f1f5f9;margin-bottom:4px">' + fmtSalary(s.earnedSalary) + '</div>' +
+        '<div style="font-size:12px;color:#64748b">Oylik: ' + fmtSalary(s.salary) + '</div>' +
+        '<div style="height:1px;background:rgba(99,179,237,0.15);margin:14px 0"></div>' +
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' +
+          '<div style="text-align:center">' +
+            '<div style="font-size:16px;font-weight:700;color:#3b82f6">' + s.workingDaysInMonth + '</div>' +
+            '<div style="font-size:10px;color:#64748b">Oy ish kuni</div>' +
+          '</div>' +
+          '<div style="text-align:center;border-left:1px solid rgba(99,179,237,0.15);border-right:1px solid rgba(99,179,237,0.15)">' +
+            '<div style="font-size:16px;font-weight:700;color:#22c55e">' + s.workedDays + '</div>' +
+            '<div style="font-size:10px;color:#64748b">Kelgan kun</div>' +
+          '</div>' +
+          '<div style="text-align:center">' +
+            '<div style="font-size:16px;font-weight:700;color:#f59e0b">' + fmtSalary(s.dailySalary) + '</div>' +
+            '<div style="font-size:10px;color:#64748b">1 kunlik</div>' +
+          '</div>' +
+        '</div>' +
       '</div>' +
 
-      // Progress bar
-      (function() {
-        var workDays = 26;
-        var pct = Math.min(100, Math.round((s.totalDays / workDays) * 100));
-        return '<div style="background:#1e293b;border:1px solid rgba(99,179,237,0.12);border-radius:12px;padding:16px;margin-bottom:20px">' +
-          '<div style="display:flex;justify-content:space-between;margin-bottom:8px">' +
-            '<span style="font-size:13px;color:#94a3b8">Oylik davomi</span>' +
-            '<span style="font-size:13px;font-weight:600;color:#f1f5f9">' + s.totalDays + ' / ' + workDays + ' kun</span>' +
+      // ===== DAVOMAT PROGRESS =====
+      '<div style="background:#1e293b;border:1px solid rgba(99,179,237,0.12);border-radius:12px;padding:16px;margin-bottom:16px">' +
+        '<div style="display:flex;justify-content:space-between;margin-bottom:10px">' +
+          '<span style="font-size:13px;color:#94a3b8">Davomat</span>' +
+          '<span style="font-size:13px;font-weight:700;color:' + pctColor + '">' + pct + '%</span>' +
+        '</div>' +
+        '<div style="background:#0f172a;border-radius:99px;height:8px;overflow:hidden;margin-bottom:8px">' +
+          '<div style="height:100%;width:' + pct + '%;background:' + pctColor + ';border-radius:99px;transition:width .5s"></div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px">' +
+          miniStatEmp('⏱', formatMinutes(s.totalMinutes), '#22c55e', 'Jami vaqt') +
+          miniStatEmp('⚠️', s.totalLate + ' marta', '#f59e0b', 'Kechikish') +
+          miniStatEmp('❌', s.absent + ' kun', '#ef4444', 'Kelmagan') +
+        '</div>' +
+      '</div>' +
+
+      // ===== HEATMAP =====
+      '<div style="background:#1e293b;border:1px solid rgba(99,179,237,0.12);border-radius:12px;padding:16px;margin-bottom:16px">' +
+        '<div style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:1px;margin-bottom:12px">🗓 OXIRGI 7 KUN</div>' +
+        '<div style="display:flex;justify-content:space-around">' + heatCells + '</div>' +
+        '<div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">' +
+          '<span style="font-size:10px;color:#22c55e">● Keldi</span>' +
+          '<span style="font-size:10px;color:#ef4444">● Kelmadi</span>' +
+          '<span style="font-size:10px;color:#a78bfa">● Dam kuni</span>' +
+          '<span style="font-size:10px;color:#60a5fa">● Kasal</span>' +
+        '</div>' +
+      '</div>' +
+
+      // ===== OVERTIME =====
+      (s.overtimeMin > 0 ?
+        '<div style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">' +
+          '<div>' +
+            '<div style="font-size:13px;font-weight:600;color:#a78bfa">💪 Qo\'shimcha ish</div>' +
+            '<div style="font-size:11px;color:#64748b;margin-top:2px">Dam kunlari ishlagan vaqt</div>' +
           '</div>' +
-          '<div style="background:#0f172a;border-radius:99px;height:8px;overflow:hidden">' +
-            '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,#3b82f6,#22c55e);border-radius:99px;transition:width .5s"></div>' +
-          '</div>' +
-        '</div>';
-      })() +
+          '<div style="font-size:18px;font-weight:700;color:#a78bfa">' + formatMinutes(s.overtimeMin) + '</div>' +
+        '</div>'
+      : '') +
 
     '</div>';
+}
+
+function miniStatEmp(icon, val, color, label) {
+  return '<div style="background:#0f172a;border-radius:8px;padding:8px;text-align:center">' +
+    '<div style="font-size:13px">' + icon + '</div>' +
+    '<div style="font-size:12px;font-weight:600;color:' + color + ';margin-top:2px">' + val + '</div>' +
+    '<div style="font-size:10px;color:#475569;margin-top:1px">' + label + '</div>' +
+  '</div>';
 }
 
 function statBox(icon, label, value, color) {
@@ -600,6 +665,11 @@ async function renderHistory() {
 // ===================================================
 // ===== HELPERS =====================================
 // ===================================================
+function fmtSalary(n) {
+  if (!n) return '0';
+  return Number(n).toLocaleString('uz-UZ') + ' so\'m';
+}
+
 function formatMinutes(mins) {
   if (!mins || mins <= 0) return '—';
   var h = Math.floor(mins / 60);
