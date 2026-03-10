@@ -583,6 +583,27 @@ app.post("/admin/login", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+
+// ===== VAQTINCHA: Superadmin parolini reset qilish =====
+// Deploy qilib ishlatgandan keyin bu endpointni olib tashlang!
+app.post("/admin/reset-super", async (req, res) => {
+  try {
+    const { newPassword, secretKey } = req.body;
+    // Xavfsizlik uchun maxfiy kalit
+    if (secretKey !== "reset-2024-secret") {
+      return res.status(403).json({ error: "Ruxsat yoq" });
+    }
+    const hash = await bcrypt.hash(newPassword, 10);
+    const admin = await Admin.findOneAndUpdate(
+      { role: "superadmin" },
+      { password: hash },
+      { new: true }
+    );
+    if (!admin) return res.status(404).json({ error: "Superadmin topilmadi" });
+    res.json({ ok: true, message: "Parol yangilandi", username: admin.username });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post("/admin/setup", async (req, res) => {
   try {
     const count = await Admin.countDocuments();
