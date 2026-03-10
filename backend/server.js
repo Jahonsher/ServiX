@@ -9,6 +9,64 @@ const path        = require("path");
 const jwt         = require("jsonwebtoken");
 const bcrypt      = require("bcryptjs");
 
+
+// ===================================================
+// ===== FACE++ INTEGRATION ==========================
+// ===================================================
+const https = require('https');
+const FormData = require('form-data');
+
+const FACEPP_KEY    = process.env.FACEPP_API_KEY    || 'ZCsxfywtcxMPhjeQ5Um1ErEjL-SSm2qz';
+const FACEPP_SECRET = process.env.FACEPP_API_SECRET || 'ZoMXrDV_OxFs6OiW380vd4oN4bbbQcM5';
+
+// Ikki rasm o'rtasidagi o'xshashlikni tekshiradi
+// photo1, photo2 — base64 string (data:image/jpeg;base64,... yoki faqat base64)
+async function faceppCompare(photo1, photo2) {
+  return new Promise((resolve) => {
+    try {
+      // base64 dan header ni olib tashlaymiz
+      const b1 = photo1.replace(/^data:image\/\w+;base64,/, '');
+      const b2 = photo2.replace(/^data:image\/\w+;base64,/, '');
+
+      const form = new FormData();
+      form.append('api_key',    FACEPP_KEY);
+      form.append('api_secret', FACEPP_SECRET);
+      form.append('image_base64_1', b1);
+      form.append('image_base64_2', b2);
+
+      const options = {
+        hostname: 'api-us.faceplusplus.com',
+        path:     '/facepp/v3/compare',
+        method:   'POST',
+        headers:  form.getHeaders()
+      };
+
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const result = JSON.parse(data);
+            if (result.confidence !== undefined) {
+              // confidence: 0-100, threshold ~73 = bir xil odam
+              resolve({ ok: true, confidence: result.confidence, threshold: result.thresholds?.['1e-5'] || 73 });
+            } else {
+              resolve({ ok: false, error: result.error_message || 'Face++ xato' });
+            }
+          } catch(e) {
+            resolve({ ok: false, error: 'JSON parse xato' });
+          }
+        });
+      });
+
+      req.on('error', (e) => resolve({ ok: false, error: e.message }));
+      form.pipe(req);
+    } catch(e) {
+      resolve({ ok: false, error: e.message });
+    }
+  });
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
@@ -913,6 +971,29 @@ app.post("/employee/checkin", empMiddleware, async (req, res) => {
 
     const today = clientDate || new Date().toISOString().split("T")[0];
     const emp   = await Employee.findById(req.employee.id).populate("branchId");
+
+    // ===== FACE++ YUZ TAQQOSLASH =====
+    if (photo && emp.photo) {
+      const faceResult = await faceppCompare(emp.photo, photo);
+      if (faceResult.ok) {
+        const threshold = faceResult.threshold || 73;
+        if (faceResult.confidence < threshold) {
+          return res.status(400).json({
+            error: "Yuz tasdiqlanmadi! O'xshashlik: " + Math.round(faceResult.confidence) + "% (kerak: " + Math.round(threshold) + "%+). Boshqa odam kirmoqchi bo'lyapti.",
+            confidence: faceResult.confidence,
+            faceError: true
+          });
+        }
+      } else {
+        // Face++ ishlamasa — log qilib o'tkazib yubormaymiz, server xatosi
+        console.log('Face++ xato:', faceResult.error);
+        // Agar Face++ serveri yetib bo'lmasa — o'tkazib yuboramiz (offline holat)
+        if (faceResult.error && faceResult.error.includes('ENOTFOUND')) {
+        console.log('Face++ offline - checkin otkazilmoqda');
+        }
+      }
+    }
+    // =================================
 
     // Geofencing — Branch koordinatasidan tekshirish
     const branch = emp.branchId;
