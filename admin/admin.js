@@ -681,9 +681,7 @@ async function openEmpModal(empJson) {
   var emp = empJson ? JSON.parse(empJson) : null;
   // Reset global photo state
   _empPhotoBase64 = emp?.photo || null;
-  // Agar tahrirlashda descriptor bor bo'lsa — saqlaymiz
-  window._empFaceDescriptor = (emp?.faceDescriptor && emp.faceDescriptor.length > 0)
-    ? emp.faceDescriptor : null;
+
   document.getElementById('empModalTitle').textContent = emp ? 'Ishchi tahrirlash' : 'Yangi ishchi';
   document.getElementById('empModalBody').innerHTML = '<div style="text-align:center;padding:20px;color:#475569">Yuklanmoqda...</div>';
   document.getElementById('empModal').style.display = 'flex';
@@ -740,7 +738,7 @@ async function openEmpModal(empJson) {
         '<label style="font-size:10px;font-weight:600;color:#64748b;letter-spacing:1px;display:block;margin-bottom:5px">ISHCHI RASMI (Yuz ID uchun)</label>' +
         '<div id="empPhotoPreview" style="' + (emp?.photo ? '' : 'display:none;') + 'margin-bottom:8px;text-align:center">' +
           '<img id="empPhotoImg" src="' + (emp?.photo||'') + '" style="width:90px;height:90px;border-radius:50%;object-fit:cover;border:2px solid #3b82f6">' +
-          '<div id="faceStatus" style="font-size:11px;margin-top:4px;color:' + (emp?.faceDescriptor?.length ? '#22c55e' : '#64748b') + '">' + (emp?.faceDescriptor?.length ? 'Yuz aniqlangan (128 nuqta)' : 'Yuz aniqlanmagan') + '</div>' +
+          '<div id="faceStatus" style="font-size:11px;margin-top:4px;color:' + (emp?.photo ? '#22c55e' : '#64748b') + '">' + (emp?.photo ? 'Rasm yuklangan' : '') + '</div>' +
         '</div>' +
         '<div style="display:flex;gap:8px">' +
           '<label for="empPhotoInput" style="flex:1;padding:9px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);color:#60a5fa;border-radius:8px;font-size:12px;cursor:pointer;text-align:center">📁 Rasm yuklash</label>' +
@@ -805,9 +803,7 @@ async function saveEmp(empId) {
     } catch(e2) { photoData = null; }
   }
 
-  var faceDesc = window._empFaceDescriptor || null;
   var body = { name, phone, position, username, salary, workStart, workEnd, branchId, weeklyOff };
-  if (faceDesc && faceDesc.length > 0) body.faceDescriptor = faceDesc;
   if (password)  body.password = password;
   if (photoData) body.photo    = photoData;
 
@@ -1096,83 +1092,11 @@ function previewEmpPhoto(input) {
     var prv = document.getElementById('empPhotoPreview');
     if (img) img.src = _empPhotoBase64;
     if (prv) prv.style.display = 'block';
-    computeFaceDescriptor(_empPhotoBase64);
   };
   reader.readAsDataURL(input.files[0]);
 }
 
-// Face descriptor hisoblash (admin tomonida, ishchi qo'shganda)
-var _faceModelsLoading = false;
-var _faceModelsReady   = false;
 
-async function ensureFaceModels() {
-  if (_faceModelsReady) return true;
-  if (typeof faceapi === 'undefined') {
-    alert('Face-api.js yuklanmadi. Sahifani yangilang.');
-    return false;
-  }
-  if (_faceModelsLoading) {
-    // Kutamiz
-    for (var i = 0; i < 30; i++) {
-      await new Promise(function(r){ setTimeout(r, 300); });
-      if (_faceModelsReady) return true;
-    }
-    return false;
-  }
-  _faceModelsLoading = true;
-  try {
-    var MODELS = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
-    await Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri(MODELS),
-      faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODELS),
-      faceapi.nets.faceRecognitionNet.loadFromUri(MODELS)
-    ]);
-    _faceModelsReady = true;
-    console.log('Face modellari yuklandi');
-    return true;
-  } catch(e) {
-    console.error('Model yuklash xatosi:', e);
-    _faceModelsLoading = false;
-    return false;
-  }
-}
-
-async function computeFaceDescriptor(imageDataUrl) {
-  window._empFaceDescriptor = null;
-
-  // Status korsatish
-  var statusEl = document.getElementById('faceStatus');
-  if (statusEl) { statusEl.textContent = 'Yuz aniqlanmoqda...'; statusEl.style.color = '#f59e0b'; }
-
-  var ready = await ensureFaceModels();
-  if (!ready) {
-    if (statusEl) { statusEl.textContent = 'Model yuklanmadi'; statusEl.style.color = '#ef4444'; }
-    return;
-  }
-
-  try {
-    var img = new Image();
-    img.src = imageDataUrl;
-    await new Promise(function(r, rej){ img.onload = r; img.onerror = rej; });
-
-    var opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.3 });
-    var det  = await faceapi.detectSingleFace(img, opts)
-                            .withFaceLandmarks()
-                            .withFaceDescriptor();
-
-    if (det) {
-      window._empFaceDescriptor = Array.from(det.descriptor);
-      if (statusEl) { statusEl.textContent = 'Yuz aniqlandi (128 nuqta)'; statusEl.style.color = '#22c55e'; }
-      console.log('Descriptor tayyor, uzunlik:', window._empFaceDescriptor.length);
-    } else {
-      if (statusEl) { statusEl.textContent = 'Yuz aniqlanmadi — yaqinroq rasm yuklang'; statusEl.style.color = '#ef4444'; }
-      alert('Rasmda yuz topilmadi. Yuzni aniq korsatadigan rasm tanlang.');
-    }
-  } catch(e) {
-    console.error('computeFaceDescriptor:', e);
-    if (statusEl) { statusEl.textContent = 'Xato: ' + e.message; statusEl.style.color = '#ef4444'; }
-  }
-}
 
 function captureEmpPhoto() {
   // Kamera modali yaratamiz
@@ -1231,8 +1155,6 @@ function snapEmpCam() {
   if (img) img.src = _empPhotoBase64;
   if (prv) prv.style.display = 'block';
 
-  // Face descriptor hisoblaymiz
-  computeFaceDescriptor(_empPhotoBase64);
 }
 
 function formatMins(mins) {
