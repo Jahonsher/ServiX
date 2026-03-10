@@ -585,17 +585,6 @@ app.post("/admin/login", async (req, res) => {
 
 
 
-// VAQTINCHA: reset
-app.post("/admin/reset-super", async (req, res) => {
-  try {
-    const { newPassword, secretKey } = req.body;
-    if (secretKey !== "reset-2024-secret") return res.status(403).json({ error: "Ruxsat yoq" });
-    const hash = await bcrypt.hash(newPassword, 10);
-    const admin = await Admin.findOneAndUpdate({ role: "superadmin" }, { password: hash }, { new: true });
-    if (!admin) return res.status(404).json({ error: "Topilmadi" });
-    res.json({ ok: true, username: admin.username });
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
 
 app.post("/admin/setup", async (req, res) => {
   try {
