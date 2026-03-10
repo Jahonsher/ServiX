@@ -294,23 +294,16 @@ async function startCheckin() {
 }
 
 async function doCheckout() {
+  // Checkout uchun ham selfie olish kerak (Face++ tekshiruvi)
+  capturedPhoto = null;
+  checkoutMode  = true;  // flag: bu checkout uchun
+  await openCam('checkout');
+}
+
+var checkoutMode = false;
+
+async function submitCheckout(photo) {
   var btn = document.querySelector('.checkin-btn');
-
-  // Confirm o'rniga tugmani confirm holatiga o'tkazamiz
-  if (btn && btn.dataset.confirm !== 'yes') {
-    btn.dataset.confirm = 'yes';
-    btn.textContent = 'Tasdiqlash uchun qayta bosing';
-    btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
-    setTimeout(function() {
-      if (btn.dataset.confirm === 'yes') {
-        btn.dataset.confirm = '';
-        btn.textContent = 'KETDI';
-        btn.style.background = '';
-      }
-    }, 3000);
-    return;
-  }
-
   if (btn) { btn.textContent = '⏳ Saqlanmoqda...'; btn.disabled = true; }
 
   var now = new Date();
@@ -321,15 +314,16 @@ async function doCheckout() {
 
   var d = await apiFetch('/employee/checkout', {
     method: 'POST',
-    body: JSON.stringify({ clientTimeMinutes, clientDate })
+    body: JSON.stringify({ photo: photo || '', clientTimeMinutes, clientDate })
   });
+
+  if (btn) { btn.textContent = 'KETDI'; btn.disabled = false; }
 
   if (d.ok) {
     showToast('✅ Ketdi vaqti qayd qilindi!', 'green', 4000);
     setTimeout(renderHome, 1200);
   } else {
     showToast('❌ ' + (d.error || 'Xato yuz berdi'), 'red');
-    if (btn) { btn.textContent = 'KETDI'; btn.disabled = false; btn.dataset.confirm = ''; }
   }
 }
 
@@ -362,9 +356,20 @@ async function takePhoto() {
   var canvas = document.getElementById('canvasEl');
   canvas.width  = video.videoWidth  || 640;
   canvas.height = video.videoHeight || 480;
-  canvas.getContext('2d').drawImage(video, 0, 0);
-  capturedPhoto = canvas.toDataURL('image/jpeg', 0.6);
+  // Mirror effektni bekor qilib saqlaymiz (Face++ uchun to'g'ri rasm kerak)
+  var ctx = canvas.getContext('2d');
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0);
+  capturedPhoto = canvas.toDataURL('image/jpeg', 0.8);
   closeCam();
+
+  // Checkout mode da submitCheckout ga o'tkazamiz
+  if (checkoutMode) {
+    checkoutMode = false;
+    await submitCheckout(capturedPhoto);
+    return;
+  }
 
   // Face verify — qat'iy tekshiruv
   var fvToast = showToast('🔍 Yuz tekshirilmoqda...');

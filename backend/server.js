@@ -1061,14 +1061,26 @@ app.post("/employee/checkin", empMiddleware, async (req, res) => {
 // --- Check-out (ketdi) ---
 app.post("/employee/checkout", empMiddleware, async (req, res) => {
   try {
-    const today = new Date().toISOString().split("T")[0];
+    const { clientTimeMinutes: coTime, clientDate: coDate, photo } = req.body;
+
+    const today = coDate || new Date().toISOString().split("T")[0];
     const emp   = await Employee.findById(req.employee.id);
     const att   = await Attendance.findOne({ employeeId: emp._id, date: today });
 
     if (!att?.checkIn) return res.status(400).json({ error: "Avval check-in qiling" });
     if (att.checkOut)  return res.status(400).json({ error: "Bugun allaqachon ketdi qayd qilingan" });
 
-    const { clientTimeMinutes: coTime, clientDate: coDate } = req.body;
+    // ===== FACE++ CHECKOUT TEKSHIRUVI =====
+    if (photo && emp.photo) {
+      const faceResult = await faceppCompare(emp.photo, photo);
+      if (faceResult.ok && faceResult.confidence < (faceResult.threshold || 73)) {
+        return res.status(400).json({
+          error: "Yuz tasdiqlanmadi! " + Math.round(faceResult.confidence) + "% mos keldi.",
+          faceError: true
+        });
+      }
+    }
+    // =====================================
     const nowMin2    = coTime != null ? coTime : (new Date().getHours() * 60 + new Date().getMinutes());
     const hh2 = String(Math.floor(nowMin2 / 60)).padStart(2, "0");
     const mm2 = String(nowMin2 % 60).padStart(2, "0");
