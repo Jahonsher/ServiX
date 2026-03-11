@@ -687,6 +687,32 @@ function getWorkedMinutes(checkIn) {
 }
 
 // Toast xabarlari
+
+function showBlockedScreen(reason) {
+  var old = document.getElementById('blockedScreen');
+  if (old) old.remove();
+
+  // Barcha sahifalarni yashiramiz
+  ['loginPage','appPage','cameraWrap'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  var el = document.createElement('div');
+  el.id = 'blockedScreen';
+  el.style.cssText = 'position:fixed;inset:0;background:#0a0f1e;display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px';
+  el.innerHTML =
+    '<div style="max-width:360px;width:100%;text-align:center">' +
+      '<div style="font-size:64px;margin-bottom:16px">🔒</div>' +
+      '<div style="font-size:20px;font-weight:700;color:#f1f5f9;margin-bottom:12px">Xizmat to\'xtatilgan</div>' +
+      '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:16px;margin-bottom:24px">' +
+        '<div style="font-size:13px;color:#fca5a5;line-height:1.6">' + (reason || "Restoran vaqtincha bloklangan") + '</div>' +
+      '</div>' +
+      '<div style="font-size:12px;color:#475569">Muammo yechilishi uchun rahbariyat bilan bog\'laning</div>' +
+    '</div>';
+  document.body.appendChild(el);
+}
+
 function showToast(msg, type, duration) {
   // Avvalgi toastlarni tozalaymiz
   document.querySelectorAll('.app-toast').forEach(function(t) { t.remove(); });

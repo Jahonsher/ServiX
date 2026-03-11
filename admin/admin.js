@@ -34,9 +34,14 @@ async function doLogin() {
     });
     var d = await r.json();
     if (!d.ok) {
-      showErr(errEl, "❌ Login yoki parol noto'g'ri");
-      document.getElementById('loginPass').value = '';
-      document.getElementById('loginPass').focus();
+      if (d.blocked || d.error === 'BLOCKED' || d.error === 'SUBSCRIPTION_EXPIRED') {
+        // Bloklangan — chiroyli xabar ko'rsat
+        showBlockedScreen(d.message || "Xizmat vaqtincha to'xtatilgan");
+      } else {
+        showErr(errEl, "❌ Login yoki parol noto'g'ri");
+        document.getElementById('loginPass').value = '';
+        document.getElementById('loginPass').focus();
+      }
       btn.textContent = 'Kirish';
       btn.disabled = false;
       return;
@@ -83,6 +88,11 @@ async function apiFetch(url, opts) {
       body:    opts.body || undefined
     });
     if (r.status === 401) { doLogout(); return { error: 'Sessiya tugadi' }; }
+    if (r.status === 403) {
+      var errData = await r.json();
+      if (errData.blocked) { showBlockedScreen(errData.message || "Xizmat to'xtatilgan"); return errData; }
+      return errData;
+    }
     var data = await r.json();
     return data;
   } catch(e) {
@@ -92,6 +102,31 @@ async function apiFetch(url, opts) {
 }
 
 // ===== START =====
+
+function showBlockedScreen(reason) {
+  // Login page ni yashiramiz
+  document.getElementById('loginPage').style.display = 'none';
+  try { document.getElementById('app').classList.add('hidden'); } catch(e) {}
+
+  // Agar blocked screen allaqachon bo'lsa o'chiramiz
+  var old = document.getElementById('blockedScreen');
+  if (old) old.remove();
+
+  var el = document.createElement('div');
+  el.id = 'blockedScreen';
+  el.style.cssText = 'position:fixed;inset:0;background:#0a0f1e;display:flex;align-items:center;justify-content:center;z-index:9999;padding:24px';
+  el.innerHTML =
+    '<div style="max-width:400px;width:100%;text-align:center">' +
+      '<div style="font-size:64px;margin-bottom:16px">🔒</div>' +
+      '<div style="font-size:22px;font-weight:700;color:#f1f5f9;margin-bottom:12px">Xizmat to\'xtatilgan</div>' +
+      '<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:16px;margin-bottom:24px">' +
+        '<div style="font-size:14px;color:#fca5a5;line-height:1.6">' + (reason || "Restoran vaqtincha bloklangan") + '</div>' +
+      '</div>' +
+      '<div style="font-size:13px;color:#475569">Muammo yechilishi uchun superadmin bilan bog\'laning</div>' +
+    '</div>';
+  document.body.appendChild(el);
+}
+
 function startApp() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('app').classList.remove('hidden');

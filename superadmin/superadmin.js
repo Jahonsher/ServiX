@@ -36,7 +36,7 @@ async function doLogin() {
     var d = await r.json();
 
     if (!d.ok) {
-      showErr(err, '❌ Login yoki parol noto`g`ri');
+      showErr(err, "❌ Login yoki parol noto'g'ri");
       document.getElementById('loginPass').value = '';
       document.getElementById('loginPass').focus();
       btn.textContent = 'Kirish';
@@ -44,7 +44,7 @@ async function doLogin() {
       return;
     }
     if (d.admin.role !== 'superadmin') {
-      showErr(err, '🚫 Sizda superadmin huquqi yo`q');
+      showErr(err, "🚫 Sizda superadmin huquqi yo'q");
       btn.textContent = 'Kirish';
       btn.disabled = false;
       return;
@@ -497,16 +497,36 @@ async function loadRestCards() {
       '</div>' +
 
       (r.phone   ? '<div style="font-size:12px;color:#64748b;margin-bottom:4px">📞 ' + r.phone   + '</div>' : '') +
-      (r.address ? '<div style="font-size:12px;color:#64748b;margin-bottom:12px">📍 ' + r.address + '</div>' : '') +
+      (r.address ? '<div style="font-size:12px;color:#64748b;margin-bottom:8px">📍 ' + r.address + '</div>' : '') +
+
+      // Obuna ma'lumoti
+      (function() {
+        var subHtml = '';
+        if (!isActive && r.blockReason) {
+          subHtml += '<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;color:#f87171">🔒 ' + r.blockReason + '</div>';
+        }
+        if (r.subscriptionEnd) {
+          var subEnd  = new Date(r.subscriptionEnd);
+          var now     = new Date();
+          var daysLeft = Math.ceil((subEnd - now) / 86400000);
+          var subColor = daysLeft > 7 ? '#22c55e' : daysLeft > 0 ? '#f59e0b' : '#ef4444';
+          var subText  = daysLeft > 0 ? daysLeft + ' kun qoldi' : 'Muddati o\'tgan';
+          subHtml += '<div style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.15);border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">' +
+            '<span style="font-size:12px;color:#64748b">📅 Obuna tugaydi</span>' +
+            '<span style="font-size:12px;font-weight:600;color:' + subColor + '">' + subEnd.toLocaleDateString('uz-UZ') + ' (' + subText + ')</span>' +
+          '</div>';
+        }
+        return subHtml;
+      })() +
 
       '<div style="display:flex;gap:8px">' +
         '<button class="edit-btn" style="flex:1;padding:8px;border-radius:8px;background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.3);color:#a78bfa;font-family:Manrope,sans-serif;font-size:12px;font-weight:600;cursor:pointer">✏️ Tahrirlash</button>' +
-        '<button class="tog-btn" style="padding:8px 12px;border-radius:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);color:' + (isActive ? '#f59e0b' : '#10b981') + ';font-size:13px;cursor:pointer">' + (isActive ? '🔒' : '✅') + '</button>' +
+        '<button class="tog-btn" style="padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid;' + (isActive ? 'background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:#ef4444' : 'background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);color:#22c55e') + '">' + (isActive ? '🔒 Bloklash' : '✅ Faollashtirish') + '</button>' +
         '<button class="del-btn" style="padding:8px 12px;border-radius:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#ef4444;font-size:13px;cursor:pointer">🗑</button>' +
       '</div>';
 
     div.querySelector('.edit-btn').addEventListener('click', function() { openRestModal(r); });
-    div.querySelector('.tog-btn').addEventListener('click', function() { toggleRest(r._id, isActive); });
+    div.querySelector('.tog-btn').addEventListener('click', function() { toggleRest(r._id, isActive, r.restaurantName); });
     div.querySelector('.del-btn').addEventListener('click', function() { deleteRest(r._id); });
     el.appendChild(div);
   });
@@ -571,8 +591,104 @@ async function saveRest() {
   loadRestCards();
 }
 
-async function toggleRest(id, isActive) {
-  await api('/superadmin/restaurants/' + id, { method: 'PUT', body: JSON.stringify({ active: !isActive }) });
+async function toggleRest(id, isActive, restName) {
+  if (isActive) {
+    showBlockModal(id, restName);
+  } else {
+    showUnblockModal(id, restName);
+  }
+}
+
+
+
+function closeBlockModal()   { var e=document.getElementById('blockModal');   if(e) e.remove(); }
+function closeUnblockModal() { var e=document.getElementById('unblockModal'); if(e) e.remove(); }
+
+function closeModal(id) {
+  var el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function showBlockModal(id, restName) {
+  var old = document.getElementById('blockModal');
+  if (old) old.remove();
+  var el = document.createElement('div');
+  el.id = 'blockModal';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px';
+  el.innerHTML = [
+    '<div style="background:#141d2e;border:1px solid rgba(239,68,68,0.3);border-radius:16px;padding:24px;max-width:420px;width:100%">',
+    '<div style="font-size:32px;text-align:center;margin-bottom:12px">🔒</div>',
+    '<div style="font-size:16px;font-weight:700;color:#f1f5f9;text-align:center;margin-bottom:6px">Restoranni bloklash</div>',
+    '<div style="font-size:13px;color:#64748b;text-align:center;margin-bottom:20px">' + restName + '</div>',
+    '<div style="margin-bottom:16px">',
+    '<label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:6px">BLOKLASH SABABI</label>',
+    '<textarea id="blockReason" rows="3" placeholder="Masalan: Oylik tolov amalga oshirilmadi..." style="width:100%;background:#1e293b;border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#f1f5f9;padding:10px 12px;font-size:13px;resize:none;box-sizing:border-box;font-family:Manrope,sans-serif"></textarea>',
+    '</div>',
+    '<div style="display:flex;gap:10px">',
+    '<button id="cancelBlockBtn" style="flex:1;padding:10px;border-radius:8px;background:rgba(99,179,237,0.1);border:1px solid rgba(99,179,237,0.2);color:#94a3b8;font-family:Manrope,sans-serif;font-size:13px;font-weight:600;cursor:pointer">Bekor qilish</button>',
+    '<button id="confirmBlockBtn" style="flex:1;padding:10px;border-radius:8px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#ef4444;font-family:Manrope,sans-serif;font-size:13px;font-weight:700;cursor:pointer">🔒 Bloklash</button>',
+    '</div>',
+    '</div>'
+  ].join('');
+  document.body.appendChild(el);
+  document.getElementById('cancelBlockBtn').onclick = function() { el.remove(); };
+  document.getElementById('confirmBlockBtn').onclick = function() { confirmBlock(id, el); };
+  document.getElementById('blockReason').focus();
+}
+
+async function confirmBlock(id, modal) {
+  var reason = document.getElementById('blockReason').value.trim() || "Xizmat vaqtincha to\'xtatilgan";
+  if (modal) modal.remove();
+  await api('/superadmin/restaurants/' + id, {
+    method: 'PUT',
+    body: JSON.stringify({ active: false, blockReason: reason })
+  });
+  loadRestCards();
+}
+
+function showUnblockModal(id, restName) {
+  var old = document.getElementById('unblockModal');
+  if (old) old.remove();
+  var el = document.createElement('div');
+  el.id = 'unblockModal';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px';
+  el.innerHTML = [
+    '<div style="background:#141d2e;border:1px solid rgba(34,197,94,0.3);border-radius:16px;padding:24px;max-width:420px;width:100%">',
+    '<div style="font-size:32px;text-align:center;margin-bottom:12px">✅</div>',
+    '<div style="font-size:16px;font-weight:700;color:#f1f5f9;text-align:center;margin-bottom:6px">Restoranni faollashtirish</div>',
+    '<div style="font-size:13px;color:#64748b;text-align:center;margin-bottom:20px">' + restName + '</div>',
+    '<div style="margin-bottom:16px">',
+    '<label style="font-size:12px;color:#94a3b8;display:block;margin-bottom:6px">OBUNA NECHA KUNGA</label>',
+    '<div style="display:flex;gap:8px;margin-bottom:8px">',
+    '<button id="days30"  style="flex:1;padding:8px;border-radius:8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;font-size:12px;cursor:pointer;font-family:Manrope,sans-serif">30 kun</button>',
+    '<button id="days90"  style="flex:1;padding:8px;border-radius:8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;font-size:12px;cursor:pointer;font-family:Manrope,sans-serif">90 kun</button>',
+    '<button id="days365" style="flex:1;padding:8px;border-radius:8px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;font-size:12px;cursor:pointer;font-family:Manrope,sans-serif">1 yil</button>',
+    '</div>',
+    '<input id="unblockDays" type="number" value="30" min="1" style="width:100%;background:#1e293b;border:1px solid rgba(34,197,94,0.3);border-radius:8px;color:#f1f5f9;padding:10px 12px;font-size:13px;box-sizing:border-box;font-family:Manrope,sans-serif">',
+    '</div>',
+    '<div style="display:flex;gap:10px">',
+    '<button id="cancelUnblockBtn" style="flex:1;padding:10px;border-radius:8px;background:rgba(99,179,237,0.1);border:1px solid rgba(99,179,237,0.2);color:#94a3b8;font-family:Manrope,sans-serif;font-size:13px;font-weight:600;cursor:pointer">Bekor qilish</button>',
+    '<button id="confirmUnblockBtn" style="flex:1;padding:10px;border-radius:8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.4);color:#22c55e;font-family:Manrope,sans-serif;font-size:13px;font-weight:700;cursor:pointer">✅ Faollashtirish</button>',
+    '</div>',
+    '</div>'
+  ].join('');
+  document.body.appendChild(el);
+  document.getElementById('days30').onclick  = function() { document.getElementById('unblockDays').value = 30; };
+  document.getElementById('days90').onclick  = function() { document.getElementById('unblockDays').value = 90; };
+  document.getElementById('days365').onclick = function() { document.getElementById('unblockDays').value = 365; };
+  document.getElementById('cancelUnblockBtn').onclick  = function() { el.remove(); };
+  document.getElementById('confirmUnblockBtn').onclick = function() { confirmUnblock(id, el); };
+}
+
+async function confirmUnblock(id, modal) {
+  var days = parseInt(document.getElementById('unblockDays').value) || 30;
+  var endDate = new Date();
+  endDate.setDate(endDate.getDate() + days);
+  if (modal) modal.remove();
+  await api('/superadmin/restaurants/' + id, {
+    method: 'PUT',
+    body: JSON.stringify({ active: true, blockReason: '', subscriptionEnd: endDate.toISOString() })
+  });
   loadRestCards();
 }
 
