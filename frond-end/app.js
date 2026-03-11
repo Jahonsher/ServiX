@@ -1,7 +1,9 @@
-const API =
-  window.location.hostname === "localhost"
-    ? "http://localhost:5000"
-    : "https://e-comerce-bot-main-production.up.railway.app";
+// Config - index.html da window.__CONFIG__ orqali beriladi
+const _cfg = window.__CONFIG__ || {};
+const API = _cfg.API_URL || (window.location.hostname === "localhost"
+  ? "http://localhost:5000"
+  : "https://e-comerce-bot-main-production.up.railway.app");
+const RESTAURANT_ID = _cfg.RESTAURANT_ID || "imperial";
 
 let products    = [];
 let cart        = [];
@@ -291,7 +293,7 @@ function showNotTelegramWarning() {
 }
 
 // Sahifa ochilganda blok tekshiruvi
-fetch(API + '/check-block/imperial')
+fetch(API + '/check-block/" + RESTAURANT_ID + "')
   .then(function(r){ return r.json(); })
   .then(function(d){ if (d.blocked) showBlockedPage(d.reason); })
   .catch(function(){});
@@ -312,7 +314,7 @@ function renderProfile() {
 
 /* ===== LOAD CATEGORIES — DINAMIK ===== */
 function loadCategories() {
-  fetch(API + "/categories?restaurantId=imperial")
+  fetch(API + "/categories?restaurantId=" + RESTAURANT_ID)
     .then(res => res.json())
     .then(cats => {
       const tabsContainer = document.getElementById("filterTabs");

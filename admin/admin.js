@@ -1,6 +1,8 @@
-var API = window.location.hostname === 'localhost'
+// API URL va Restaurant config - index.html da window.__CONFIG__ orqali beriladi
+var _cfg = window.__CONFIG__ || {};
+var API  = _cfg.API_URL || (window.location.hostname === 'localhost'
   ? 'http://localhost:5000'
-  : 'https://e-comerce-bot-main-production.up.railway.app';
+  : 'https://e-comerce-bot-main-production.up.railway.app');
 
 var token     = localStorage.getItem('adminToken');
 var adminInfo = JSON.parse(localStorage.getItem('adminInfo') || '{}');
