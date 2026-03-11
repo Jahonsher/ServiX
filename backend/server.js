@@ -200,18 +200,19 @@ async function authMiddleware(req, res, next) {
     // Superadmin o'zi har doim o'ta oladi
     if (req.admin.role === "superadmin") return next();
     // Restoran aktiv ekanligini tekshir
-    const admin = await Admin.findById(req.admin.id).select("active subscriptionEnd blockReason");
-    if (!admin || !admin.active) {
-      const reason = admin?.blockReason || "Obuna to'xtatilgan";
+    const admin = await Admin.findById(req.admin.id).select("active subscriptionEnd blockReason role");
+    if (!admin) return res.status(401).json({ error: "Foydalanuvchi topilmadi" });
+    // Superadmin har doim o'ta oladi
+    if (admin.role === "superadmin") return next();
+    if (!admin.active) {
+      const reason = admin.blockReason || "Xizmat vaqtincha to'xtatilgan. Superadmin bilan bog'laning.";
       return res.status(403).json({ error: "BLOCKED", message: reason, blocked: true });
     }
-    // Obuna tugagan bo'lsa
     if (admin.subscriptionEnd && new Date() > new Date(admin.subscriptionEnd)) {
       return res.status(403).json({
-        error: "SUBSCRIPTION_EXPIRED",
-        message: "Obuna muddati tugagan. Iltimos, to'lovni amalga oshiring.",
-        blocked: true,
-        subscriptionEnd: admin.subscriptionEnd
+        error: "BLOCKED",
+        message: "Obuna muddati tugagan. Iltimos xizmatni yangilang.",
+        blocked: true
       });
     }
     next();
@@ -264,10 +265,12 @@ async function send(id, text, extra) {
 
 // ===== HELPER: Bot uchun restoran bloklangan? =====
 async function isBotBlocked(restaurantId) {
-  const admin = await Admin.findOne({ restaurantId }).select("active subscriptionEnd blockReason");
-  if (!admin || !admin.active) return { blocked: true, reason: admin?.blockReason || "Xizmat to'xtatilgan" };
+  // Faqat role:"admin" ni tekshiramiz (superadmin emas)
+  const admin = await Admin.findOne({ restaurantId, role: "admin" }).select("active subscriptionEnd blockReason");
+  if (!admin) return { blocked: false }; // admin topilmasa - blok yo'q
+  if (!admin.active) return { blocked: true, reason: admin.blockReason || "Xizmat vaqtincha to'xtatilgan" };
   if (admin.subscriptionEnd && new Date() > new Date(admin.subscriptionEnd)) {
-    return { blocked: true, reason: "Obuna muddati tugagan" };
+    return { blocked: true, reason: "Obuna muddati tugagan. Iltimos xizmatni yangilang." };
   }
   return { blocked: false };
 }

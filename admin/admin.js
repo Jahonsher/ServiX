@@ -187,7 +187,7 @@ setInterval(function() {
     .then(function(r){ return r.json(); })
     .then(function(d){ if (d.blocked) showBlockedScreen(d.reason); })
     .catch(function(){});
-}, 5 * 60 * 1000);
+}, 60 * 1000); // har 1 daqiqa
 
 document.getElementById('loginBtn').addEventListener('click', doLogin);
 document.getElementById('loginPass').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
