@@ -192,10 +192,30 @@ const attendanceSchema = new mongoose.Schema({
 const Attendance = mongoose.model("Attendance", attendanceSchema);
 
 // ===== MIDDLEWARE =====
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Token kerak" });
-  try { req.admin = jwt.verify(token, JWT_SECRET); next(); }
+  try {
+    req.admin = jwt.verify(token, JWT_SECRET);
+    // Superadmin o'zi har doim o'ta oladi
+    if (req.admin.role === "superadmin") return next();
+    // Restoran aktiv ekanligini tekshir
+    const admin = await Admin.findById(req.admin.id).select("active subscriptionEnd blockReason");
+    if (!admin || !admin.active) {
+      const reason = admin?.blockReason || "Obuna to'xtatilgan";
+      return res.status(403).json({ error: "BLOCKED", message: reason, blocked: true });
+    }
+    // Obuna tugagan bo'lsa
+    if (admin.subscriptionEnd && new Date() > new Date(admin.subscriptionEnd)) {
+      return res.status(403).json({
+        error: "SUBSCRIPTION_EXPIRED",
+        message: "Obuna muddati tugagan. Iltimos, to'lovni amalga oshiring.",
+        blocked: true,
+        subscriptionEnd: admin.subscriptionEnd
+      });
+    }
+    next();
+  }
   catch(e) { res.status(401).json({ error: "Token yaroqsiz" }); }
 }
 
@@ -242,8 +262,23 @@ async function send(id, text, extra) {
   catch(e) { console.error("send:", e.message); }
 }
 
+// ===== HELPER: Bot uchun restoran bloklangan? =====
+async function isBotBlocked(restaurantId) {
+  const admin = await Admin.findOne({ restaurantId }).select("active subscriptionEnd blockReason");
+  if (!admin || !admin.active) return { blocked: true, reason: admin?.blockReason || "Xizmat to'xtatilgan" };
+  if (admin.subscriptionEnd && new Date() > new Date(admin.subscriptionEnd)) {
+    return { blocked: true, reason: "Obuna muddati tugagan" };
+  }
+  return { blocked: false };
+}
+
 bot.onText(/\/start/, async (msg) => {
   try {
+    // Restoran bloklangan mi?
+    const blockCheck = await isBotBlocked("imperial");
+    if (blockCheck.blocked) {
+      return send(msg.chat.id, "🔒 Restoran vaqtincha ishlamayapti.\n\n" + (blockCheck.reason || ""));
+    }
     const u = await User.findOneAndUpdate(
       { telegramId: msg.from.id, restaurantId: "imperial" },
       { telegramId: msg.from.id, restaurantId: "imperial", first_name: msg.from.first_name || "", last_name: msg.from.last_name || "", username: msg.from.username || "" },
@@ -268,6 +303,8 @@ bot.on("contact", async (msg) => {
 
 bot.onText(/Buyurtmalarim/, async (msg) => {
   try {
+    const bc = await isBotBlocked("imperial");
+    if (bc.blocked) return send(msg.chat.id, "🔒 Restoran vaqtincha ishlamayapti.\n\n" + (bc.reason || ""));
     const list = await Order.find({ telegramId: msg.from.id }).sort({ createdAt: -1 }).limit(5);
     if (!list.length) { await send(msg.chat.id, "Buyurtma yoq.", { reply_markup: menu }); return; }
     let t = "Buyurtmalar:\n\n";
@@ -281,12 +318,16 @@ bot.onText(/Buyurtmalarim/, async (msg) => {
 });
 
 bot.onText(/Manzil/, async (msg) => {
-  try { await send(msg.chat.id, "Manzil:\nToshkent, Chilonzor tumani\nNavroz kochasi 15-uy\nMetro: Chilonzor (5 daqiqa)", { reply_markup: menu }); }
+  try {
+    const bc = await isBotBlocked("imperial");
+    if (bc.blocked) return send(msg.chat.id, "🔒 Restoran vaqtincha ishlamayapti.\n\n" + (bc.reason || "")); await send(msg.chat.id, "Manzil:\nToshkent, Chilonzor tumani\nNavroz kochasi 15-uy\nMetro: Chilonzor (5 daqiqa)", { reply_markup: menu }); }
   catch(e) { console.error("manzil:", e.message); }
 });
 
 bot.onText(/Ish vaqti/, async (msg) => {
   try {
+    const bc = await isBotBlocked("imperial");
+    if (bc.blocked) return send(msg.chat.id, "🔒 Restoran vaqtincha ishlamayapti.\n\n" + (bc.reason || ""));
     const h = (new Date().getUTCHours() + 5) % 24;
     await send(msg.chat.id, "Ish vaqti:\nDu-Ju: 10:00-23:00\nSh-Ya: 09:00-00:00\n\n" + (h >= 10 && h < 23 ? "Hozir OCHIQ" : "Hozir YOPIQ"), { reply_markup: menu });
   } catch(e) { console.error("ish vaqti:", e.message); }
@@ -294,6 +335,8 @@ bot.onText(/Ish vaqti/, async (msg) => {
 
 bot.onText(/Boglanish/, async (msg) => {
   try {
+    const bc = await isBotBlocked("imperial");
+    if (bc.blocked) return send(msg.chat.id, "🔒 Restoran vaqtincha ishlamayapti.\n\n" + (bc.reason || ""));
     await send(msg.chat.id, "Boglanish:\n\nTelefon: +998 77 008 34 13\nTelegram: @Jahonsher",
       { reply_markup: { inline_keyboard: [[{ text: "Telegram @Jahonsher", url: "https://t.me/Jahonsher" }]] } });
   } catch(e) { console.error("boglanish:", e.message); }
@@ -307,10 +350,14 @@ async function empMiddleware(req, res, next) {
   if (!token) return res.status(401).json({ error: "Token kerak" });
   try {
     req.employee = jwt.verify(token, JWT_SECRET);
-    // Ishchi hali ham mavjudligini tekshirish
-    const emp = await Employee.findById(req.employee.id).select("active");
+    const emp = await Employee.findById(req.employee.id).select("active restaurantId");
     if (!emp || !emp.active) {
       return res.status(401).json({ error: "Akkaunt o'chirilgan", deleted: true });
+    }
+    // Restoran bloklangan mi?
+    const blockCheck = await isBotBlocked(emp.restaurantId);
+    if (blockCheck.blocked) {
+      return res.status(403).json({ error: "BLOCKED", message: blockCheck.reason, blocked: true });
     }
     next();
   }
@@ -403,6 +450,14 @@ bot.on("message", async (msg) => {
 });
 
 bot.on("callback_query", async (q) => {
+  // Restoran bloklangan mi?
+  try {
+    const blockCheck = await isBotBlocked("imperial");
+    if (blockCheck.blocked) {
+      await bot.answerCallbackQuery(q.id);
+      return send(q.message.chat.id, "🔒 Restoran vaqtincha ishlamayapti.\n\n" + (blockCheck.reason || ""));
+    }
+  } catch(e) {}
   try {
     const parts  = q.data.split("_");
     const action = parts[0];
