@@ -526,8 +526,15 @@ function checkout() {
     headers: { "Content-Type": "application/json" },
     body:    JSON.stringify({ telegramId, items: cart, user: userToSend, orderType, tableNumber })
   })
-  .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
-  .then(() => {
+  .then(res => res.json())
+  .then(data => {
+    if (data.blocked || data.error === "BLOCKED") {
+      // Restoran bloklangan — to'liq ekran
+      showBlockedPage(data.message || "Restoran vaqtincha ishlamayapti");
+      if (btn) { btn.disabled = false; btn.textContent = t("cart.checkout"); }
+      return;
+    }
+    if (!data.success) throw new Error(data.error || "Xato");
     cart = [];
     orderType  = null;
     tableNumber = null;
@@ -548,6 +555,25 @@ function checkout() {
   .finally(() => {
     if (btn) { btn.disabled = false; btn.textContent = t("cart.checkout"); }
   });
+}
+
+
+function showBlockedPage(reason) {
+  var old = document.getElementById('blockedOverlay');
+  if (old) old.remove();
+  var el = document.createElement('div');
+  el.id = 'blockedOverlay';
+  el.style.cssText = 'position:fixed;inset:0;background:#0a0f1e;display:flex;align-items:center;justify-content:center;z-index:99999;padding:24px;text-align:center';
+  el.innerHTML =
+    '<div style="max-width:320px">' +
+    '<div style="font-size:56px;margin-bottom:16px">🔒</div>' +
+    '<div style="font-size:20px;font-weight:700;color:#f8fafc;margin-bottom:12px">Restoran vaqtincha yopiq</div>' +
+    '<div style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:14px;margin-bottom:16px">' +
+    '<div style="font-size:13px;color:#fca5a5;line-height:1.6">' + (reason || "") + '</div>' +
+    '</div>' +
+    '<div style="font-size:12px;color:#475569">Iltimos, keyinroq qayta urinib koring</div>' +
+    '</div>';
+  document.body.appendChild(el);
 }
 
 /* ===== USER ORDERS ===== */

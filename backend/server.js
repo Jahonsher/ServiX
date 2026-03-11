@@ -600,6 +600,12 @@ app.post("/order", async (req, res) => {
   try {
     const { telegramId, items, user, orderType, tableNumber, restaurantId } = req.body;
     if (!telegramId || !items?.length) return res.status(400).json({ error: "malumot yoq" });
+    // Restoran bloklangan mi?
+    const rIdCheck = restaurantId || "imperial";
+    const blockCheck = await isBotBlocked(rIdCheck);
+    if (blockCheck.blocked) {
+      return res.status(403).json({ error: "BLOCKED", message: "🔒 Restoran vaqtincha ishlamayapti. " + (blockCheck.reason || ""), blocked: true });
+    }
     const db = await User.findOne({ telegramId: Number(telegramId) });
     const ui = {
       first_name: db?.first_name || user?.first_name || "",
@@ -630,7 +636,15 @@ app.post("/admin/login", async (req, res) => {
     const { username, password } = req.body;
     const admin = await Admin.findOne({ username });
     if (!admin) return res.status(401).json({ error: "Foydalanuvchi topilmadi" });
-    if (!admin.active) return res.status(403).json({ error: "Akkount bloklangan" });
+    // Superadmin har doim kira oladi
+    if (admin.role !== "superadmin") {
+      if (!admin.active) {
+        return res.status(403).json({ error: "BLOCKED", message: admin.blockReason || "Xizmat vaqtincha to'xtatilgan. Superadmin bilan bog'laning.", blocked: true });
+      }
+      if (admin.subscriptionEnd && new Date() > new Date(admin.subscriptionEnd)) {
+        return res.status(403).json({ error: "BLOCKED", message: "Obuna muddati tugagan. Iltimos, to'lovni amalga oshiring.", blocked: true });
+      }
+    }
     const ok = await bcrypt.compare(password, admin.password);
     if (!ok) return res.status(401).json({ error: "Parol noto'g'ri" });
     const token = jwt.sign({ id: admin._id, username: admin.username, role: admin.role, restaurantName: admin.restaurantName, restaurantId: admin.restaurantId || "imperial" }, JWT_SECRET, { expiresIn: "7d" });
@@ -994,6 +1008,11 @@ app.post("/employee/login", async (req, res) => {
     const emp = await Employee.findOne({ username });
     if (!emp) return res.status(401).json({ error: "Ishchi topilmadi" });
     if (!emp.active) return res.status(401).json({ error: "Akkaunt o'chirilgan. Administratorga murojaat qiling." });
+    // Restoran bloklangan mi?
+    const blockCheck = await isBotBlocked(emp.restaurantId);
+    if (blockCheck.blocked) {
+      return res.status(403).json({ error: "BLOCKED", message: blockCheck.reason, blocked: true });
+    }
     const ok = await bcrypt.compare(password, emp.password);
     if (!ok) return res.status(401).json({ error: "Parol noto'g'ri" });
     const token = jwt.sign(
