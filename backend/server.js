@@ -699,6 +699,22 @@ app.post("/superadmin/block/:restaurantId", superMiddleware, async (req, res) =>
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+
+app.post("/superadmin/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const admin = await Admin.findOne({ username, role: "superadmin" });
+    if (!admin) return res.status(401).json({ error: "Superadmin topilmadi" });
+    const ok = await bcrypt.compare(password, admin.password);
+    if (!ok) return res.status(401).json({ error: "Parol noto'g'ri" });
+    const token = jwt.sign(
+      { id: admin._id, username: admin.username, role: admin.role, restaurantName: admin.restaurantName, restaurantId: admin.restaurantId || "imperial" },
+      JWT_SECRET, { expiresIn: "7d" }
+    );
+    res.json({ ok: true, token, admin: { username: admin.username, restaurantName: admin.restaurantName, role: admin.role, restaurantId: admin.restaurantId } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post("/admin/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -1599,7 +1615,7 @@ app.listen(PORT, async () => {
   }
   // Imperial ham (superadmin uchun)
   await ensureRestaurant("imperial", "Imperial Restoran");
-  console.log("✅ Restaurants synced:", allAdmins.length + 1);
+  console.log("✅ Restaurants synced:", allAdmins.length);
 
   // ===== SUPERADMIN AVTOMATIK YARATISH / PAROL YANGILASH =====
   try {

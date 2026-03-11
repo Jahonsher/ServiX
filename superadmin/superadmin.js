@@ -28,7 +28,7 @@ async function doLogin() {
   btn.disabled = true;
 
   try {
-    var r = await fetch(API + '/admin/login', {
+    var r = await fetch(API + '/superadmin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: u, password: p })
