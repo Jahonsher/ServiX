@@ -644,7 +644,15 @@ app.post("/order", async (req, res) => {
 // ===== BLOK TEKSHIRUVI (public) =====
 
 // ===== RESTAURANTS SYNC (bir marta ishlatish uchun) =====
-app.post("/superadmin/sync-restaurants", superMiddleware, async (req, res) => {
+app.post("/superadmin/sync-restaurants", async (req, res) => {
+  // Secret key yoki superadmin token bilan
+  const key = req.headers["x-secret"] || req.body.secret;
+  const token = req.headers.authorization?.split(" ")[1];
+  let allowed = key === "sync-imperial-2024";
+  if (!allowed && token) {
+    try { const d = jwt.verify(token, JWT_SECRET); if (d.role === "superadmin") allowed = true; } catch(e) {}
+  }
+  if (!allowed) return res.status(403).json({ error: "Ruxsat yo'q" });
   try {
     const allAdmins = await Admin.find({ role: { $ne: "superadmin" } }).select("restaurantId restaurantName");
     const created = [];
