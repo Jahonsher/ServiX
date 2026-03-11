@@ -161,17 +161,24 @@ function _startApp() {
   showPage('dashboard');
 }
 
-// Token bilan kirsa ham blok tekshiruvi
+// Token bilan sahifa ochilsa - AVVAL blok tekshiruvi
 if (token) {
+  // Superadmin hech qachon bloklanmaydi
   if (adminInfo && adminInfo.role === 'superadmin') {
     startApp();
   } else {
+    // Role yo'q bo'lsa yoki restaurantId yo'q bo'lsa - har doim check qilamiz
     var rId0 = (adminInfo && adminInfo.restaurantId) ? adminInfo.restaurantId : 'imperial';
     fetch(API + '/check-block/' + rId0)
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if (d.blocked) { showBlockedScreen(d.reason); }
-        else { startApp(); }
+        if (d.blocked) {
+          // App ni ko'rsatmaymiz - faqat bloklangan ekran
+          document.getElementById('loginPage').style.display = 'none';
+          showBlockedScreen(d.reason);
+        } else {
+          startApp();
+        }
       })
       .catch(function(){ startApp(); });
   }
