@@ -550,6 +550,19 @@ app.get("/user/:id", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// ✅ Foydalanuvchi buyurtmalari tarixi (webapp uchun)
+app.get("/orders/user/:telegramId", async (req, res) => {
+  try {
+    const { restaurantId } = req.query;
+    if (!restaurantId) return res.status(400).json({ error: "restaurantId kerak" });
+    const orders = await Order.find({
+      telegramId: Number(req.params.telegramId),
+      restaurantId
+    }).sort({ createdAt: -1 }).limit(20);
+    res.json(orders);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post("/order", async (req, res) => {
   try {
     const { telegramId, items, user, orderType, tableNumber, restaurantId } = req.body;

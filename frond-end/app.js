@@ -191,8 +191,6 @@ function setLang(lang) {
   currentLang = lang;
   localStorage.setItem("lang", lang);
   applyTranslations();
-
-  // Filter tugmalar nomini yangilash
   document.querySelectorAll(".tab-btn[data-cat]").forEach(btn => {
     const cat = btn.dataset.cat;
     if (cat === "all") {
@@ -202,7 +200,6 @@ function setLang(lang) {
       btn.textContent = (lang === "ru" && nameRu) ? nameRu : cat;
     }
   });
-
   const activeTab = document.querySelector(".tab-btn.active");
   const activeCat = activeTab?.dataset?.cat || "all";
   const filtered  = activeCat === "all" ? products : products.filter(p => p.category === activeCat);
@@ -234,53 +231,49 @@ function initTelegramUser() {
     showNotTelegramWarning();
     return;
   }
-
   const tg = window.Telegram.WebApp;
   tg.expand();
   tg.setHeaderColor("#0d0a07");
   tg.setBackgroundColor("#0d0a07");
 
   let tgUser = tg.initDataUnsafe?.user;
-
   if (!tgUser && tg.initData) {
     try {
       const params  = new URLSearchParams(tg.initData);
       const userStr = params.get("user");
       if (userStr) tgUser = JSON.parse(decodeURIComponent(userStr));
-    } catch(e) {
-      console.warn("initData parse xato:", e);
-    }
+    } catch(e) { console.warn("initData parse xato:", e); }
   }
 
   if (tgUser && tgUser.id) {
     telegramId = tgUser.id;
     userData   = tgUser;
-
     if (!localStorage.getItem("lang")) {
       const tgLang = tgUser.language_code || "uz";
       currentLang = tgLang === "ru" ? "ru" : "uz";
       localStorage.setItem("lang", currentLang);
     }
-
+    // Auth + user ma'lumotlarini yuklash
     fetch(API + "/auth", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({
-        id:         tgUser.id,
-        first_name: tgUser.first_name || "",
-        last_name:  tgUser.last_name  || "",
-        username:   tgUser.username   || ""
+        id:           tgUser.id,
+        first_name:   tgUser.first_name || "",
+        last_name:    tgUser.last_name  || "",
+        username:     tgUser.username   || "",
+        restaurantId: RESTAURANT_ID   // ✅ restaurantId qo'shildi
       })
     })
     .then(r => r.json())
-    .then(() => fetch(API + "/user/" + telegramId).then(r => r.json()))
+    .then(() => fetch(API + "/user/" + telegramId + "?restaurantId=" + RESTAURANT_ID))
+    .then(r => r.json())
     .then(fullUser => {
       userProfile = fullUser;
       userData    = { ...userData, phone: fullUser.phone || "" };
       renderProfile();
     })
     .catch(err => console.error("AUTH ERROR:", err));
-
   } else {
     showNotTelegramWarning();
   }
@@ -293,7 +286,7 @@ function showNotTelegramWarning() {
 }
 
 // Sahifa ochilganda blok tekshiruvi
-fetch(API + '/check-block/" + RESTAURANT_ID + "')
+fetch(API + "/check-block/" + RESTAURANT_ID)
   .then(function(r){ return r.json(); })
   .then(function(d){ if (d.blocked) showBlockedPage(d.reason); })
   .catch(function(){});
@@ -312,41 +305,35 @@ function renderProfile() {
   if (phoneEl) phoneEl.textContent = u.phone    ? `📱 ${u.phone}`  : t("user.nophone");
 }
 
-/* ===== LOAD CATEGORIES — DINAMIK ===== */
+/* ===== LOAD CATEGORIES ===== */
 function loadCategories() {
   fetch(API + "/categories?restaurantId=" + RESTAURANT_ID)
     .then(res => res.json())
     .then(cats => {
       const tabsContainer = document.getElementById("filterTabs");
       if (!tabsContainer) return;
-
-      // "Barchasi" tugmasi (doim birinchi)
       let html = '<button class="tab-btn active" data-cat="all" onclick="filterCategory(\'all\',this)">' + t("tab.all") + '</button>';
-
-      // Har bir kategoriya uchun tugma
       cats.forEach(cat => {
         const name    = cat.name || cat;
         const nameRu  = cat.name_ru || name;
         const display = (currentLang === 'ru' && nameRu) ? nameRu : name;
         html += '<button class="tab-btn" data-cat="' + name + '" data-name-ru="' + nameRu + '" onclick="filterCategory(\'' + name + '\',this)">' + display + '</button>';
       });
-
       tabsContainer.innerHTML = html;
     })
     .catch(err => {
       console.error("Kategoriyalar yuklanmadi:", err);
-      // Xato bo'lsa standart ko'rinishi qolsin
       const tabsContainer = document.getElementById("filterTabs");
       if (tabsContainer) {
-        tabsContainer.innerHTML =
-          '<button class="tab-btn active" data-cat="all" onclick="filterCategory(\'all\',this)">' + t("tab.all") + '</button>';
+        tabsContainer.innerHTML = '<button class="tab-btn active" data-cat="all" onclick="filterCategory(\'all\',this)">' + t("tab.all") + '</button>';
       }
     });
 }
 
 /* ===== LOAD PRODUCTS ===== */
+// ✅ FIX 1: restaurantId qo'shildi
 function loadProducts() {
-  fetch(API + "/products")
+  fetch(API + "/products?restaurantId=" + RESTAURANT_ID)
     .then(res => { if (!res.ok) throw new Error(res.status); return res.json(); })
     .then(data => {
       products = data;
@@ -363,12 +350,10 @@ function loadProducts() {
 function renderProducts(list) {
   const container = document.getElementById("products");
   container.innerHTML = "";
-
   if (!list || !list.length) {
     container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">🍽</div><p>' + t("product.notfound") + '</p></div>';
     return;
   }
-
   list.forEach((p, i) => {
     const card = document.createElement("div");
     card.className = "product-card";
@@ -385,7 +370,6 @@ function renderProducts(list) {
       '</div>';
     container.appendChild(card);
   });
-
   updateProductButtons();
 }
 
@@ -435,21 +419,16 @@ function updateProductButtons() {
 function updateCart() {
   const container = document.getElementById("cartItems");
   if (!container) return;
-
   const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const count = cart.reduce((s, i) => s + i.quantity, 0);
-
   const badge = document.getElementById("cartCount");
   if (badge) badge.textContent = count;
-
   const totalEl = document.getElementById("cartTotal");
   if (totalEl) totalEl.textContent = Number(total).toLocaleString();
-
   if (!cart.length) {
     container.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><p>' + t("cart.empty") + '</p></div>';
     return;
   }
-
   container.innerHTML = cart.map(item => {
     const name = (currentLang === "ru" && item.name_ru) ? item.name_ru : item.name;
     return '<div class="cart-item">' +
@@ -508,7 +487,6 @@ function checkout() {
   if (!cart.length) { alert(t("alert.emptycart")); return; }
   if (!telegramId)  { alert(t("alert.notelegram")); return; }
   if (!orderType)   { alert(t("alert.selecttype")); return; }
-
   if (orderType === "dine_in") {
     const tableVal = document.getElementById("tableInput")?.value?.trim();
     if (!tableVal) {
@@ -518,26 +496,29 @@ function checkout() {
     }
     tableNumber = tableVal;
   }
-
   const btn = document.getElementById("checkoutBtn");
   if (btn) { btn.disabled = true; btn.textContent = t("cart.sending"); }
-
   const userToSend = {
     first_name: userProfile?.first_name || userData?.first_name || "",
     last_name:  userProfile?.last_name  || userData?.last_name  || "",
     username:   userProfile?.username   || userData?.username   || "",
     phone:      userProfile?.phone      || userData?.phone      || ""
   };
-
   fetch(API + "/order", {
     method:  "POST",
     headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify({ telegramId, items: cart, user: userToSend, orderType, tableNumber })
+    body:    JSON.stringify({
+      telegramId,
+      items: cart,
+      user: userToSend,
+      orderType,
+      tableNumber,
+      restaurantId: RESTAURANT_ID  // ✅ restaurantId qo'shildi
+    })
   })
   .then(res => res.json())
   .then(data => {
     if (data.blocked || data.error === "BLOCKED") {
-      // Restoran bloklangan — to'liq ekran
       showBlockedPage(data.message || "Restoran vaqtincha ishlamayapti");
       if (btn) { btn.disabled = false; btn.textContent = t("cart.checkout"); }
       return;
@@ -565,7 +546,6 @@ function checkout() {
   });
 }
 
-
 function showBlockedPage(reason) {
   var old = document.getElementById('blockedOverlay');
   if (old) old.remove();
@@ -585,12 +565,15 @@ function showBlockedPage(reason) {
 }
 
 /* ===== USER ORDERS ===== */
+// ✅ FIX 2: endpoint to'g'irlandi — server.js ga mos
 function loadUserOrders() {
   if (!telegramId) return;
-  fetch(API + "/user/" + telegramId + "/orders")
+  const c = document.getElementById("userOrders");
+  if (c) c.innerHTML = '<div class="empty-state"><div class="icon">⏳</div><p>' + t("user.loading") + '</p></div>';
+
+  fetch(API + "/orders/user/" + telegramId + "?restaurantId=" + RESTAURANT_ID)
     .then(r => r.json())
     .then(data => {
-      const c = document.getElementById("userOrders");
       if (!c) return;
       if (!data || !data.length) {
         c.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>' + t("user.noorders") + '</p></div>';
@@ -610,7 +593,10 @@ function loadUserOrders() {
         '</div>';
       }).join("");
     })
-    .catch(err => console.error("USER ORDERS ERROR:", err));
+    .catch(err => {
+      console.error("USER ORDERS ERROR:", err);
+      if (c) c.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>' + t("user.noorders") + '</p></div>';
+    });
 }
 
 function scrollToMenu() {
@@ -624,6 +610,5 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// Kategoriyalar va mahsulotlarni yuklash
 loadCategories();
 loadProducts();
