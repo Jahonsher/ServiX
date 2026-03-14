@@ -21,6 +21,13 @@ const JWT_SECRET = process.env.JWT_SECRET || "saas_secret_2026";
 const FACEPP_KEY    = process.env.FACEPP_API_KEY    || "ZCsxfywtcxMPhjeQ5Um1ErEjL-SSm2qz";
 const FACEPP_SECRET = process.env.FACEPP_API_SECRET || "ZoMXrDV_OxFs6OiW380vd4oN4bbbQcM5";
 
+// .env dan default restoran uchun
+const DEFAULT_BOT_TOKEN = process.env.BOT_TOKEN || "";
+const DEFAULT_CHEF_ID   = Number(process.env.CHEF_ID) || 0;
+const DEFAULT_WEBAPP_URL = process.env.WEBAPP_URL || "";
+const DEFAULT_RESTAURANT_ID = process.env.RESTAURANT_ID || "imperial";
+const DEFAULT_RESTAURANT_NAME = process.env.RESTAURANT_NAME || "Imperial Restoran";
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "20mb" }));
@@ -29,7 +36,6 @@ app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 // ===================================================
 // ===== MULTI-BOT MANAGER ===========================
 // ===================================================
-// { restaurantId: TelegramBot instance }
 const bots = {};
 
 async function startBot(restaurantId, token, webappUrl, chefId) {
@@ -45,7 +51,9 @@ async function startBot(restaurantId, token, webappUrl, chefId) {
     if (DOMAIN) {
       const wh = "/wh/" + restaurantId + "/" + token;
       await bot.setWebHook("https://" + DOMAIN + wh);
-      console.log("✅ Bot webhook set:", restaurantId);
+      console.log("✅ Bot webhook set:", "https://" + DOMAIN + wh);
+    } else {
+      console.warn("⚠️ DOMAIN yo'q - webhook o'rnatilmadi. Bot polling mode da ishlamaydi.");
     }
     console.log("✅ Bot started:", restaurantId);
   } catch(e) {
@@ -103,7 +111,6 @@ async function faceppCompare(photo1, photo2) {
 // ===================================================
 // ===== MONGODB CONNECT =============================
 // ===================================================
-// MongoDB connect - server start bo'lishidan oldin kutamiz
 async function connectDB() {
   await mongoose.connect(MONGO_URI);
   console.log("MongoDB ulandi");
@@ -148,7 +155,6 @@ const Category = mongoose.model("Category", new mongoose.Schema({
   restaurantId: { type: String, required: true }
 }, { timestamps: true }));
 
-// Restaurant model - bloklash uchun
 const restaurantSchema = new mongoose.Schema({
   restaurantId: { type: String, required: true, unique: true },
   name:         String,
@@ -157,7 +163,6 @@ const restaurantSchema = new mongoose.Schema({
 }, { timestamps: true });
 const Restaurant = mongoose.model("Restaurant", restaurantSchema);
 
-// Admin model
 const adminSchema = new mongoose.Schema({
   username:       { type: String, unique: true },
   password:       String,
@@ -168,14 +173,13 @@ const adminSchema = new mongoose.Schema({
   phone:          String,
   address:        String,
   webappUrl:      String,
-  role:           { type: String, default: "admin" }, // admin | superadmin
+  role:           { type: String, default: "admin" },
   active:         { type: Boolean, default: true },
   blockReason:    { type: String, default: "" },
   subscriptionEnd: Date
 }, { timestamps: true });
 const Admin = mongoose.model("Admin", adminSchema);
 
-// Branch model
 const Branch = mongoose.model("Branch", new mongoose.Schema({
   name:         { type: String, required: true },
   restaurantId: { type: String, required: true },
@@ -186,7 +190,6 @@ const Branch = mongoose.model("Branch", new mongoose.Schema({
   active:       { type: Boolean, default: true }
 }, { timestamps: true }));
 
-// Employee model
 const employeeSchema = new mongoose.Schema({
   name:           { type: String, required: true },
   phone:          String,
@@ -206,7 +209,6 @@ const employeeSchema = new mongoose.Schema({
 }, { timestamps: true });
 const Employee = mongoose.model("Employee", employeeSchema);
 
-// Attendance model
 const Attendance = mongoose.model("Attendance", new mongoose.Schema({
   employeeId:      { type: mongoose.Schema.Types.ObjectId, ref: "Employee", required: true },
   restaurantId:    { type: String, required: true },
@@ -271,7 +273,6 @@ async function authMiddleware(req, res, next) {
   try {
     req.admin = jwt.verify(token, JWT_SECRET);
     if (req.admin.role === "superadmin") return next();
-    // Blok tekshiruvi
     const restBlock = await isBotBlocked(req.admin.restaurantId);
     if (restBlock.blocked) {
       return res.status(403).json({ error: "BLOCKED", message: restBlock.reason, blocked: true });
@@ -393,7 +394,6 @@ function registerBotHandlers(bot, restaurantId, webappUrl, chefId) {
     } catch(e) {}
   });
 
-  // Broadcast
   bot.onText(/\/broadcast/, async (msg) => {
     if (msg.chat.id !== chefId) return send(msg.chat.id, "⛔ Faqat admin uchun.");
     broadcastSessions[msg.chat.id] = { step: "text", restaurantId };
@@ -498,9 +498,8 @@ function registerBotHandlers(bot, restaurantId, webappUrl, chefId) {
 // ===================================================
 // ===== PUBLIC ENDPOINTS ============================
 // ===================================================
-app.get("/", (req, res) => res.send("OK"));
+app.get("/", (req, res) => res.json({ status: "OK", bots: Object.keys(bots) }));
 
-// Webhook endpoint (har restoran uchun alohida)
 app.post("/wh/:restaurantId/:token", (req, res) => {
   const { restaurantId } = req.params;
   if (bots[restaurantId]) {
@@ -509,13 +508,11 @@ app.post("/wh/:restaurantId/:token", (req, res) => {
   res.sendStatus(200);
 });
 
-// Blok tekshiruvi (public)
 app.get("/check-block/:restaurantId", async (req, res) => {
   try { res.json(await isBotBlocked(req.params.restaurantId)); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Mahsulotlar
 app.get("/products", async (req, res) => {
   try {
     const rId = req.query.restaurantId;
@@ -525,7 +522,6 @@ app.get("/products", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Kategoriyalar
 app.get("/categories", async (req, res) => {
   try {
     const rId = req.query.restaurantId;
@@ -534,7 +530,6 @@ app.get("/categories", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Auth (webapp)
 app.post("/auth", async (req, res) => {
   try {
     const { id, first_name, last_name, username, restaurantId } = req.body;
@@ -555,7 +550,6 @@ app.get("/user/:id", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Buyurtma berish
 app.post("/order", async (req, res) => {
   try {
     const { telegramId, items, user, orderType, tableNumber, restaurantId } = req.body;
@@ -573,7 +567,7 @@ app.post("/order", async (req, res) => {
     const phone = ui.phone ? "\nTel: " + ui.phone : "";
     const table = orderType === "dine_in" ? "Stol: " + tableNumber : "Online";
     const adminInfo = await Admin.findOne({ restaurantId, role: "admin" });
-    const targetChef = adminInfo?.chefId;
+    const targetChef = adminInfo?.chefId || (restaurantId === DEFAULT_RESTAURANT_ID ? DEFAULT_CHEF_ID : null);
     let m = "🆕 Yangi buyurtma!\n\n" + table + "\nMijoz: " + name + uname + phone + "\n\nMahsulotlar:\n";
     items.forEach(i => { m += "- " + i.name + " x" + i.quantity + " | " + Number(i.price).toLocaleString() + " som\n"; });
     m += "\nJami: " + total.toLocaleString() + " som";
@@ -656,7 +650,6 @@ app.post("/superadmin/restaurants", superMiddleware, async (req, res) => {
       { name: "Taom",     name_ru: "Еда",     emoji: "🍽", order: 1, restaurantId },
       { name: "Ichimlik", name_ru: "Напитки", emoji: "🥤", order: 2, restaurantId }
     ]);
-    // Botni ishga tushiramiz
     if (botToken) await startBot(restaurantId, botToken, webappUrl, Number(chefId));
     res.json({ ok: true, admin: { username: admin.username, restaurantName: admin.restaurantName, restaurantId: admin.restaurantId } });
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -671,14 +664,12 @@ app.put("/superadmin/restaurants/:id", superMiddleware, async (req, res) => {
     if (blockReason !== undefined) update.blockReason = blockReason;
     const admin = await Admin.findByIdAndUpdate(req.params.id, update, { new: true }).select("-password");
     if (!admin) return res.status(404).json({ error: "Topilmadi" });
-    // Restaurant kolleksiyasini yangilaymiz
     const isBlocked = active === false;
     await Restaurant.findOneAndUpdate(
       { restaurantId: admin.restaurantId },
       { blocked: isBlocked, blockReason: isBlocked ? (blockReason || "Xizmat to'xtatilgan") : "" },
       { upsert: true }
     );
-    // Bot tokenini yangilash
     if (rest.botToken) {
       await startBot(admin.restaurantId, rest.botToken, admin.webappUrl, admin.chefId);
     }
@@ -719,12 +710,9 @@ app.get("/superadmin/stats", superMiddleware, async (req, res) => {
 // ===================================================
 // ===== ADMIN ENDPOINTS =============================
 // ===================================================
-
-// Products
 app.get("/admin/products", authMiddleware, async (req, res) => {
   try {
-    const rId = req.admin.restaurantId;
-    res.json(await Product.find({ restaurantId: rId }).sort({ id: 1 }));
+    res.json(await Product.find({ restaurantId: req.admin.restaurantId }).sort({ id: 1 }));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -751,7 +739,6 @@ app.delete("/admin/products/:id", authMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Categories
 app.get("/admin/categories", authMiddleware, async (req, res) => {
   try {
     res.json(await Category.find({ restaurantId: req.admin.restaurantId }).sort({ order: 1 }));
@@ -786,7 +773,6 @@ app.put("/admin/categories/reorder/save", authMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Orders
 app.get("/admin/orders", authMiddleware, async (req, res) => {
   try {
     const { status, type, limit = 50, skip = 0 } = req.query;
@@ -805,7 +791,6 @@ app.put("/admin/orders/:id/status", authMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Stats
 app.get("/admin/stats", authMiddleware, async (req, res) => {
   try {
     const rId  = req.admin.restaurantId;
@@ -838,13 +823,11 @@ app.get("/admin/stats", authMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Users
 app.get("/admin/users", authMiddleware, async (req, res) => {
   try { res.json(await User.find({ restaurantId: req.admin.restaurantId }).sort({ createdAt: -1 }).limit(100)); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// Broadcast
 app.post("/admin/broadcast", authMiddleware, async (req, res) => {
   try {
     const rId = req.admin.restaurantId;
@@ -871,9 +854,6 @@ app.post("/admin/broadcast", authMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ===================================================
-// ===== BRANCHES ====================================
-// ===================================================
 app.get("/admin/branches", authMiddleware, async (req, res) => {
   try { res.json({ ok: true, branches: await Branch.find({ restaurantId: req.admin.restaurantId, active: true }).sort({ name: 1 }) }); }
   catch(e) { res.status(500).json({ error: e.message }); }
@@ -898,9 +878,6 @@ app.delete("/admin/branches/:id", authMiddleware, async (req, res) => {
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ===================================================
-// ===== EMPLOYEES ===================================
-// ===================================================
 app.get("/admin/employees", authMiddleware, async (req, res) => {
   try { res.json(await Employee.find({ restaurantId: req.admin.restaurantId }).select("-password").sort({ name: 1 })); }
   catch(e) { res.status(500).json({ error: e.message }); }
@@ -951,9 +928,6 @@ app.put("/admin/employees/:id/face", authMiddleware, async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-// ===================================================
-// ===== ATTENDANCE ==================================
-// ===================================================
 app.get("/admin/attendance/today", authMiddleware, async (req, res) => {
   try {
     const rId = req.admin.restaurantId;
@@ -1082,14 +1056,12 @@ app.post("/employee/checkin", empMiddleware, async (req, res) => {
     const { lat, lng, photo, clientTimeMinutes, clientDate } = req.body;
     const today = clientDate || new Date().toISOString().split("T")[0];
     const emp   = await Employee.findById(req.employee.id).populate("branchId");
-    // Face++ tekshiruv
     if (photo && emp.photo) {
       const fr = await faceppCompare(emp.photo, photo);
       if (fr.ok && fr.confidence < (fr.threshold||73)) {
         return res.status(400).json({ error: "Yuz tasdiqlanmadi! O'xshashlik: " + Math.round(fr.confidence) + "% (kerak: " + Math.round(fr.threshold||73) + "%+)", confidence: fr.confidence, faceError: true });
       }
     }
-    // Geofencing
     const branch = emp.branchId;
     if (branch?.lat && branch?.lng && lat && lng) {
       const dist = getDistance(lat, lng, branch.lat, branch.lng);
@@ -1155,53 +1127,105 @@ app.get("/employee/stats", empMiddleware, async (req, res) => {
 // ===================================================
 // ===== SERVER START ================================
 // ===================================================
+process.on("SIGTERM", () => console.log("SIGTERM - server ishlashda davom etadi"));
+process.on("SIGINT",  () => process.exit(0));
 process.on("uncaughtException",  e => console.error("uncaught:", e.message));
 process.on("unhandledRejection", e => console.error("unhandled:", e));
 
 async function main() {
   try {
-    // 1. Avval MongoDB ga ulanamiz
+    // 1. MongoDB ga ulanamiz
     await connectDB();
 
-    // 2. Keyin serverni ishga tushiramiz
+    // 2. Serverni ishga tushiramiz
     app.listen(PORT, () => {
       console.log("✅ Server " + PORT + " portda ishga tushdi");
     });
 
-    // 3. Barcha admin restoranlarni botlarini ishga tushiramiz
+    // 3. Superadmin yaratish/yangilash
     try {
-      const allAdmins = await Admin.find({ role: "admin" }).select("restaurantId restaurantName botToken chefId webappUrl");
-      for (const a of allAdmins) {
-        await ensureRestaurant(a.restaurantId, a.restaurantName);
-        if (a.botToken) await startBot(a.restaurantId, a.botToken, a.webappUrl, a.chefId);
-      }
-      console.log("✅ Restoranlar sinxronlandi:", allAdmins.length);
-    } catch(e) { console.error("Restoran sync xato:", e.message); }
-
-    // 4. Superadmin avtomatik yaratish / parol yangilash
-    try {
-      const superUser = process.env.SUPER_USERNAME || "Jahonsher";
-      const superPass = process.env.SUPER_PASSWORD || "Jahonsher3";
+      const superUser = (process.env.SUPER_USERNAME || "Jahonsher").trim();
+      const superPass = (process.env.SUPER_PASSWORD || "Jahonsher3").trim();
       const hash      = await bcrypt.hash(superPass, 10);
       const existing  = await Admin.findOne({ role: "superadmin" });
       if (!existing) {
         await Admin.create({ username: superUser, password: hash, restaurantName: "SuperAdmin", restaurantId: "superadmin", role: "superadmin", active: true });
         console.log("✅ Superadmin yaratildi:", superUser);
       } else {
-        await Admin.findByIdAndUpdate(existing._id, { password: hash, username: superUser, active: true, restaurantId: "superadmin", botToken: "", chefId: 0, webappUrl: "" });
+        await Admin.findByIdAndUpdate(existing._id, { password: hash, username: superUser, active: true });
         console.log("✅ Superadmin yangilandi:", superUser);
       }
-    } catch(e) { console.error("Superadmin setup xato:", e.message); }
+    } catch(e) { console.error("Superadmin xato:", e.message); }
 
-    // 5. Domain
+    // 4. .env dan DEFAULT restoran/bot ni ishga tushiramiz
+    // Bu eng muhim qism — DB da admin bo'lmasa ham bot ishlaydi!
+    if (DEFAULT_BOT_TOKEN) {
+      try {
+        await ensureRestaurant(DEFAULT_RESTAURANT_ID, DEFAULT_RESTAURANT_NAME);
+
+        // Admin panel uchun default admin ham yaratamiz (agar yo'q bo'lsa)
+        const defAdmin = await Admin.findOne({ restaurantId: DEFAULT_RESTAURANT_ID, role: "admin" });
+        if (!defAdmin) {
+          const defPass = await bcrypt.hash("admin123", 10);
+          await Admin.create({
+            username: "imperial_admin",
+            password: defPass,
+            restaurantName: DEFAULT_RESTAURANT_NAME,
+            restaurantId: DEFAULT_RESTAURANT_ID,
+            botToken: DEFAULT_BOT_TOKEN,
+            chefId: DEFAULT_CHEF_ID,
+            webappUrl: DEFAULT_WEBAPP_URL,
+            role: "admin",
+            active: true
+          });
+          console.log("✅ Default admin yaratildi: imperial_admin / admin123");
+        } else {
+          // Bot token va chefId ni yangilaymiz
+          await Admin.findByIdAndUpdate(defAdmin._id, {
+            botToken: DEFAULT_BOT_TOKEN,
+            chefId: DEFAULT_CHEF_ID,
+            webappUrl: DEFAULT_WEBAPP_URL
+          });
+        }
+
+        // Kategoriyalar yo'q bo'lsa yaratamiz
+        const catCount = await Category.countDocuments({ restaurantId: DEFAULT_RESTAURANT_ID });
+        if (catCount === 0) {
+          await Category.insertMany([
+            { name: "Taom",     name_ru: "Еда",     emoji: "🍽", order: 1, restaurantId: DEFAULT_RESTAURANT_ID },
+            { name: "Ichimlik", name_ru: "Напитки", emoji: "🥤", order: 2, restaurantId: DEFAULT_RESTAURANT_ID }
+          ]);
+          console.log("✅ Default kategoriyalar yaratildi");
+        }
+
+        // Botni ishga tushiramiz
+        await startBot(DEFAULT_RESTAURANT_ID, DEFAULT_BOT_TOKEN, DEFAULT_WEBAPP_URL, DEFAULT_CHEF_ID);
+        console.log("✅ Default bot ishga tushdi:", DEFAULT_RESTAURANT_ID);
+      } catch(e) {
+        console.error("Default bot xato:", e.message);
+      }
+    }
+
+    // 5. DB dagi boshqa restoranlar botlarini ishga tushiramiz
+    try {
+      const allAdmins = await Admin.find({ role: "admin", active: true }).select("restaurantId restaurantName botToken chefId webappUrl");
+      for (const a of allAdmins) {
+        if (a.restaurantId === DEFAULT_RESTAURANT_ID) continue; // allaqachon ishga tushirildi
+        await ensureRestaurant(a.restaurantId, a.restaurantName);
+        if (a.botToken) await startBot(a.restaurantId, a.botToken, a.webappUrl, a.chefId);
+      }
+      console.log("✅ Restoranlar sinxronlandi:", allAdmins.length);
+    } catch(e) { console.error("Restoran sync xato:", e.message); }
+
+    // 6. Domain
     if (DOMAIN) {
       console.log("✅ Domain:", DOMAIN);
     } else {
-      console.warn("⚠️ RAILWAY_PUBLIC_DOMAIN topilmadi");
+      console.warn("⚠️ RAILWAY_PUBLIC_DOMAIN topilmadi - webhook ishlamasligi mumkin");
     }
 
   } catch(err) {
-    console.error("Server start xato:", err.message);
+    console.error("❌ Server start xato:", err.message);
     process.exit(1);
   }
 }
