@@ -114,6 +114,30 @@ async function faceppCompare(photo1, photo2) {
 async function connectDB() {
   await mongoose.connect(MONGO_URI);
   console.log("MongoDB ulandi");
+
+  // Eski noto'g'ri telegramId_1 unique indexni o'chirish
+  // (multi-restoran tizimida telegramId yakka unique bo'lmasligi kerak)
+  try {
+    const db = mongoose.connection.db;
+    const collections = await db.listCollections().toArray();
+    const usersCol = collections.find(c => c.name === "users");
+    if (usersCol) {
+      const col = db.collection("users");
+      const indexes = await col.indexes();
+      console.log("Users indexlari:", indexes.map(i => i.name + (i.unique ? " (unique)" : "")).join(", "));
+      
+      // telegramId_1 unique indexni topib o'chiramiz
+      for (const idx of indexes) {
+        if (idx.name === "telegramId_1") {
+          await col.dropIndex("telegramId_1");
+          console.log("✅ Eski telegramId_1 index o'chirildi!");
+          break;
+        }
+      }
+    }
+  } catch(e) {
+    console.warn("Index tekshirish:", e.message);
+  }
 }
 
 // ===================================================
