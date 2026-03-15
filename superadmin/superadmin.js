@@ -547,17 +547,25 @@ function openRestModal(r) {
   document.getElementById('rWebapp').value      = r ? (r.webappUrl      || '') : '';
   document.getElementById('rId').disabled       = !!r;
   document.getElementById('rUsername').disabled = !!r;
-  document.getElementById('restModal').classList.remove('hidden');
-  document.getElementById('restModal').style.display = 'flex';
+  var modal = document.getElementById('restModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  modal.style.display = 'flex';
 }
 
 function closeRestModal() {
-  document.getElementById('restModal').classList.add('hidden');
-  document.getElementById('restModal').style.display = '';
+  var modal = document.getElementById('restModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+  modal.style.display = '';
 }
 
 async function saveRest() {
   var id   = document.getElementById('restEditId').value;
+  var saveBtn = document.getElementById('restModalSave');
+  saveBtn.textContent = 'Saqlanmoqda...';
+  saveBtn.disabled = true;
+
   var body = {
     restaurantName: document.getElementById('rName').value.trim(),
     restaurantId:   document.getElementById('rId').value.trim().toLowerCase().replace(/\s+/g, '_'),
@@ -566,29 +574,39 @@ async function saveRest() {
     phone:          document.getElementById('rPhone').value.trim(),
     address:        document.getElementById('rAddress').value.trim(),
     botToken:       document.getElementById('rBotToken').value.trim(),
-    chefId:         Number(document.getElementById('rChefId').value),
+    chefId:         Number(document.getElementById('rChefId').value) || 0,
     webappUrl:      document.getElementById('rWebapp').value.trim()
   };
-  if (!body.restaurantName) { alert('Restoran nomi majburiy'); return; }
-  var result;
-  if (id) {
-    var upd = {
-      restaurantName: body.restaurantName,
-      phone:   body.phone,
-      address: body.address,
-      botToken: body.botToken,
-      chefId:   body.chefId,
-      webappUrl: body.webappUrl
-    };
-    if (body.password) upd.password = body.password;
-    result = await api('/superadmin/restaurants/' + id, { method: 'PUT', body: JSON.stringify(upd) });
-  } else {
-    if (!body.username || !body.password || !body.restaurantId) { alert('Login, parol va ID majburiy'); return; }
-    result = await api('/superadmin/restaurants', { method: 'POST', body: JSON.stringify(body) });
+  if (!body.restaurantName) { alert('Restoran nomi majburiy'); saveBtn.textContent = 'Saqlash'; saveBtn.disabled = false; return; }
+  
+  try {
+    var result;
+    if (id) {
+      var upd = {
+        restaurantName: body.restaurantName,
+        phone:   body.phone,
+        address: body.address,
+        botToken: body.botToken,
+        chefId:   body.chefId,
+        webappUrl: body.webappUrl
+      };
+      if (body.password) upd.password = body.password;
+      result = await api('/superadmin/restaurants/' + id, { method: 'PUT', body: JSON.stringify(upd) });
+    } else {
+      if (!body.username || !body.password || !body.restaurantId) { alert('Login, parol va ID majburiy'); saveBtn.textContent = 'Saqlash'; saveBtn.disabled = false; return; }
+      result = await api('/superadmin/restaurants', { method: 'POST', body: JSON.stringify(body) });
+    }
+    console.log('saveRest result:', result);
+    if (!result) { alert('Server bilan ulanishda xatolik'); saveBtn.textContent = 'Saqlash'; saveBtn.disabled = false; return; }
+    if (result.error) { alert('Xatolik: ' + result.error); saveBtn.textContent = 'Saqlash'; saveBtn.disabled = false; return; }
+    closeRestModal();
+    loadRestCards();
+  } catch(e) {
+    console.error('saveRest error:', e);
+    alert('Xatolik: ' + e.message);
   }
-  if (result && result.error) { alert(result.error); return; }
-  closeRestModal();
-  loadRestCards();
+  saveBtn.textContent = 'Saqlash';
+  saveBtn.disabled = false;
 }
 
 async function toggleRest(id, isActive, restName) {

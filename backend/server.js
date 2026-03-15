@@ -690,12 +690,15 @@ app.put("/superadmin/restaurants/:id", superMiddleware, async (req, res) => {
     if (blockReason !== undefined) update.blockReason = blockReason;
     const admin = await Admin.findByIdAndUpdate(req.params.id, update, { new: true }).select("-password");
     if (!admin) return res.status(404).json({ error: "Topilmadi" });
-    const isBlocked = active === false;
-    await Restaurant.findOneAndUpdate(
-      { restaurantId: admin.restaurantId },
-      { blocked: isBlocked, blockReason: isBlocked ? (blockReason || "Xizmat to'xtatilgan") : "" },
-      { upsert: true }
-    );
+    // Faqat active aniq yuborilganda blocked statusini o'zgartiramiz
+    if (active !== undefined) {
+      const isBlocked = active === false;
+      await Restaurant.findOneAndUpdate(
+        { restaurantId: admin.restaurantId },
+        { blocked: isBlocked, blockReason: isBlocked ? (blockReason || "Xizmat to'xtatilgan") : "" },
+        { upsert: true }
+      );
+    }
     if (rest.botToken) {
       await startBot(admin.restaurantId, rest.botToken, admin.webappUrl, admin.chefId);
     }
@@ -846,7 +849,8 @@ app.put("/admin/orders/:id/status", authMiddleware, async (req, res) => {
 
 app.get("/admin/stats", authMiddleware, async (req, res) => {
   try {
-    const rId  = req.admin.restaurantId;
+    // Superadmin query param orqali istalgan restoran statsini ko'ra oladi
+    const rId  = (req.admin.role === "superadmin" && req.query.restaurantId) ? req.query.restaurantId : req.admin.restaurantId;
     const now  = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const month = new Date(now.getFullYear(), now.getMonth(), 1);
