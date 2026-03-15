@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gavali — Premium Shirinliklar</title>
+
+<script>
+  window.__CONFIG__ = {
+    API_URL:       "https://e-comerce-bot-main-production.up.railway.app",
+    RESTAURANT_ID: "gavali",
+    BOT_USERNAME:  "gavali_bot",
+    ADMIN_TG:      "gavali_admin",
+    PHONE:         "+998 90 000 00 00",
+    ADDRESS_UZ:    "Toshkent, Mirzo Ulug'bek tumani, Amir Temur ko'chasi 108",
+    ADDRESS_RU:    "Ташкент, Мирзо-Улугбекский р-н, пр. Амира Темура 108",
+    METRO_UZ:      "Amir Temur Xiyoboni (3 daqiqa)",
+    METRO_RU:      "Амира Темура (3 минуты)",
+    WORK_HOURS_UZ: "Du–Ya: 10:00–22:00",
+    WORK_HOURS_RU: "Пн–Вс: 10:00–22:00",
+    REST_NAME_UZ:  "Gavali",
+    REST_NAME_RU:  "Гавали",
+    HERO_BADGE_UZ: "Premium Shirinliklar · Toshkent",
+    HERO_BADGE_RU: "Премиум Сладости · Ташкент",
+    SUBTITLE_UZ:   "Har bir shirinlik — alohida his.",
+    SUBTITLE_RU:   "Каждая сладость — особое чувство.",
+    WORK_START:    10,
+    WORK_END:      22,
+    MAP_EMBED:     "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2996.0!2d69.2833!3d41.2995!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x38ae8b5b99b37a8b%3A0x6a1a8c1e1e1e1e1e!2sAmir%20Temur%2C%20Tashkent!5e0!3m2!1suz!2suz!4v1",
+    GALLERY: [
+      "https://images.unsplash.com/photo-1599599810694-b5b37304c041?w=1200&q=90",
+      "https://images.unsplash.com/photo-1548907040-4baa42d10919?w=1200&q=90",
+      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200&q=90",
+      "https://images.unsplash.com/photo-1511381939415-e44571f0f80c?w=1200&q=90",
+      "https://images.unsplash.com/photo-1606312619070-d48b4c652a52?w=1200&q=90",
+      "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=1200&q=90"
+    ],
+    HERO_IMAGE:  "https://images.unsplash.com/photo-1599599810694-b5b37304c041?w=1600&q=85",
+    EVENTS_BG:   "https://images.unsplash.com/photo-1548907040-4baa42d10919?w=1400&q=80"
+  };
+</script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Tenor+Sans&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root {
+      --choco:   #1a0f00;
+      --choco2:  #241508;
+      --choco3:  #2e1a0a;
+      --card:    #1e1208;
+      --sage:    #6b8f5e;
+      --sage2:   #8fb07f;
+      --sage3:   #b5cfa8;
+      --cream:   #f5ede0;
+      --cream2:  #e8d8c4;
+      --gold:    #c8a96e;
+      --gold2:   #e8c98e;
+      --border:  rgba(200,169,110,0.2);
+      --border2: rgba(200,169,110,0.08);
+      --text:    #f0e6d6;
+      --muted:   #8a7260;
+      --tg-bg:   #1a0f00;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body {
+      background:var(--choco);
+      color:var(--text);
+      font-family:'DM Sans', sans-serif;
+      font-weight:300;
+      overflow-x:hidden;
+    }
+
+    /* Subtle texture */
+    body::before {
+      content:'';
+      position:fixed; inset:0; z-index:0;
+      pointer-events:none; opacity:0.025;
+      background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size:200px;
+    }
+
+    ::-webkit-scrollbar { width:3px; }
+    ::-webkit-scrollbar-track { background:var(--choco); }
+    ::-webkit-scrollbar-thumb { background:var(--sage); border-radius:2px; }
+
+    /* ===== TOPBAR ===== */
+    #topbar {
+      position:fixed; top:0; left:0; right:0; z-index:40;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:20px 24px;
+      transition:all .4s ease;
+    }
+    #topbar.scrolled {
+      background:rgba(26,15,0,0.95);
+      backdrop-filter:blur(20px);
+      border-bottom:1px solid var(--border);
+      padding:13px 24px;
+    }
+
+    .logo {
+      font-family:'Cormorant', serif;
+      font-size:28px; font-weight:300;
+      letter-spacing:6px;
+      text-transform:uppercase;
+      color:var(--cream);
+    }
+    .logo-dot { color:var(--sage); }
+
+    .nav-actions { display:flex; gap:8px; align-items:center; }
+
+    .lang-sw {
+      display:flex; gap:1px;
+      background:var(--border2);
+      border:1px solid var(--border);
+      border-radius:4px; padding:3px;
+    }
+    .lang-b {
+      font-family:'DM Sans', sans-serif;
+      font-size:10px; font-weight:500;
+      letter-spacing:1.5px; text-transform:uppercase;
+      padding:5px 11px; border-radius:3px;
+      border:none; cursor:pointer;
+      transition:all .2s;
+      color:var(--muted); background:transparent;
+    }
+    .lang-b.active { background:var(--sage); color:var(--choco); }
+
+    .icon-b {
+      width:40px; height:40px; border-radius:6px;
+      border:1px solid var(--border);
+      background:rgba(200,169,110,0.05);
+      color:var(--cream2); font-size:16px;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; transition:all .2s; position:relative;
+    }
+    .icon-b:hover { background:rgba(200,169,110,0.12); border-color:var(--gold); }
+    .cart-badge {
+      position:absolute; top:-5px; right:-5px;
+      background:var(--sage); color:var(--choco);
+      font-size:9px; font-weight:700;
+      width:17px; height:17px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+    }
+
+    /* ===== HERO ===== */
+    #hero {
+      min-height:100vh;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      padding:100px 24px 80px;
+      text-align:center; position:relative; overflow:hidden;
+    }
+    #heroBg {
+      position:absolute; inset:0; z-index:-1;
+      background-size:cover; background-position:center;
+      transform:scale(1.05);
+      transition:transform 10s ease;
+    }
+    #hero:hover #heroBg { transform:scale(1.08); }
+
+    .hero-overlay {
+      position:absolute; inset:0; z-index:0;
+      background:linear-gradient(
+        to bottom,
+        rgba(26,15,0,0.4) 0%,
+        rgba(26,15,0,0.55) 40%,
+        rgba(26,15,0,0.85) 80%,
+        rgba(26,15,0,1) 100%
+      );
+    }
+    .hero-content { position:relative; z-index:1; }
+
+    .hero-pill {
+      display:inline-flex; align-items:center; gap:8px;
+      background:rgba(107,143,94,0.15);
+      border:1px solid rgba(107,143,94,0.3);
+      padding:7px 20px; border-radius:99px;
+      font-size:10px; letter-spacing:3px;
+      text-transform:uppercase; color:var(--sage2);
+      margin-bottom:24px;
+    }
+    .hero-pill-dot {
+      width:5px; height:5px; border-radius:50%;
+      background:var(--sage); animation:pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50% { opacity:0.5; transform:scale(0.7); }
+    }
+
+    .hero-title {
+      font-family:'Cormorant', serif;
+      font-size:clamp(60px,18vw,130px);
+      font-weight:300; line-height:0.85;
+      letter-spacing:-1px;
+      color:var(--cream);
+      margin-bottom:4px;
+    }
+    .hero-title-accent {
+      font-family:'Cormorant', serif;
+      font-style:italic;
+      font-size:clamp(18px,5vw,36px);
+      font-weight:300;
+      color:var(--sage2);
+      letter-spacing:4px;
+      display:block; margin-bottom:16px;
+    }
+
+    .hero-desc {
+      font-size:13px; color:rgba(240,230,214,0.6);
+      letter-spacing:2px; text-transform:uppercase;
+      margin-bottom:32px; line-height:1.8;
+    }
+
+    .hero-ornament {
+      display:flex; align-items:center; gap:14px;
+      justify-content:center; margin-bottom:32px;
+    }
+    .ornament-line {
+      width:60px; height:1px; background:var(--border);
+    }
+    .ornament-icon { color:var(--sage); font-size:14px; }
+
+    .hero-btns { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+    .btn-fill {
+      padding:13px 30px;
+      background:var(--sage);
+      color:var(--choco);
+      font-family:'DM Sans', sans-serif;
+      font-size:10px; font-weight:500;
+      letter-spacing:3px; text-transform:uppercase;
+      border:none; border-radius:2px;
+      cursor:pointer; transition:all .3s;
+    }
+    .btn-fill:hover { background:var(--sage2); transform:translateY(-2px); box-shadow:0 8px 24px rgba(107,143,94,0.3); }
+    .btn-ghost {
+      padding:13px 30px;
+      background:transparent;
+      color:var(--cream2);
+      font-family:'DM Sans', sans-serif;
+      font-size:10px; font-weight:500;
+      letter-spacing:3px; text-transform:uppercase;
+      border:1px solid var(--border);
+      border-radius:2px;
+      cursor:pointer; transition:all .3s;
+    }
+    .btn-ghost:hover { border-color:var(--sage2); color:var(--sage3); transform:translateY(-2px); }
+
+    /* Scroll line */
+    .scroll-ind {
+      position:absolute; bottom:28px; left:50%;
+      transform:translateX(-50%);
+      display:flex; flex-direction:column;
+      align-items:center; gap:6px; z-index:1;
+    }
+    .scroll-line-anim {
+      width:1px; height:44px;
+      background:linear-gradient(to bottom, var(--sage), transparent);
+      animation:scrollDown 2.2s ease-in-out infinite;
+    }
+    @keyframes scrollDown {
+      0% { opacity:0; transform:scaleY(0); transform-origin:top; }
+      50% { opacity:1; transform:scaleY(1); }
+      100% { opacity:0; transform:scaleY(0); transform-origin:bottom; }
+    }
+    .scroll-txt {
+      font-size:8px; letter-spacing:3px;
+      text-transform:uppercase; color:var(--muted);
+    }
+
+    /* ===== MARQUEE ===== */
+    .marquee-wrap {
+      overflow:hidden;
+      border-top:1px solid var(--border2);
+      border-bottom:1px solid var(--border2);
+      background:var(--choco2);
+      padding:14px 0;
+    }
+    .marquee-track {
+      display:flex; gap:0;
+      animation:marquee 20s linear infinite;
+      white-space:nowrap;
+    }
+    @keyframes marquee {
+      from { transform:translateX(0); }
+      to   { transform:translateX(-50%); }
+    }
+    .marquee-item {
+      font-family:'Cormorant', serif;
+      font-style:italic;
+      font-size:14px; color:var(--muted);
+      padding:0 28px; letter-spacing:1px;
+      display:flex; align-items:center; gap:14px;
+    }
+    .marquee-item::after {
+      content:'◆'; font-size:7px; color:var(--sage);
+      font-style:normal;
+    }
+
+    /* ===== SECTION HEADER ===== */
+    .sec-hd { text-align:center; padding:56px 24px 20px; }
+    .sec-eye {
+      font-size:9px; letter-spacing:4px;
+      text-transform:uppercase; color:var(--sage);
+      display:block; margin-bottom:10px;
+    }
+    .sec-ttl {
+      font-family:'Cormorant', serif;
+      font-size:clamp(30px,8vw,52px);
+      font-weight:300; color:var(--cream); line-height:1.1;
+    }
+    .sec-ttl em { font-style:italic; color:var(--sage2); }
+    .sec-sep {
+      display:flex; align-items:center; gap:14px;
+      justify-content:center; margin-top:14px;
+    }
+    .sec-sep::before,.sec-sep::after {
+      content:''; flex:1; max-width:44px; height:1px; background:var(--border);
+    }
+    .sep-diamond { font-size:8px; color:var(--sage); }
+
+    /* ===== FILTER ===== */
+    .filter-wrap {
+      display:flex; gap:6px;
+      justify-content:center; padding:16px 20px;
+      flex-wrap:wrap;
+    }
+    .tab-btn {
+      font-family:'DM Sans', sans-serif;
+      font-size:10px; font-weight:400;
+      letter-spacing:2px; text-transform:uppercase;
+      padding:8px 20px; border-radius:2px;
+      cursor:pointer;
+      border:1px solid var(--border2);
+      color:var(--muted); background:transparent;
+      transition:all .25s;
+    }
+    .tab-btn.active,.tab-btn:hover {
+      background:var(--sage);
+      color:var(--choco);
+      border-color:var(--sage);
+    }
+
+    /* ===== PRODUCT GRID ===== */
+    .product-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fill, minmax(168px,1fr));
+      gap:12px; padding:8px 16px 52px;
+    }
+    .product-card {
+      background:var(--card);
+      border:1px solid var(--border2);
+      border-radius:4px; overflow:hidden;
+      transition:all .4s cubic-bezier(.4,0,.2,1);
+      animation:fadeUp .5s ease both;
+      position:relative;
+      cursor:default;
+    }
+    .product-card:hover {
+      border-color:rgba(107,143,94,0.4);
+      transform:translateY(-5px);
+      box-shadow:0 24px 48px rgba(0,0,0,0.5);
+    }
+    .product-img-wrap { position:relative; overflow:hidden; height:160px; }
+    .product-img-wrap img {
+      width:100%; height:100%;
+      object-fit:cover; display:block;
+      transition:transform .6s ease;
+      filter:saturate(0.9);
+    }
+    .product-card:hover .product-img-wrap img {
+      transform:scale(1.08);
+      filter:saturate(1.1);
+    }
+    .product-img-wrap::after {
+      content:'';
+      position:absolute; inset:0;
+      background:linear-gradient(to top, rgba(26,15,0,0.6) 0%, transparent 50%);
+    }
+    .img-placeholder {
+      width:100%; height:160px;
+      background:linear-gradient(135deg, var(--choco3), var(--card));
+      display:flex; align-items:center; justify-content:center;
+      font-size:36px;
+    }
+    .product-badge {
+      position:absolute; top:10px; left:10px; z-index:1;
+      background:var(--sage); color:var(--choco);
+      font-size:8px; font-weight:500;
+      letter-spacing:1.5px; text-transform:uppercase;
+      padding:3px 8px; border-radius:2px;
+    }
+    .product-info { padding:14px; }
+    .product-info h3 {
+      font-family:'Cormorant', serif;
+      font-size:17px; font-weight:400;
+      margin-bottom:3px; line-height:1.3;
+      color:var(--cream);
+    }
+    .product-info .cat {
+      font-size:9px; letter-spacing:2.5px;
+      text-transform:uppercase; color:var(--muted);
+      margin-bottom:10px;
+    }
+    .product-info .price {
+      font-family:'Cormorant', serif;
+      font-size:18px; color:var(--sage2);
+      display:block; margin-bottom:12px;
+    }
+    .add-btn {
+      width:100%; padding:9px;
+      background:transparent;
+      border:1px solid var(--border);
+      color:var(--cream2);
+      font-family:'DM Sans', sans-serif;
+      font-size:9px; font-weight:400;
+      letter-spacing:2.5px; text-transform:uppercase;
+      border-radius:2px; cursor:pointer;
+      transition:all .3s;
+    }
+    .add-btn:hover {
+      background:var(--sage); border-color:var(--sage);
+      color:var(--choco);
+    }
+
+    /* ===== FEATURES ===== */
+    .features-sec { padding:0 16px 52px; }
+    .features-grid {
+      display:grid; grid-template-columns:repeat(2,1fr);
+      gap:8px;
+    }
+    .feature-card {
+      background:var(--card);
+      border:1px solid var(--border2);
+      border-radius:4px; padding:22px 18px;
+      transition:border-color .3s;
+    }
+    .feature-card:hover { border-color:var(--border); }
+    .feature-icon {
+      font-size:26px; margin-bottom:10px; display:block;
+    }
+    .feature-ttl {
+      font-family:'Cormorant', serif;
+      font-size:17px; color:var(--sage2);
+      margin-bottom:6px; font-weight:400;
+    }
+    .feature-txt {
+      font-size:11px; color:var(--muted);
+      line-height:1.7;
+    }
+
+    /* ===== GIFT SECTION ===== */
+    .gift-sec {
+      margin:0 16px 52px;
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:4px; overflow:hidden;
+      position:relative;
+    }
+    .gift-bg {
+      position:absolute; inset:0;
+      background:radial-gradient(ellipse at 80% 50%,
+        rgba(107,143,94,0.08) 0%,
+        transparent 70%);
+      pointer-events:none;
+    }
+    .gift-content { padding:32px 24px; position:relative; z-index:1; }
+    .gift-eyebrow {
+      font-size:9px; letter-spacing:4px;
+      text-transform:uppercase; color:var(--sage);
+      display:block; margin-bottom:12px;
+    }
+    .gift-title {
+      font-family:'Cormorant', serif;
+      font-size:clamp(24px,6vw,36px);
+      font-weight:300; color:var(--cream);
+      line-height:1.2; margin-bottom:12px;
+    }
+    .gift-title em { font-style:italic; color:var(--sage2); }
+    .gift-desc {
+      font-size:12px; color:var(--muted);
+      line-height:1.8; margin-bottom:20px;
+    }
+    .gift-tags { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:22px; }
+    .gift-tag {
+      font-size:9px; letter-spacing:1.5px;
+      text-transform:uppercase; color:var(--sage2);
+      border:1px solid rgba(107,143,94,0.3);
+      padding:4px 12px; border-radius:99px;
+    }
+
+    /* ===== EVENTS ===== */
+    .events-sec { position:relative; overflow:hidden; padding-bottom:56px; }
+    .events-sec::before {
+      content:''; position:absolute; inset:0; z-index:0;
+      background:radial-gradient(ellipse at 50% 50%,
+        rgba(107,143,94,0.06) 0%, transparent 70%);
+    }
+    .events-inner { position:relative; z-index:1; }
+    .events-slider { overflow:hidden; }
+    .events-track {
+      display:flex;
+      transition:transform .6s cubic-bezier(.4,0,.2,1);
+    }
+    .event-slide {
+      min-width:100%; display:flex;
+      flex-direction:column; align-items:center;
+      padding:0 20px 8px;
+    }
+    .event-img-wrap {
+      width:100%; max-width:440px; height:240px;
+      border-radius:4px; overflow:hidden;
+      border:1px solid var(--border); margin-bottom:28px;
+    }
+    .event-img-wrap img { width:100%; height:100%; object-fit:cover; display:block; }
+    .event-content { width:100%; max-width:440px; text-align:center; }
+    .event-label {
+      font-size:9px; letter-spacing:4px; text-transform:uppercase;
+      color:var(--sage); margin-bottom:10px; display:block;
+    }
+    .event-ttl {
+      font-family:'Cormorant', serif;
+      font-size:clamp(22px,6vw,34px);
+      font-weight:300; margin-bottom:12px; line-height:1.2;
+    }
+    .event-desc {
+      font-size:13px; color:var(--muted);
+      line-height:1.8; margin-bottom:20px; font-weight:300;
+    }
+    .event-feats { list-style:none; margin-bottom:24px; }
+    .event-feats li {
+      font-size:12px; color:var(--muted);
+      padding:7px 0; border-bottom:1px solid var(--border2);
+      display:flex; align-items:center; gap:10px; justify-content:center;
+    }
+    .event-feats li::before { content:'◆'; color:var(--sage); font-size:6px; }
+
+    .slider-ctrl {
+      display:flex; align-items:center;
+      justify-content:center; gap:16px; margin-top:28px;
+    }
+    .dot {
+      width:5px; height:5px; border-radius:50%;
+      background:var(--border); border:none;
+      cursor:pointer; transition:all .3s; padding:0;
+    }
+    .dot.active { background:var(--sage); width:22px; border-radius:3px; }
+    .arrow-b {
+      width:36px; height:36px; border-radius:50%;
+      background:transparent; border:1px solid var(--border);
+      color:var(--cream2); font-size:13px;
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
+      transition:all .2s;
+    }
+    .arrow-b:hover { border-color:var(--sage); color:var(--sage2); }
+
+    /* ===== GALLERY ===== */
+    .gallery-sec { padding-bottom:56px; }
+    .gallery-grid {
+      display:grid; grid-template-columns:repeat(3,1fr);
+      gap:4px; padding:16px 16px 0;
+    }
+    .gallery-item {
+      aspect-ratio:1; overflow:hidden;
+      border-radius:2px; cursor:pointer; position:relative;
+    }
+    .gallery-item img {
+      width:100%; height:100%; object-fit:cover; display:block;
+      transition:transform .6s cubic-bezier(.4,0,.2,1);
+      filter:saturate(0.7) brightness(0.9);
+    }
+    .gallery-item:hover img { transform:scale(1.12); filter:saturate(1.1) brightness(1); }
+    .gallery-ov {
+      position:absolute; inset:0;
+      background:rgba(26,15,0,0.5);
+      display:flex; align-items:center; justify-content:center;
+      opacity:0; transition:opacity .3s;
+    }
+    .gallery-item:hover .gallery-ov { opacity:1; }
+    .gallery-ov-ico {
+      width:36px; height:36px; border-radius:50%;
+      border:1px solid rgba(181,207,168,0.6);
+      display:flex; align-items:center; justify-content:center;
+      color:var(--sage2); font-size:13px;
+    }
+
+    /* ===== LIGHTBOX ===== */
+    .lightbox {
+      position:fixed; inset:0; z-index:200;
+      background:rgba(5,3,0,0.97);
+      display:none; align-items:center; justify-content:center; padding:20px;
+    }
+    .lightbox.open { display:flex; }
+    .lightbox img { max-width:100%; max-height:88vh; border-radius:2px; border:1px solid var(--border); }
+    .lb-close {
+      position:absolute; top:18px; right:18px;
+      background:var(--border2); border:1px solid var(--border);
+      color:var(--cream2); width:36px; height:36px; border-radius:50%;
+      font-size:14px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; z-index:1;
+    }
+    .lb-prev,.lb-next {
+      position:absolute; top:50%; transform:translateY(-50%);
+      background:transparent; border:1px solid var(--border);
+      color:var(--cream2); width:40px; height:40px; border-radius:50%;
+      font-size:14px; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; z-index:1;
+      transition:all .2s;
+    }
+    .lb-prev { left:12px; } .lb-next { right:12px; }
+    .lb-prev:hover,.lb-next:hover { border-color:var(--sage); }
+
+    /* ===== LOCATION ===== */
+    .loc-sec { padding-bottom:56px; }
+    .location-card {
+      margin:16px; border-radius:4px; overflow:hidden;
+      border:1px solid var(--border); background:var(--card);
+    }
+    .map-frame {
+      width:100%; height:220px; border:none; display:block;
+      filter:grayscale(100%) brightness(0.35) sepia(30%);
+    }
+    .loc-info { padding:24px; }
+    .loc-row {
+      display:flex; align-items:flex-start; gap:14px;
+      padding:12px 0; border-bottom:1px solid var(--border2);
+    }
+    .loc-row:last-child { border-bottom:none; }
+    .loc-icon { font-size:15px; margin-top:2px; flex-shrink:0; opacity:0.7; }
+    .loc-lbl {
+      font-size:9px; letter-spacing:2px; text-transform:uppercase;
+      color:var(--sage); margin-bottom:4px;
+    }
+    .loc-val { font-size:13px; color:var(--text); line-height:1.5; font-weight:300; }
+    .loc-val a { color:var(--sage2); text-decoration:none; }
+
+    /* ===== PANELS ===== */
+    .panel {
+      position:fixed; top:0; right:0; height:100%;
+      width:min(360px,100vw);
+      background:var(--choco2);
+      border-left:1px solid var(--border);
+      z-index:50;
+      transform:translateX(100%);
+      transition:transform .35s cubic-bezier(.4,0,.2,1);
+      overflow-y:auto; display:flex; flex-direction:column;
+    }
+    .panel.open { transform:translateX(0); }
+    .panel-hd {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:20px 24px;
+      border-bottom:1px solid var(--border);
+      position:sticky; top:0; background:var(--choco2); z-index:2;
+    }
+    .panel-ttl {
+      font-family:'Cormorant', serif;
+      font-size:20px; font-weight:300; color:var(--cream);
+    }
+    .close-btn {
+      background:transparent; border:1px solid var(--border);
+      color:var(--muted); width:32px; height:32px; border-radius:4px;
+      cursor:pointer; font-size:13px;
+      display:flex; align-items:center; justify-content:center; transition:all .2s;
+    }
+    .close-btn:hover { color:var(--text); border-color:var(--sage); }
+
+    .cart-item {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:16px 24px; border-bottom:1px solid var(--border2);
+    }
+    .cart-item-name { font-size:14px; margin-bottom:3px; font-weight:300; }
+    .cart-item-price { font-family:'Cormorant', serif; font-size:16px; color:var(--sage2); }
+    .qty-ctrl { display:flex; align-items:center; gap:10px; }
+    .qty-btn {
+      width:28px; height:28px; border-radius:4px;
+      border:1px solid var(--border); background:transparent;
+      color:var(--sage2); font-size:15px;
+      display:flex; align-items:center; justify-content:center;
+      cursor:pointer; transition:all .15s;
+    }
+    .qty-btn:hover { background:var(--border); }
+    .qty-num { font-size:14px; min-width:20px; text-align:center; }
+
+    .cart-ft {
+      margin-top:auto; padding:20px 24px;
+      border-top:1px solid var(--border);
+      position:sticky; bottom:0; background:var(--choco2);
+    }
+    .cart-total-row {
+      display:flex; justify-content:space-between;
+      font-family:'Cormorant', serif; font-size:18px; margin-bottom:14px;
+    }
+    .cart-total-row span:last-child { color:var(--sage2); }
+
+    .order-type-row { display:flex; gap:8px; margin-bottom:12px; }
+    .otype-btn {
+      flex:1; padding:9px; border-radius:2px;
+      border:1px solid var(--border); background:transparent;
+      color:var(--muted); font-family:'DM Sans', sans-serif;
+      font-size:9px; letter-spacing:2px; text-transform:uppercase;
+      cursor:pointer; transition:all .2s;
+    }
+    .otype-btn.active { background:var(--sage); border-color:var(--sage); color:var(--choco); font-weight:500; }
+
+    .tbl-input {
+      width:100%; padding:10px 14px; background:var(--card);
+      border:1px solid var(--border); border-radius:2px;
+      color:var(--text); font-family:'DM Sans', sans-serif;
+      font-size:13px; outline:none; transition:border-color .2s;
+      margin-bottom:12px;
+    }
+    .tbl-input:focus { border-color:var(--sage); }
+
+    .checkout-btn {
+      width:100%; padding:13px; background:var(--sage); color:var(--choco);
+      font-family:'DM Sans', sans-serif; font-weight:500;
+      font-size:10px; letter-spacing:3px; text-transform:uppercase;
+      border:none; border-radius:2px; cursor:pointer; transition:all .25s;
+    }
+    .checkout-btn:hover { background:var(--sage2); }
+    .checkout-btn:disabled { opacity:.4; cursor:not-allowed; }
+
+    .profile-card {
+      margin:20px 24px; padding:22px; background:var(--card);
+      border:1px solid var(--border); border-radius:4px;
+    }
+    .profile-avatar {
+      width:50px; height:50px; border-radius:50%;
+      background:linear-gradient(135deg, var(--choco3), var(--sage));
+      display:flex; align-items:center; justify-content:center;
+      font-size:20px; margin-bottom:14px;
+    }
+    .profile-name { font-family:'Cormorant', serif; font-size:18px; margin-bottom:4px; }
+    .profile-username { font-size:12px; color:var(--muted); margin-bottom:6px; }
+    .profile-phone { font-size:12px; color:var(--sage2); }
+
+    .order-card {
+      margin:0 24px 12px; padding:16px; background:var(--card);
+      border:1px solid var(--border2); border-radius:4px;
+    }
+    .order-items { font-size:12px; margin-bottom:6px; line-height:1.6; color:var(--muted); }
+    .order-total { font-family:'Cormorant', serif; font-size:17px; color:var(--sage2); margin-bottom:5px; }
+    .order-status {
+      display:inline-block; font-size:9px; letter-spacing:2px; text-transform:uppercase;
+      padding:2px 10px; border:1px solid var(--sage); color:var(--sage); border-radius:2px; margin-bottom:4px;
+    }
+    .order-date { font-size:10px; color:var(--muted); }
+
+    #overlay {
+      position:fixed; inset:0; z-index:45;
+      background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); display:none;
+    }
+    #overlay.show { display:block; }
+
+    .empty-state { text-align:center; padding:48px 20px; color:var(--muted); }
+    .empty-icon { font-size:34px; margin-bottom:12px; opacity:0.5; }
+    .empty-txt { font-size:13px; color:var(--muted); font-weight:300; }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      background:var(--choco2); border-top:1px solid var(--border);
+      padding:48px 20px 28px;
+    }
+    .footer-logo-wrap { text-align:center; margin-bottom:6px; }
+    .footer-logo {
+      font-family:'Cormorant', serif; font-size:34px;
+      font-weight:300; color:var(--cream); letter-spacing:6px;
+    }
+    .footer-tagline {
+      font-size:10px; letter-spacing:3px; text-transform:uppercase;
+      color:var(--muted); text-align:center; margin-bottom:28px;
+    }
+    .footer-social {
+      display:flex; gap:8px; justify-content:center;
+      flex-wrap:wrap; margin-bottom:32px;
+    }
+    .soc-btn {
+      display:flex; align-items:center; gap:7px; padding:9px 16px;
+      border-radius:2px; border:1px solid var(--border);
+      background:transparent; color:var(--muted);
+      font-family:'DM Sans', sans-serif; font-size:11px;
+      letter-spacing:1px; text-decoration:none; transition:all .2s; cursor:pointer;
+    }
+    .soc-btn:hover { border-color:var(--sage); color:var(--sage2); }
+    .footer-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:28px; }
+    .footer-col-ttl {
+      font-size:9px; letter-spacing:3px; text-transform:uppercase;
+      color:var(--sage); margin-bottom:14px;
+    }
+    .footer-links { list-style:none; display:flex; flex-direction:column; gap:10px; }
+    .footer-links li a,.footer-links li button {
+      font-family:'DM Sans', sans-serif; font-size:13px; color:var(--muted);
+      text-decoration:none; background:none; border:none; cursor:pointer;
+      transition:color .2s; padding:0; text-align:left; font-weight:300;
+    }
+    .footer-links li a:hover,.footer-links li button:hover { color:var(--sage2); }
+    .footer-bottom {
+      text-align:center; font-size:11px; color:var(--muted);
+      border-top:1px solid var(--border2); padding-top:20px; letter-spacing:1px;
+    }
+    .footer-bottom span { color:var(--sage); }
+
+    /* ===== TG WARNING ===== */
+    #tgWarning {
+      display:none; position:fixed; inset:0; z-index:100;
+      background:rgba(26,15,0,0.98);
+      flex-direction:column; align-items:center; justify-content:center;
+      text-align:center; padding:32px;
+    }
+    .tg-ico { font-size:44px; margin-bottom:20px; opacity:0.6; }
+    .tg-ttl {
+      font-family:'Cormorant', serif; font-size:24px; font-weight:300;
+      color:var(--cream); margin-bottom:12px;
+    }
+    .tg-dsc {
+      font-size:13px; color:var(--muted); line-height:1.8;
+      max-width:280px; margin-bottom:28px; font-weight:300;
+    }
+    .tg-btn {
+      padding:13px 32px; background:var(--sage); color:var(--choco);
+      font-family:'DM Sans', sans-serif; font-size:10px; font-weight:500;
+      letter-spacing:3px; text-transform:uppercase; text-decoration:none;
+      border-radius:2px; transition:all .25s;
+    }
+    .tg-btn:hover { background:var(--sage2); }
+
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(28px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<nav id="topbar">
+  <div class="logo">G<span class="logo-dot">·</span>A<span class="logo-dot">·</span>V</div>
+  <div class="nav-actions">
+    <div class="lang-sw">
+      <button class="lang-b active" data-lang="uz" onclick="setLang('uz')">UZ</button>
+      <button class="lang-b" data-lang="ru" onclick="setLang('ru')">RU</button>
+    </div>
+    <button class="icon-b" onclick="openUserPanel()">👤</button>
+    <button class="icon-b" onclick="toggleCart()">
+      🛒<span class="cart-badge" id="cartCount">0</span>
+    </button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header id="hero">
+  <div id="heroBg"></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <div class="hero-pill">
+      <div class="hero-pill-dot"></div>
+      <span data-i18n="hero.badge">Premium Shirinliklar · Toshkent</span>
+    </div>
+    <h1 class="hero-title">Gavali</h1>
+    <span class="hero-title-accent" data-i18n="hero.subtitle">Har bir shirinlik — alohida his.</span>
+    <div class="hero-ornament">
+      <div class="ornament-line"></div>
+      <div class="ornament-icon">◆</div>
+      <div class="ornament-line"></div>
+    </div>
+    <div class="hero-desc">Chocolate · Macaron · Praline · Truffle · Gift Box</div>
+    <div class="hero-btns">
+      <button class="btn-fill" onclick="scrollToSec('menu')" data-i18n="hero.btn">Menyuni Ko'rish</button>
+      <button class="btn-ghost" onclick="bookEvent()" data-i18n="hero.bookbtn">Sovg'a Buyurtma</button>
+    </div>
+  </div>
+  <div class="scroll-ind">
+    <div class="scroll-line-anim"></div>
+    <span class="scroll-txt">Scroll</span>
+  </div>
+</header>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee-track" id="marqueeTrack">
+    <span class="marquee-item">Belgiya shokoladi</span>
+    <span class="marquee-item">Handmade Truffle</span>
+    <span class="marquee-item">Premium Gift Box</span>
+    <span class="marquee-item">Macaron Collection</span>
+    <span class="marquee-item">Praline Assortment</span>
+    <span class="marquee-item">Caramel Bonbon</span>
+    <span class="marquee-item">Seasonal Specials</span>
+    <span class="marquee-item">Belgiya shokoladi</span>
+    <span class="marquee-item">Handmade Truffle</span>
+    <span class="marquee-item">Premium Gift Box</span>
+    <span class="marquee-item">Macaron Collection</span>
+    <span class="marquee-item">Praline Assortment</span>
+    <span class="marquee-item">Caramel Bonbon</span>
+    <span class="marquee-item">Seasonal Specials</span>
+  </div>
+</div>
+
+<!-- MENU -->
+<section id="menu">
+  <div class="sec-hd">
+    <span class="sec-eye" data-i18n="menu.sub">Bizning shirinliklar</span>
+    <h2 class="sec-ttl">Menyu<em> & To'plam</em></h2>
+    <div class="sec-sep"><span class="sep-diamond">◆</span></div>
+  </div>
+  <div class="filter-wrap" id="filterTabs">
+    <button class="tab-btn active" data-cat="all" onclick="filterCategory('all',this)">Barchasi</button>
+  </div>
+  <div class="product-grid" id="products">
+    <div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-icon">🍫</div>
+      <div class="empty-txt" data-i18n="product.loading">Yuklanmoqda...</div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features-sec">
+  <div class="features-grid">
+    <div class="feature-card">
+      <span class="feature-icon">🍫</span>
+      <div class="feature-ttl">Belgiya Shokoladi</div>
+      <div class="feature-txt">Faqat original Belgiya va Shveytsariya shokoladidan tayyorlaymiz</div>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">🎁</span>
+      <div class="feature-ttl">Gift Packaging</div>
+      <div class="feature-txt">Sovg'a uchun premium qadoqlash — bepul</div>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">✋</span>
+      <div class="feature-ttl">Handmade</div>
+      <div class="feature-txt">Har bir shirinlik qo'lda tayyorlanadi</div>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">🛋️</span>
+      <div class="feature-ttl">Chocolate Lounge</div>
+      <div class="feature-txt">Qulay o'tirish joylari — dam oling va rohatlaning</div>
+    </div>
+  </div>
+</section>
+
+<!-- GIFT SECTION -->
+<section class="gift-sec" id="gifts">
+  <div class="gift-bg"></div>
+  <div class="gift-content">
+    <span class="gift-eyebrow">Maxsus Xizmat</span>
+    <h2 class="gift-title">Sovg'a To'plamlari<br><em>Corporate & Personal</em></h2>
+    <p class="gift-desc">
+      Tug'ilgan kun, to'y, korporativ tadbirlar uchun maxsus sovg'a qutilari tayyorlaymiz.
+      Logotip, xat va shaxsiy dizayn bilan.
+    </p>
+    <div class="gift-tags">
+      <span class="gift-tag">Korporativ</span>
+      <span class="gift-tag">To'y sovg'asi</span>
+      <span class="gift-tag">Tug'ilgan kun</span>
+      <span class="gift-tag">VIP Set</span>
+      <span class="gift-tag">Logotip bilan</span>
+    </div>
+    <button class="btn-fill" onclick="bookEvent()">Buyurtma Berish →</button>
+  </div>
+</section>
+
+<!-- EVENTS -->
+<section class="events-sec" id="events">
+  <div class="events-inner">
+    <div class="sec-hd">
+      <span class="sec-eye" data-i18n="events.sub">Maxsus tadbirlar</span>
+      <h2 class="sec-ttl">Tadbirlar</h2>
+      <div class="sec-sep"><span class="sep-diamond">◆</span></div>
+    </div>
+    <div class="events-slider">
+      <div class="events-track" id="eventsTrack">
+        <div class="event-slide">
+          <div class="event-img-wrap"><img src="https://images.unsplash.com/photo-1606312619070-d48b4c652a52?w=800&q=80" alt="Birthday"></div>
+          <div class="event-content">
+            <span class="event-label" data-i18n="events.from">Narx kelishiladi</span>
+            <h3 class="event-ttl" data-i18n="events.birthday.title">Tug'ilgan kun ziyofati</h3>
+            <p class="event-desc">Yaqinlaringiz uchun Gavali da maxsus shirinlik ziyofati. Tort, macaron, praline bilan.</p>
+            <ul class="event-feats">
+              <li>Maxsus tort buyurtma</li>
+              <li>Dekoratsiyalangan stol</li>
+              <li>Individual shirinlik to'plami</li>
+            </ul>
+            <button class="btn-ghost" onclick="bookEvent()" data-i18n="events.book">Band Qilish</button>
+          </div>
+        </div>
+        <div class="event-slide">
+          <div class="event-img-wrap"><img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80" alt="Corporate"></div>
+          <div class="event-content">
+            <span class="event-label" data-i18n="events.from">Narx kelishiladi</span>
+            <h3 class="event-ttl" data-i18n="events.corporate.title">Korporativ sovg'a</h3>
+            <p class="event-desc">Kompaniya logotipi bilan premium sovg'a qutilari. 10 dan 1000 gacha.</p>
+            <ul class="event-feats">
+              <li>Logotip va brending</li>
+              <li>Ommaviy buyurtma chegirmasi</li>
+              <li>Yetkazib berish xizmati</li>
+            </ul>
+            <button class="btn-ghost" onclick="bookEvent()" data-i18n="events.book">Band Qilish</button>
+          </div>
+        </div>
+        <div class="event-slide">
+          <div class="event-img-wrap"><img src="https://images.unsplash.com/photo-1511381939415-e44571f0f80c?w=800&q=80" alt="Workshop"></div>
+          <div class="event-content">
+            <span class="event-label" data-i18n="events.from">Narx kelishiladi</span>
+            <h3 class="event-ttl">Chocolate Workshop</h3>
+            <p class="event-desc">O'z shokoladingizni o'zingiz yasang! Master-klass — kichik guruhlar uchun.</p>
+            <ul class="event-feats">
+              <li>Professional oshpaz bilan</li>
+              <li>2 soatlik master-klass</li>
+              <li>O'z mahsulotingizni olib ketasiz</li>
+            </ul>
+            <button class="btn-ghost" onclick="bookEvent()" data-i18n="events.book">Band Qilish</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slider-ctrl">
+      <button class="arrow-b" onclick="prevSlide()">←</button>
+      <button class="dot active" onclick="goSlide(0)"></button>
+      <button class="dot" onclick="goSlide(1)"></button>
+      <button class="dot" onclick="goSlide(2)"></button>
+      <button class="arrow-b" onclick="nextSlide()">→</button>
+    </div>
+  </div>
+</section>
+
+<!-- GALLERY -->
+<section class="gallery-sec" id="gallery">
+  <div class="sec-hd">
+    <span class="sec-eye" data-i18n="gallery.sub">Restoran muhiti</span>
+    <h2 class="sec-ttl">Galereya</h2>
+    <div class="sec-sep"><span class="sep-diamond">◆</span></div>
+  </div>
+  <div class="gallery-grid" id="galleryGrid"></div>
+</section>
+
+<!-- LOCATION -->
+<section class="loc-sec" id="location">
+  <div class="sec-hd">
+    <span class="sec-eye" data-i18n="location.sub">Bizni toping</span>
+    <h2 class="sec-ttl">Manzil</h2>
+    <div class="sec-sep"><span class="sep-diamond">◆</span></div>
+  </div>
+  <div class="location-card">
+    <iframe class="map-frame" id="mapFrame" src="" allowfullscreen loading="lazy"></iframe>
+    <div class="loc-info">
+      <div class="loc-row">
+        <span class="loc-icon">📍</span>
+        <div>
+          <div class="loc-lbl" data-i18n="location.addr.label">Manzil</div>
+          <div class="loc-val" data-i18n="location.addr.val"></div>
+        </div>
+      </div>
+      <div class="loc-row">
+        <span class="loc-icon">🕐</span>
+        <div>
+          <div class="loc-lbl" data-i18n="location.hours.label">Ish vaqti</div>
+          <div class="loc-val" data-i18n="location.hours.val"></div>
+        </div>
+      </div>
+      <div class="loc-row">
+        <span class="loc-icon">📞</span>
+        <div>
+          <div class="loc-lbl" data-i18n="location.phone.label">Telefon</div>
+          <div class="loc-val" id="phoneLink"></div>
+        </div>
+      </div>
+      <div class="loc-row">
+        <span class="loc-icon">🚇</span>
+        <div>
+          <div class="loc-lbl" data-i18n="location.metro.label">Metro</div>
+          <div class="loc-val" data-i18n="location.metro.val"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer" id="contact">
+  <div class="footer-logo-wrap">
+    <div class="footer-logo">Gavali</div>
+  </div>
+  <div class="footer-tagline" data-i18n="hero.subtitle">Har bir shirinlik — alohida his.</div>
+  <div class="footer-social" id="footerSocial"></div>
+  <div class="footer-grid">
+    <div>
+      <div class="footer-col-ttl" data-i18n="footer.nav">Tezkor o'tish</div>
+      <ul class="footer-links">
+        <li><button onclick="scrollToSec('menu')" data-i18n="menu.title">Menyu</button></li>
+        <li><button onclick="scrollToSec('gifts')">Sovg'a To'plamlari</button></li>
+        <li><button onclick="scrollToSec('events')" data-i18n="events.title">Tadbirlar</button></li>
+        <li><button onclick="scrollToSec('gallery')" data-i18n="gallery.title">Galereya</button></li>
+        <li><button onclick="scrollToSec('location')" data-i18n="location.title">Manzil</button></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-ttl" data-i18n="footer.actions">Amallar</div>
+      <ul class="footer-links">
+        <li><button onclick="toggleCart()" data-i18n="footer.order">Buyurtma berish</button></li>
+        <li><button onclick="bookEvent()">Sovg'a buyurtma</button></li>
+        <li><a id="footerPhone" href="#" data-i18n="footer.callus">Qo'ng'iroq qilish</a></li>
+        <li><a id="footerContact" href="#" target="_blank" data-i18n="footer.contact">Bog'lanish</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    © 2026 <span>Gavali</span> — <span data-i18n="footer.text">Barcha huquqlar himoyalangan</span>
+  </div>
+</footer>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox">
+  <button class="lb-close" onclick="closeLightbox()">✕</button>
+  <button class="lb-prev" onclick="lbShift(-1)">←</button>
+  <img id="lightboxImg" src="" alt="" onclick="event.stopPropagation()">
+  <button class="lb-next" onclick="lbShift(1)">→</button>
+</div>
+
+<!-- OVERLAY -->
+<div id="overlay" onclick="closePanels()"></div>
+
+<!-- CART PANEL -->
+<div class="panel" id="cartPanel">
+  <div class="panel-hd">
+    <div class="panel-ttl" data-i18n="cart.title">Savatcha</div>
+    <button class="close-btn" onclick="closePanels()">✕</button>
+  </div>
+  <div id="cartItems" style="flex:1">
+    <div class="empty-state">
+      <div class="empty-icon">🛍️</div>
+      <div class="empty-txt" data-i18n="cart.empty">Savatcha bo'sh</div>
+    </div>
+  </div>
+  <div class="cart-ft">
+    <div class="cart-total-row">
+      <span data-i18n="cart.total">Jami:</span>
+      <span><span id="cartTotal">0</span> <span data-i18n="cart.currency">so'm</span></span>
+    </div>
+    <div class="order-type-row">
+      <button id="btnDineIn" class="otype-btn" onclick="selectOrderType('dine_in')" data-i18n="cart.dinein">🛋️ Zalda</button>
+      <button id="btnOnline" class="otype-btn" onclick="selectOrderType('online')" data-i18n="cart.online">🚚 Yetkazish</button>
+    </div>
+    <div id="tableInputWrap" style="display:none">
+      <input class="tbl-input" id="tableInput" type="number" min="1" max="50" placeholder="Stol raqami..."/>
+    </div>
+    <button class="checkout-btn" id="checkoutBtn" onclick="checkout()" data-i18n="cart.checkout">Buyurtma Berish</button>
+  </div>
+</div>
+
+<!-- USER PANEL -->
+<div class="panel" id="userPanel">
+  <div class="panel-hd">
+    <div class="panel-ttl" data-i18n="user.title">Profilim</div>
+    <button class="close-btn" onclick="closePanels()">✕</button>
+  </div>
+  <div class="profile-card">
+    <div class="profile-avatar">👤</div>
+    <div class="profile-name" id="profileName" data-i18n="user.loading">Yuklanmoqda...</div>
+    <div class="profile-username" id="profileUsername"></div>
+    <div class="profile-phone" id="profilePhone"></div>
+  </div>
+  <div style="padding:16px 24px 8px;display:flex;align-items:center;gap:10px">
+    <span style="font-family:'Cormorant',serif;font-size:15px;color:var(--sage2)" data-i18n="user.orders">Buyurtmalarim</span>
+    <div style="flex:1;height:1px;background:var(--border2)"></div>
+  </div>
+  <div id="userOrders">
+    <div class="empty-state">
+      <div class="empty-icon">📦</div>
+      <div class="empty-txt" data-i18n="user.loading">Yuklanmoqda...</div>
+    </div>
+  </div>
+</div>
+
+<!-- TG WARNING -->
+<div id="tgWarning">
+  <div class="tg-ico">🍫</div>
+  <div class="tg-ttl" data-i18n="tg.title">Telegram orqali kiring</div>
+  <div class="tg-dsc" data-i18n="tg.desc" data-i18n-html="true"></div>
+  <a id="tgBotLink" href="#" class="tg-btn" data-i18n="tg.btn">Botga o'tish →</a>
+</div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+<script>
+(function() {
+  var cfg = window.__CONFIG__ || {};
+
+  // Hero bg
+  var hb = document.getElementById('heroBg');
+  if (hb && cfg.HERO_IMAGE) hb.style.backgroundImage = "url('" + cfg.HERO_IMAGE + "')";
+
+  // Gallery
+  var gg = document.getElementById('galleryGrid');
+  if (gg && cfg.GALLERY) {
+    gg.innerHTML = cfg.GALLERY.map(function(img, i) {
+      return '<div class="gallery-item" onclick="openLightbox(' + i + ')">' +
+        '<img src="' + img.replace('1200','600') + '" alt="">' +
+        '<div class="gallery-ov"><div class="gallery-ov-ico">+</div></div>' +
+      '</div>';
+    }).join('');
+  }
+
+  // Map
+  var mf = document.getElementById('mapFrame');
+  if (mf && cfg.MAP_EMBED) mf.src = cfg.MAP_EMBED;
+
+  // Phone
+  var ph = cfg.PHONE || '';
+  var pl = document.getElementById('phoneLink');
+  if (pl) pl.innerHTML = '<a href="tel:' + ph.replace(/\s/g,'') + '">' + ph + '</a>';
+  var fp = document.getElementById('footerPhone');
+  if (fp) fp.href = 'tel:' + ph.replace(/\s/g,'');
+  var fc = document.getElementById('footerContact');
+  if (fc) fc.href = 'https://t.me/' + (cfg.ADMIN_TG || '');
+
+  // Footer social
+  var fs = document.getElementById('footerSocial');
+  if (fs) {
+    fs.innerHTML =
+      '<a class="soc-btn" href="https://t.me/' + (cfg.ADMIN_TG||'') + '" target="_blank">✈️ Admin</a>' +
+      '<a class="soc-btn" href="https://t.me/' + (cfg.BOT_USERNAME||'') + '" target="_blank">🤖 Bot</a>' +
+      '<a class="soc-btn" href="tel:' + ph.replace(/\s/g,'') + '">📞 ' + ph + '</a>';
+  }
+
+  // TG
+  var tb = document.getElementById('tgBotLink');
+  if (tb) tb.href = 'https://t.me/' + (cfg.BOT_USERNAME || '');
+
+  document.title = 'Gavali — Premium Shirinliklar';
+})();
+
+// Topbar scroll
+window.addEventListener('scroll', function() {
+  document.getElementById('topbar').classList.toggle('scrolled', window.scrollY > 60);
+});
+
+function scrollToSec(id) {
+  document.getElementById(id)?.scrollIntoView({ behavior:'smooth' });
+}
+
+// Slider
+var currentSlide = 0, totalSlides = 3;
+setInterval(function() { goSlide((currentSlide+1) % totalSlides); }, 5500);
+function goSlide(n) {
+  currentSlide = n;
+  document.getElementById('eventsTrack').style.transform = 'translateX(-' + (n*100) + '%)';
+  document.querySelectorAll('.dot').forEach(function(d,i) { d.classList.toggle('active', i===n); });
+}
+function nextSlide() { goSlide((currentSlide+1) % totalSlides); }
+function prevSlide() { goSlide((currentSlide-1+totalSlides) % totalSlides); }
+
+// Touch
+(function() {
+  var el = document.getElementById('eventsTrack'), sx = 0;
+  el.addEventListener('touchstart', function(e) { sx = e.touches[0].clientX; }, {passive:true});
+  el.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - sx;
+    if (Math.abs(dx) > 40) dx < 0 ? nextSlide() : prevSlide();
+  }, {passive:true});
+})();
+
+// Lightbox
+var galleryImages = (window.__CONFIG__ && window.__CONFIG__.GALLERY) || [];
+var lbIdx = 0;
+function openLightbox(i) {
+  lbIdx = i;
+  document.getElementById('lightboxImg').src = galleryImages[i] || '';
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+function lbShift(d) {
+  lbIdx = (lbIdx + d + galleryImages.length) % galleryImages.length;
+  document.getElementById('lightboxImg').src = galleryImages[lbIdx];
+}
+document.getElementById('lightbox').addEventListener('click', function(e) {
+  if (e.target === this) closeLightbox();
+});
+</script>
+
+<script src="app.js"></script>
+</body>
+</html>

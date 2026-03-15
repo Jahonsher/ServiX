@@ -534,9 +534,10 @@ app.post("/auth", async (req, res) => {
   try {
     const { id, first_name, last_name, username, restaurantId } = req.body;
     if (!restaurantId) return res.status(400).json({ error: "restaurantId kerak" });
+    const numId = Number(id);
     const user = await User.findOneAndUpdate(
-      { telegramId: id, restaurantId },
-      { $set: { telegramId: id, restaurantId, first_name: first_name||"", last_name: last_name||"", username: username||"" } },
+      { telegramId: numId, restaurantId },
+      { $set: { telegramId: numId, restaurantId, first_name: first_name||"", last_name: last_name||"", username: username||"" } },
       { upsert: true, new: true }
     );
     res.json({ ok: true, user });
@@ -546,7 +547,8 @@ app.post("/auth", async (req, res) => {
 app.get("/user/:id", async (req, res) => {
   try {
     const rId = req.query.restaurantId;
-    res.json(await User.findOne({ telegramId: Number(req.params.id), restaurantId: rId }) || {});
+    const user = await User.findOne({ telegramId: Number(req.params.id), restaurantId: rId });
+    res.json(user || {});
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

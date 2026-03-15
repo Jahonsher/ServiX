@@ -278,7 +278,6 @@ function initTelegramUser() {
       currentLang = (tgUser.language_code === "ru") ? "ru" : "uz";
       localStorage.setItem("lang", currentLang);
     }
-    // Avval auth, keyin user ma'lumotlarini olamiz
     fetch(API + "/auth", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
@@ -291,35 +290,12 @@ function initTelegramUser() {
       })
     })
     .then(r => r.json())
-    .then(authData => {
-      // auth javobidan user malumotlarini olamiz
-      if (authData && authData.user) {
-        userProfile = authData.user;
-        userData = {
-          ...userData,
-          first_name: authData.user.first_name || tgUser.first_name || "",
-          last_name:  authData.user.last_name  || tgUser.last_name  || "",
-          username:   authData.user.username   || tgUser.username   || "",
-          phone:      authData.user.phone      || ""
-        };
-        renderProfile();
-      }
-      // Telefon uchun DB dan ham tekshiramiz
-      return fetch(API + "/user/" + telegramId + "?restaurantId=" + RESTAURANT_ID);
-    })
+    .then(() => fetch(API + "/user/" + telegramId + "?restaurantId=" + RESTAURANT_ID))
     .then(r => r.json())
     .then(fullUser => {
-      if (fullUser && (fullUser.first_name || fullUser.phone)) {
-        userProfile = fullUser;
-        userData = {
-          ...userData,
-          first_name: fullUser.first_name || userData.first_name || "",
-          last_name:  fullUser.last_name  || userData.last_name  || "",
-          username:   fullUser.username   || userData.username   || "",
-          phone:      fullUser.phone      || ""
-        };
-        renderProfile();
-      }
+      userProfile = fullUser;
+      userData    = { ...userData, phone: fullUser.phone || "" };
+      renderProfile();
     })
     .catch(err => console.error("AUTH ERROR:", err));
   } else {
@@ -345,21 +321,14 @@ initTelegramUser();
 // ===== PROFILE =====================================
 // ===================================================
 function renderProfile() {
-  // userProfile (DB dan) yoki userData (Telegram dan) — ikkalasini birlashtirамiz
-  const db = userProfile || {};
-  const tg = userData    || {};
-  const firstName = db.first_name || tg.first_name || "";
-  const lastName  = db.last_name  || tg.last_name  || "";
-  const username  = db.username   || tg.username   || "";
-  const phone     = db.phone      || tg.phone      || "";
-
+  const u = userProfile || userData;
+  if (!u) return;
   const nameEl  = document.getElementById("profileName");
   const unameEl = document.getElementById("profileUsername");
   const phoneEl = document.getElementById("profilePhone");
-
-  if (nameEl)  nameEl.textContent  = (firstName + " " + lastName).trim() || t("profile.guest");
-  if (unameEl) unameEl.textContent = username ? "@" + username : "";
-  if (phoneEl) phoneEl.textContent = phone    ? "📱 " + phone  : t("user.nophone");
+  if (nameEl)  nameEl.textContent  = `${u.first_name || ""} ${u.last_name || ""}`.trim() || t("profile.guest");
+  if (unameEl) unameEl.textContent = u.username ? `@${u.username}` : "";
+  if (phoneEl) phoneEl.textContent = u.phone    ? `📱 ${u.phone}`  : t("user.nophone");
 }
 
 // ===================================================

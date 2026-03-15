@@ -3,14 +3,43 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Restoran</title>
+  <title>Imperial Restoran</title>
+
 <script>
-  // Har Vercel deployment da shu qiymatlarni o'zgartiring:
   window.__CONFIG__ = {
     API_URL:       "https://e-comerce-bot-main-production.up.railway.app",
-    RESTAURANT_ID: "imperial"
+    RESTAURANT_ID: "imperial",
+    BOT_USERNAME:  "mini_shop_jahonsher_bot",
+    ADMIN_TG:      "Jahonsher",
+    PHONE:         "+998770083413",
+    ADDRESS_UZ:    "Toshkent, Chilonzor tumani, Navroz ko'chasi 15-uy",
+    ADDRESS_RU:    "Ташкент, Чиланзарский район, ул. Навруз 15",
+    METRO_UZ:      "Chilonzor (5 daqiqa yurish)",
+    METRO_RU:      "Чиланзар (5 минут пешком)",
+    WORK_HOURS_UZ: "Du–Ju: 10:00–23:00  |  Sh–Ya: 09:00–00:00",
+    WORK_HOURS_RU: "Пн–Пт: 10:00–23:00  |  Сб–Вс: 09:00–00:00",
+    REST_NAME_UZ:  "Imperial Restoran",
+    REST_NAME_RU:  "Ресторан Imperial",
+    HERO_BADGE_UZ: "Toshkent, O'zbekiston",
+    HERO_BADGE_RU: "Ташкент, Узбекистан",
+    SUBTITLE_UZ:   "Eng yaxshi ta'm — eng yaxshi xizmat",
+    SUBTITLE_RU:   "Лучший вкус — лучший сервис",
+    WORK_START:    10,
+    WORK_END:      23,
+    MAP_EMBED:     "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2996.544!2d69.2166!3d41.2825!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x38ae8b0cc379e9c3%3A0xa5a9323b4aa5cb98!2sChilonzor%2C%20Toshkent!5e0!3m2!1suz!2suz!4v1",
+    GALLERY: [
+      "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&q=90",
+      "https://images.unsplash.com/photo-1424847651672-bf20a4b0982b?w=1200&q=90",
+      "https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1200&q=90",
+      "https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=1200&q=90",
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&q=90",
+      "https://images.unsplash.com/photo-1544148103-0773bf10d330?w=1200&q=90"
+    ],
+    HERO_IMAGE:    "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1400&q=80",
+    EVENTS_BG:     "https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?w=1400&q=80"
   };
 </script>
+
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Cormorant+Garamond:wght@300;400;500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -23,6 +52,7 @@
       --border: rgba(212,170,78,0.3);
       --text:   #faf3e0;
       --muted:  #b09a7a;
+      --tg-bg:  #0d0a07;
     }
     * { margin:0; padding:0; box-sizing:border-box; }
     html { scroll-behavior:smooth; }
@@ -36,22 +66,8 @@
     .gold-line::after { background:linear-gradient(90deg,var(--gold),transparent); }
     .gold-line span { color:var(--gold); font-size:14px; }
 
-    /* ===== TOPBAR ===== */
-    .topbar {
-      position:fixed; top:0; left:0; right:0; z-index:40;
-      background:rgba(13,10,7,0);
-      backdrop-filter:blur(0px);
-      border-bottom:1px solid transparent;
-      display:flex; align-items:center; justify-content:space-between;
-      padding:16px 20px;
-      transition:background .35s, backdrop-filter .35s, border-color .35s, padding .3s;
-    }
-    .topbar.scrolled {
-      background:rgba(13,10,7,0.95);
-      backdrop-filter:blur(14px);
-      border-bottom:1px solid var(--border);
-      padding:10px 20px;
-    }
+    .topbar { position:fixed; top:0; left:0; right:0; z-index:40; background:rgba(13,10,7,0); backdrop-filter:blur(0px); border-bottom:1px solid transparent; display:flex; align-items:center; justify-content:space-between; padding:16px 20px; transition:background .35s,backdrop-filter .35s,border-color .35s,padding .3s; }
+    .topbar.scrolled { background:rgba(13,10,7,0.95); backdrop-filter:blur(14px); border-bottom:1px solid var(--border); padding:10px 20px; }
     .topbar-logo { font-family:'Playfair Display',serif; font-size:18px; color:var(--gold); font-weight:600; cursor:pointer; }
     .topbar-actions { display:flex; gap:8px; align-items:center; }
     .icon-btn { background:rgba(201,168,76,0.08); border:1px solid var(--border); color:var(--gold2); width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px; transition:all .2s; position:relative; }
@@ -62,14 +78,7 @@
     .lang-btn.active { background:var(--gold); color:var(--dark); font-weight:600; }
     .lang-btn:hover:not(.active) { color:var(--gold2); }
 
-    /* ===== HERO ===== */
-    .hero {
-      min-height:100vh;
-      background:linear-gradient(to bottom,rgba(13,10,7,0.25) 0%,rgba(13,10,7,0.65) 65%,var(--dark) 100%),
-        url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1400&q=80') center/cover no-repeat;
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      padding:80px 20px 56px; text-align:center;
-    }
+    .hero { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:80px 20px 56px; text-align:center; }
     .hero-badge { font-family:'Cormorant Garamond',serif; font-size:11px; letter-spacing:4px; text-transform:uppercase; color:var(--gold); margin-bottom:16px; border:1px solid var(--border); padding:5px 18px; border-radius:2px; }
     .hero h1 { font-family:'Playfair Display',serif; font-size:clamp(36px,10vw,64px); font-weight:700; line-height:1.1; background:linear-gradient(135deg,#f0d080 0%,#d4aa4e 50%,#a07830 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
     .hero p { font-family:'Cormorant Garamond',serif; font-size:19px; color:rgba(250,243,224,0.9); margin-top:10px; letter-spacing:1px; }
@@ -77,17 +86,14 @@
     .hero-btn { padding:11px 28px; background:transparent; border:1px solid var(--gold); color:var(--gold); font-family:'Jost',sans-serif; font-size:11px; letter-spacing:3px; text-transform:uppercase; border-radius:2px; cursor:pointer; transition:all .2s; }
     .hero-btn:hover,.hero-btn.filled { background:var(--gold); color:var(--dark); }
 
-    /* ===== SECTION TITLE ===== */
     .section-title { text-align:center; padding:48px 20px 12px; }
     .section-title .sub { font-family:'Cormorant Garamond',serif; font-size:13px; letter-spacing:4px; text-transform:uppercase; color:var(--gold); display:block; margin-bottom:6px; }
     .section-title h2 { font-family:'Playfair Display',serif; font-size:clamp(26px,6vw,36px); font-weight:600; }
 
-    /* ===== FILTER ===== */
     .filter-tabs { display:flex; gap:8px; justify-content:center; padding:16px 20px; flex-wrap:wrap; }
     .tab-btn { font-family:'Jost',sans-serif; font-size:12px; letter-spacing:2px; text-transform:uppercase; padding:7px 20px; border-radius:2px; cursor:pointer; border:1px solid var(--border); color:var(--muted); background:transparent; transition:all .25s; }
     .tab-btn.active,.tab-btn:hover { background:var(--gold); color:var(--dark); border-color:var(--gold); font-weight:500; }
 
-    /* ===== PRODUCT GRID ===== */
     .product-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:16px; padding:8px 16px 40px; }
     .product-card { background:var(--card); border:1px solid var(--border); border-radius:8px; overflow:hidden; transition:transform .25s,box-shadow .25s; animation:fadeUp .4s ease both; }
     .product-card:hover { transform:translateY(-3px); box-shadow:0 12px 32px rgba(201,168,76,0.15); }
@@ -100,9 +106,8 @@
     .add-btn { width:100%; padding:8px; background:linear-gradient(135deg,#d4aa4e,#a07830); color:var(--dark); font-family:'Jost',sans-serif; font-size:11px; font-weight:500; letter-spacing:2px; text-transform:uppercase; border:none; border-radius:4px; cursor:pointer; transition:all .2s; }
     .add-btn:hover { opacity:.85; }
 
-    /* ===== EVENTS ===== */
     .events-section { position:relative; overflow:hidden; background:linear-gradient(to bottom,var(--dark) 0%,var(--dark2) 50%,var(--dark) 100%); padding-bottom:56px; }
-    .events-bg { position:absolute; inset:0; z-index:0; background:url('https://images.unsplash.com/photo-1519671482749-fd09be7ccebf?w=1400&q=80') center/cover no-repeat; opacity:0.07; }
+    .events-bg { position:absolute; inset:0; z-index:0; opacity:0.07; background-size:cover; background-position:center; }
     .events-inner { position:relative; z-index:1; }
     .events-slider { overflow:hidden; }
     .events-track { display:flex; transition:transform .5s cubic-bezier(.4,0,.2,1); }
@@ -125,7 +130,6 @@
     .arrow-btn { width:40px; height:40px; border-radius:50%; background:rgba(201,168,76,0.08); border:1px solid var(--border); color:var(--gold2); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; }
     .arrow-btn:hover { background:rgba(201,168,76,0.2); }
 
-    /* ===== GALLERY ===== */
     .gallery-section { padding-bottom:56px; }
     .gallery-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding:12px 16px 0; }
     .gallery-item { aspect-ratio:1; overflow:hidden; border-radius:6px; cursor:pointer; border:1px solid var(--border); position:relative; }
@@ -134,17 +138,14 @@
     .gallery-item .overlay-icon { position:absolute; inset:0; background:rgba(13,10,7,0.45); display:flex; align-items:center; justify-content:center; font-size:22px; opacity:0; transition:opacity .25s; border-radius:6px; }
     .gallery-item:hover .overlay-icon { opacity:1; }
 
-    /* Lightbox */
     .lightbox { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.95); display:none; align-items:center; justify-content:center; padding:20px; }
     .lightbox.open { display:flex; }
     .lightbox img { max-width:100%; max-height:88vh; border-radius:8px; border:1px solid var(--border); }
     .lightbox-close { position:absolute; top:16px; right:16px; background:rgba(212,170,78,0.15); border:1px solid var(--border); color:var(--gold2); width:40px; height:40px; border-radius:50%; font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:1; }
     .lb-prev,.lb-next { position:absolute; top:50%; transform:translateY(-50%); background:rgba(212,170,78,0.1); border:1px solid var(--border); color:var(--gold2); width:44px; height:44px; border-radius:50%; font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .2s; z-index:1; }
-    .lb-prev { left:12px; }
-    .lb-next { right:12px; }
+    .lb-prev { left:12px; } .lb-next { right:12px; }
     .lb-prev:hover,.lb-next:hover { background:rgba(212,170,78,0.25); }
 
-    /* ===== LOCATION ===== */
     .location-section { padding-bottom:56px; }
     .location-card { margin:16px; border-radius:10px; overflow:hidden; border:1px solid var(--border); background:var(--card); }
     .map-frame { width:100%; height:220px; border:none; display:block; filter:grayscale(20%) contrast(1.05); }
@@ -156,7 +157,6 @@
     .loc-val { font-family:'Cormorant Garamond',serif; font-size:15px; color:var(--text); line-height:1.5; }
     .loc-val a { color:var(--gold2); text-decoration:none; }
 
-    /* ===== PANEL ===== */
     .panel { position:fixed; top:0; right:0; height:100%; width:min(340px,100vw); background:var(--dark2); border-left:1px solid var(--border); z-index:50; transform:translateX(100%); transition:transform .3s cubic-bezier(.4,0,.2,1); overflow-y:auto; display:flex; flex-direction:column; }
     .panel.open { transform:translateX(0); }
     .panel-header { display:flex; align-items:center; justify-content:space-between; padding:20px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--dark2); z-index:2; }
@@ -192,7 +192,6 @@
     .empty-state .icon { font-size:40px; margin-bottom:12px; }
     .empty-state p { font-family:'Cormorant Garamond',serif; font-size:16px; }
 
-    /* ===== FOOTER ===== */
     .footer-main { background:var(--dark2); border-top:1px solid var(--border); padding:44px 20px 28px; }
     .footer-logo { font-family:'Playfair Display',serif; font-size:24px; color:var(--gold); font-weight:600; text-align:center; margin-bottom:6px; }
     .footer-tagline { font-family:'Cormorant Garamond',serif; font-size:14px; color:var(--muted); text-align:center; margin-bottom:28px; letter-spacing:1px; }
@@ -207,14 +206,14 @@
     .footer-bottom { text-align:center; font-family:'Cormorant Garamond',serif; font-size:12px; color:var(--muted); border-top:1px solid rgba(212,170,78,0.1); padding-top:20px; letter-spacing:1px; }
     .footer-bottom span { color:var(--gold); }
 
-    @keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
   </style>
 </head>
 <body>
 
 <!-- TOPBAR -->
 <nav class="topbar" id="topbar">
-  <div class="topbar-logo" onclick="window.scrollTo({top:0,behavior:'smooth'})">✦ Imperial</div>
+  <div class="topbar-logo" onclick="window.scrollTo({top:0,behavior:'smooth'})" data-i18n="nav.title">✦ Imperial</div>
   <div class="topbar-actions">
     <div class="lang-switcher">
       <button class="lang-btn active" data-lang="uz" onclick="setLang('uz')">UZ</button>
@@ -246,12 +245,9 @@
     <h2 data-i18n="menu.title">Menyu</h2>
     <div class="gold-line"><span>✦</span></div>
   </div>
-
-  <!-- FILTER TUGMALAR — app.js tomonidan dinamik yuklanadi -->
   <div class="filter-tabs" id="filterTabs">
     <button class="tab-btn active" data-cat="all" onclick="filterCategory('all',this)">Barchasi</button>
   </div>
-
   <div class="product-grid" id="products">
     <div class="empty-state" style="grid-column:1/-1">
       <div class="icon">🍽</div>
@@ -262,7 +258,7 @@
 
 <!-- EVENTS -->
 <section class="events-section" id="events">
-  <div class="events-bg"></div>
+  <div class="events-bg" id="eventsBg"></div>
   <div class="events-inner">
     <div class="section-title">
       <span class="sub" data-i18n="events.sub">Maxsus tadbirlar</span>
@@ -276,7 +272,7 @@
           <div class="event-content">
             <span class="event-price" data-i18n="events.from">Narx kelishiladi</span>
             <h3 class="event-title" data-i18n="events.birthday.title">Tug'ilgan kun ziyofati</h3>
-            <p class="event-desc" data-i18n="events.birthday.desc">Yaqinlaringiz bilan unutilmas tug'ilgan kunni Imperial Restoranda nishonlang.</p>
+            <p class="event-desc" data-i18n="events.birthday.desc"></p>
             <ul class="event-features">
               <li data-i18n="events.birthday.f1">Maxsus stol bezagi</li>
               <li data-i18n="events.birthday.f2">Individual menyu tanlash</li>
@@ -290,7 +286,7 @@
           <div class="event-content">
             <span class="event-price" data-i18n="events.from">Narx kelishiladi</span>
             <h3 class="event-title" data-i18n="events.private.title">Xususiy ziyofat</h3>
-            <p class="event-desc" data-i18n="events.private.desc">Butun zalimizni faqat siz va mehmonlaringiz uchun band qiling.</p>
+            <p class="event-desc" data-i18n="events.private.desc"></p>
             <ul class="event-features">
               <li data-i18n="events.private.f1">Butun zal ijarasi</li>
               <li data-i18n="events.private.f2">Shaxsiy ofitsiant xizmati</li>
@@ -304,7 +300,7 @@
           <div class="event-content">
             <span class="event-price" data-i18n="events.from">Narx kelishiladi</span>
             <h3 class="event-title" data-i18n="events.corporate.title">Korporativ tadbir</h3>
-            <p class="event-desc" data-i18n="events.corporate.desc">Biznes uchrashuvlar va korporativ ziyofatlar uchun ideal muhit.</p>
+            <p class="event-desc" data-i18n="events.corporate.desc"></p>
             <ul class="event-features">
               <li data-i18n="events.corporate.f1">Biznes prezentatsiya uchun ekran</li>
               <li data-i18n="events.corporate.f2">Biznes menyu va bufet</li>
@@ -334,32 +330,7 @@
     <h2 data-i18n="gallery.title">Galereya</h2>
     <div class="gold-line"><span>✦</span></div>
   </div>
-  <div class="gallery-grid">
-    <div class="gallery-item" onclick="openLightbox(0)">
-      <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=600&q=80" alt="">
-      <div class="overlay-icon">🔍</div>
-    </div>
-    <div class="gallery-item" onclick="openLightbox(1)">
-      <img src="https://images.unsplash.com/photo-1424847651672-bf20a4b0982b?w=600&q=80" alt="">
-      <div class="overlay-icon">🔍</div>
-    </div>
-    <div class="gallery-item" onclick="openLightbox(2)">
-      <img src="https://images.unsplash.com/photo-1559339352-11d035aa65de?w=600&q=80" alt="">
-      <div class="overlay-icon">🔍</div>
-    </div>
-    <div class="gallery-item" onclick="openLightbox(3)">
-      <img src="https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=600&q=80" alt="">
-      <div class="overlay-icon">🔍</div>
-    </div>
-    <div class="gallery-item" onclick="openLightbox(4)">
-      <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&q=80" alt="">
-      <div class="overlay-icon">🔍</div>
-    </div>
-    <div class="gallery-item" onclick="openLightbox(5)">
-      <img src="https://images.unsplash.com/photo-1544148103-0773bf10d330?w=600&q=80" alt="">
-      <div class="overlay-icon">🔍</div>
-    </div>
-  </div>
+  <div class="gallery-grid" id="galleryGrid"></div>
 </section>
 
 <!-- LOCATION -->
@@ -370,37 +341,34 @@
     <div class="gold-line"><span>✦</span></div>
   </div>
   <div class="location-card">
-    <iframe class="map-frame"
-      src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2996.544!2d69.2166!3d41.2825!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x38ae8b0cc379e9c3%3A0xa5a9323b4aa5cb98!2sChilonzor%2C%20Toshkent!5e0!3m2!1suz!2suz!4v1"
-      allowfullscreen="" loading="lazy">
-    </iframe>
+    <iframe class="map-frame" id="mapFrame" src="" allowfullscreen="" loading="lazy"></iframe>
     <div class="location-info">
       <div class="location-row">
         <span class="loc-icon">📍</span>
         <div>
           <div class="loc-label" data-i18n="location.addr.label">Manzil</div>
-          <div class="loc-val" data-i18n="location.addr.val">Toshkent, Chilonzor tumani, Navroz ko'chasi 15-uy</div>
+          <div class="loc-val" data-i18n="location.addr.val"></div>
         </div>
       </div>
       <div class="location-row">
         <span class="loc-icon">🕐</span>
         <div>
           <div class="loc-label" data-i18n="location.hours.label">Ish vaqti</div>
-          <div class="loc-val" data-i18n="location.hours.val">Du–Ju: 10:00–23:00 &nbsp;|&nbsp; Sh–Ya: 09:00–00:00</div>
+          <div class="loc-val" data-i18n="location.hours.val"></div>
         </div>
       </div>
       <div class="location-row">
         <span class="loc-icon">📞</span>
         <div>
           <div class="loc-label" data-i18n="location.phone.label">Telefon</div>
-          <div class="loc-val"><a href="tel:+998770083413">+998 77 008 34 13</a></div>
+          <div class="loc-val" id="phoneLink"></div>
         </div>
       </div>
       <div class="location-row">
         <span class="loc-icon">🚇</span>
         <div>
           <div class="loc-label" data-i18n="location.metro.label">Metro</div>
-          <div class="loc-val" data-i18n="location.metro.val">Chilonzor (5 daqiqa yurish)</div>
+          <div class="loc-val" data-i18n="location.metro.val"></div>
         </div>
       </div>
     </div>
@@ -409,13 +377,9 @@
 
 <!-- FOOTER -->
 <footer class="footer-main" id="contact">
-  <div class="footer-logo">✦ Imperial</div>
+  <div class="footer-logo" data-i18n="nav.title">✦ Imperial</div>
   <div class="footer-tagline" data-i18n="hero.subtitle">Eng yaxshi ta'm — eng yaxshi xizmat</div>
-  <div class="footer-social">
-    <a class="social-btn" href="https://t.me/Jahonsher" target="_blank">✈️ <span data-i18n="footer.admin">Admin @Jahonsher</span></a>
-    <a class="social-btn" href="https://t.me/mini_shop_jahonsher_bot" target="_blank">🤖 <span data-i18n="footer.bot">Telegram Bot</span></a>
-    <a class="social-btn" href="tel:+998770083413">📞 77 008 34 13</a>
-  </div>
+  <div class="footer-social" id="footerSocial"></div>
   <div class="footer-grid">
     <div>
       <div class="footer-col-title" data-i18n="footer.nav">Tezkor o'tish</div>
@@ -431,12 +395,12 @@
       <ul class="footer-links">
         <li><button onclick="toggleCart()" data-i18n="footer.order">Buyurtma berish</button></li>
         <li><button onclick="bookEvent()" data-i18n="footer.book">Zal band qilish</button></li>
-        <li><a href="tel:+998770083413" data-i18n="footer.callus">Qo'ng'iroq qilish</a></li>
-        <li><a href="https://t.me/Jahonsher" target="_blank" data-i18n="footer.contact">Bog'lanish</a></li>
+        <li><a id="footerPhone" href="#" data-i18n="footer.callus">Qo'ng'iroq qilish</a></li>
+        <li><a id="footerContact" href="#" target="_blank" data-i18n="footer.contact">Bog'lanish</a></li>
       </ul>
     </div>
   </div>
-  <div class="footer-bottom">© 2026 <span>Imperial Restoran</span> — <span data-i18n="footer.text">Barcha huquqlar himoyalangan</span></div>
+  <div class="footer-bottom">© 2026 <span id="footerName">Imperial Restoran</span> — <span data-i18n="footer.text">Barcha huquqlar himoyalangan</span></div>
 </footer>
 
 <!-- LIGHTBOX -->
@@ -478,7 +442,7 @@
       </div>
       <div id="tableInputWrap" style="display:none;">
         <input id="tableInput" type="number" min="1" max="50"
-          data-i18n="cart.tableplaceholder" placeholder="Stol raqamini kiriting..."
+          placeholder="Stol raqamini kiriting..."
           style="width:100%;padding:10px 12px;background:var(--card);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:'Jost',sans-serif;font-size:13px;outline:none;transition:border-color .2s;"
           onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"/>
       </div>
@@ -512,11 +476,8 @@
 <div id="tgWarning" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(13,10,7,0.97);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;">
   <div style="font-size:48px;margin-bottom:16px;">🤖</div>
   <div style="font-family:'Playfair Display',serif;font-size:22px;color:#d4aa4e;margin-bottom:12px;" data-i18n="tg.title">Telegram orqali kiring</div>
-  <div style="color:#b09a7a;font-size:14px;line-height:1.7;max-width:280px;" data-i18n="tg.desc" data-i18n-html="true">
-    Bu ilova faqat Telegram bot orqali ishlaydi.<br><br>
-    Quyidagi botga o'ting va <strong style="color:#d4aa4e">/start</strong> bosing:
-  </div>
-  <a href="https://t.me/mini_shop_jahonsher_bot"
+  <div style="color:#b09a7a;font-size:14px;line-height:1.7;max-width:280px;" data-i18n="tg.desc" data-i18n-html="true"></div>
+  <a id="tgBotLink" href="#"
     style="margin-top:24px;padding:12px 28px;background:linear-gradient(135deg,#d4aa4e,#a07830);color:#0d0a07;font-family:'Jost',sans-serif;font-size:12px;font-weight:500;letter-spacing:2px;text-decoration:none;border-radius:4px;text-transform:uppercase;"
     data-i18n="tg.btn">Botga o'tish →</a>
 </div>
@@ -524,92 +485,115 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <script>
-  window.addEventListener('scroll', () => {
-    document.getElementById('topbar').classList.toggle('scrolled', window.scrollY > 60);
-  });
+// Config dan dinamik elementlarni to'ldirish
+(function() {
+  var cfg = window.__CONFIG__ || {};
 
-  function scrollToSection(id) {
-    document.getElementById(id)?.scrollIntoView({ behavior:'smooth' });
+  // Hero rasm
+  var hero = document.getElementById('hero');
+  if (hero && cfg.HERO_IMAGE) {
+    hero.style.background = "linear-gradient(to bottom,rgba(13,10,7,0.25) 0%,rgba(13,10,7,0.65) 65%,#0d0a07 100%), url('" + cfg.HERO_IMAGE + "') center/cover no-repeat";
   }
 
-  let currentSlide = 0;
-  const totalSlides = 3;
-  setInterval(() => goSlide((currentSlide+1) % totalSlides), 5000);
-
-  function goSlide(n) {
-    currentSlide = n;
-    document.getElementById('eventsTrack').style.transform = 'translateX(-' + (n*100) + '%)';
-    document.querySelectorAll('.dot').forEach((d,i) => d.classList.toggle('active', i===n));
+  // Events bg
+  var evBg = document.getElementById('eventsBg');
+  if (evBg && cfg.EVENTS_BG) {
+    evBg.style.backgroundImage = "url('" + cfg.EVENTS_BG + "')";
   }
-  function nextSlide() { goSlide((currentSlide+1) % totalSlides); }
-  function prevSlide() { goSlide((currentSlide-1+totalSlides) % totalSlides); }
 
-  (function() {
-    const el = document.getElementById('eventsTrack');
-    let startX = 0, startY = 0, dragging = false;
-    el.addEventListener('touchstart', e => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; dragging = true; }, { passive:true });
-    el.addEventListener('touchend', e => {
-      if (!dragging) return;
-      const dx = e.changedTouches[0].clientX - startX;
-      const dy = e.changedTouches[0].clientY - startY;
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) { dx < 0 ? nextSlide() : prevSlide(); }
-      dragging = false;
-    }, { passive:true });
-    let mouseStartX = 0, mouseDown = false;
-    el.addEventListener('mousedown', e => { mouseStartX = e.clientX; mouseDown = true; });
-    el.addEventListener('mouseup', e => {
-      if (!mouseDown) return;
-      const dx = e.clientX - mouseStartX;
-      if (Math.abs(dx) > 40) dx < 0 ? nextSlide() : prevSlide();
-      mouseDown = false;
-    });
-    el.addEventListener('mouseleave', () => mouseDown = false);
-  })();
-
-  function bookEvent() { window.open('https://t.me/Jahonsher', '_blank'); }
-
-  const galleryImages = [
-    'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&q=90',
-    'https://images.unsplash.com/photo-1424847651672-bf20a4b0982b?w=1200&q=90',
-    'https://images.unsplash.com/photo-1559339352-11d035aa65de?w=1200&q=90',
-    'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?w=1200&q=90',
-    'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=1200&q=90',
-    'https://images.unsplash.com/photo-1544148103-0773bf10d330?w=1200&q=90',
-  ];
-  let lbIndex = 0;
-
-  function openLightbox(i) {
-    lbIndex = i;
-    document.getElementById('lightboxImg').src = galleryImages[i];
-    document.getElementById('lightbox').classList.add('open');
+  // Gallery
+  var galleryGrid = document.getElementById('galleryGrid');
+  if (galleryGrid && cfg.GALLERY) {
+    galleryGrid.innerHTML = cfg.GALLERY.map(function(img, i) {
+      return '<div class="gallery-item" onclick="openLightbox(' + i + ')">' +
+        '<img src="' + img.replace('1200', '600') + '" alt="">' +
+        '<div class="overlay-icon">🔍</div>' +
+      '</div>';
+    }).join('');
   }
-  function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
-  function lbShift(dir) {
-    lbIndex = (lbIndex + dir + galleryImages.length) % galleryImages.length;
-    document.getElementById('lightboxImg').src = galleryImages[lbIndex];
-  }
-  document.getElementById('lightbox').addEventListener('click', function(e) {
-    if (e.target === this) closeLightbox();
-  });
 
-  (function() {
-    const lb = document.getElementById('lightbox');
-    let startX = 0, startY = 0;
-    lb.addEventListener('touchstart', e => { startX = e.touches[0].clientX; startY = e.touches[0].clientY; }, { passive:true });
-    lb.addEventListener('touchend', e => {
-      const dx = e.changedTouches[0].clientX - startX;
-      const dy = e.changedTouches[0].clientY - startY;
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) { lbShift(dx < 0 ? 1 : -1); }
-    }, { passive:true });
-    let mouseStartX = 0, mouseDown = false;
-    lb.addEventListener('mousedown', e => { if(e.target !== lb) { mouseStartX = e.clientX; mouseDown = true; }});
-    lb.addEventListener('mouseup', e => {
-      if (!mouseDown) return;
-      const dx = e.clientX - mouseStartX;
-      if (Math.abs(dx) > 40) lbShift(dx < 0 ? 1 : -1);
-      mouseDown = false;
-    });
-  })();
+  // Map
+  var mapFrame = document.getElementById('mapFrame');
+  if (mapFrame && cfg.MAP_EMBED) mapFrame.src = cfg.MAP_EMBED;
+
+  // Phone
+  var phone = cfg.PHONE || '';
+  var phoneLink = document.getElementById('phoneLink');
+  if (phoneLink) phoneLink.innerHTML = '<a href="tel:' + phone + '">' + phone + '</a>';
+  var footerPhone = document.getElementById('footerPhone');
+  if (footerPhone) footerPhone.href = 'tel:' + phone;
+
+  // Footer contact
+  var footerContact = document.getElementById('footerContact');
+  if (footerContact) footerContact.href = 'https://t.me/' + (cfg.ADMIN_TG || '');
+
+  // Footer social
+  var footerSocial = document.getElementById('footerSocial');
+  if (footerSocial) {
+    footerSocial.innerHTML =
+      '<a class="social-btn" href="https://t.me/' + (cfg.ADMIN_TG||'') + '" target="_blank">✈️ <span data-i18n="footer.admin">Admin @' + (cfg.ADMIN_TG||'') + '</span></a>' +
+      '<a class="social-btn" href="https://t.me/' + (cfg.BOT_USERNAME||'') + '" target="_blank">🤖 <span data-i18n="footer.bot">Telegram Bot</span></a>' +
+      '<a class="social-btn" href="tel:' + phone + '">📞 ' + phone + '</a>';
+  }
+
+  // Footer restoran nomi
+  var footerName = document.getElementById('footerName');
+  if (footerName) footerName.textContent = cfg.REST_NAME_UZ || 'Restoran';
+
+  // TG bot link
+  var tgBotLink = document.getElementById('tgBotLink');
+  if (tgBotLink) tgBotLink.href = 'https://t.me/' + (cfg.BOT_USERNAME || '');
+
+  // Page title
+  document.title = cfg.REST_NAME_UZ || 'Restoran';
+})();
+
+// Scroll
+window.addEventListener('scroll', function() {
+  document.getElementById('topbar').classList.toggle('scrolled', window.scrollY > 60);
+});
+
+// Slider
+let currentSlide = 0;
+const totalSlides = 3;
+setInterval(function() { goSlide((currentSlide+1) % totalSlides); }, 5000);
+
+function goSlide(n) {
+  currentSlide = n;
+  document.getElementById('eventsTrack').style.transform = 'translateX(-' + (n*100) + '%)';
+  document.querySelectorAll('.dot').forEach(function(d,i) { d.classList.toggle('active', i===n); });
+}
+function nextSlide() { goSlide((currentSlide+1) % totalSlides); }
+function prevSlide() { goSlide((currentSlide-1+totalSlides) % totalSlides); }
+
+// Touch slider
+(function() {
+  var el = document.getElementById('eventsTrack');
+  var startX = 0;
+  el.addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; }, { passive:true });
+  el.addEventListener('touchend', function(e) {
+    var dx = e.changedTouches[0].clientX - startX;
+    if (Math.abs(dx) > 40) dx < 0 ? nextSlide() : prevSlide();
+  }, { passive:true });
+})();
+
+// Lightbox
+var galleryImages = (window.__CONFIG__ && window.__CONFIG__.GALLERY) || [];
+var lbIndex = 0;
+
+function openLightbox(i) {
+  lbIndex = i;
+  document.getElementById('lightboxImg').src = galleryImages[i] || '';
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+function lbShift(dir) {
+  lbIndex = (lbIndex + dir + galleryImages.length) % galleryImages.length;
+  document.getElementById('lightboxImg').src = galleryImages[lbIndex];
+}
+document.getElementById('lightbox').addEventListener('click', function(e) {
+  if (e.target === this) closeLightbox();
+});
 </script>
 
 <script src="app.js"></script>
