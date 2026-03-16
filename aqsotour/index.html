@@ -84,6 +84,19 @@
     .lightbox { display:none; }
     .lightbox.open { display:flex; }
     #tgWarning { display:none; }
+    .add-btn { background:#e53935; border:none; color:#fff; font-family:'Inter',sans-serif; font-size:10px; font-weight:600; letter-spacing:1px; text-transform:uppercase; border-radius:8px; cursor:pointer; transition:all .3s; padding:9px; width:100%; }
+    .add-btn:hover { background:#ff5252; }
+    .product-card { background:#101538; border:1px solid rgba(255,255,255,0.05); border-radius:14px; overflow:hidden; transition:all .3s; }
+    .product-card:hover { border-color:rgba(229,57,53,0.3); transform:translateY(-4px); box-shadow:0 16px 32px rgba(0,0,0,0.3); }
+    .product-img-wrap { position:relative; overflow:hidden; height:150px; }
+    .product-img-wrap img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .5s ease; }
+    .product-card:hover .product-img-wrap img { transform:scale(1.06); }
+    .product-img-wrap::after { content:''; position:absolute; inset:0; background:linear-gradient(to top, rgba(10,14,39,0.5) 0%, transparent 50%); }
+    .img-placeholder { width:100%; height:150px; background:linear-gradient(135deg,#181d45,#101538); display:flex; align-items:center; justify-content:center; font-size:36px; }
+    .product-info { padding:14px; }
+    .product-info h3 { font-size:14px; font-weight:600; margin-bottom:4px; color:#fff; }
+    .product-info .cat { font-size:10px; letter-spacing:1px; text-transform:uppercase; color:#8a8ea0; margin-bottom:8px; }
+    .product-info .price { font-size:16px; font-weight:700; color:#e53935; display:block; margin-bottom:10px; }
     @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
     .fade-up { animation:fadeUp .5s ease both; }
   </style>
@@ -127,8 +140,8 @@
     <h2 class="text-[clamp(22px,6vw,32px)] font-extrabold text-ared leading-tight" data-i18n="menu.title">Turlar & Paketlar</h2>
     <div class="w-12 h-[3px] bg-ared rounded mt-3"></div>
   </div>
-  <div class="flex gap-1.5 px-4 pb-4 flex-wrap" id="filterTabs">
-    <button class="tab-btn text-[11px] font-semibold px-4 py-2 rounded-full border border-white/10 text-gray-500 bg-transparent transition-all active" data-cat="all" onclick="filterCategory('all',this)">Barchasi</button>
+  <div class="flex gap-2 px-4 pb-4 flex-wrap" id="filterTabs">
+    <button class="tab-btn text-[11px] font-semibold px-5 py-2.5 rounded-full border border-white/10 text-gray-500 bg-transparent transition-all active" data-cat="all" onclick="filterCategory('all',this)">Barchasi</button>
   </div>
   <div class="grid grid-cols-2 gap-3 px-4 pb-12" id="products">
     <div class="col-span-2 text-center py-12 text-gray-500"><span class="text-3xl block mb-3 opacity-50">✈️</span><span class="text-sm" data-i18n="product.loading">Yuklanmoqda...</span></div>
@@ -147,7 +160,7 @@
 <!-- FAQ -->
 <section id="faq">
   <div class="px-5 pt-12 pb-5">
-    <h2 class="text-[clamp(22px,6vw,32px)] font-extrabold text-ared leading-tight">Tez-tez so'raladigan savollar</h2>
+    <h2 class="text-[clamp(22px,6vw,32px)] font-extrabold text-ared leading-tight" data-i18n="faq.heading">Tez-tez so'raladigan savollar</h2>
     <div class="w-12 h-[3px] bg-ared rounded mt-3"></div>
   </div>
   <div class="px-4 pb-12" id="faqList"></div>
@@ -156,13 +169,13 @@
 <!-- CONTACT -->
 <section id="location">
   <div class="px-5 pt-12 pb-5">
-    <h2 class="text-[clamp(22px,6vw,32px)] font-extrabold text-ared leading-tight">Aloqa</h2>
+    <h2 class="text-[clamp(22px,6vw,32px)] font-extrabold text-ared leading-tight" data-i18n="contact.heading">Aloqa</h2>
     <div class="w-12 h-[3px] bg-ared rounded mt-3"></div>
   </div>
   <div class="mx-4 mb-12 rounded-2xl border border-white/10 bg-navy2 p-6">
     <div class="flex items-center gap-3 py-3 border-b border-white/5">
       <i data-lucide="map-pin" class="w-[18px] h-[18px] text-ared shrink-0"></i>
-      <a href="http://aqso-tour-visitka.vercel.app" target="_blank" class="text-sm text-gray-200 no-underline hover:text-ared2 transition-colors">Andijon, O'zbekiston</a>
+      <a href="http://aqso-tour-visitka.vercel.app" target="_blank" class="text-sm text-gray-200 no-underline hover:text-ared2 transition-colors" data-i18n="location.addr.val">Andijon, O'zbekiston</a>
     </div>
     <div class="flex items-center gap-3 py-3 border-b border-white/5">
       <i data-lucide="phone" class="w-[18px] h-[18px] text-ared shrink-0"></i>
@@ -180,7 +193,7 @@
   <div class="flex items-center gap-2 mb-3">
     <img src="https://start-up-blond.vercel.app/AqsoLogo.png" alt="AqsoTour" class="h-10 object-contain"/>
   </div>
-  <p class="text-sm text-gray-400 leading-relaxed mb-5">Aqso Tour – sizning orzudagi sayohatlaringizni amalga oshirish uchun ishonchli hamkoringiz. Eng yaxshi yo'nalishlar, qulay narxlar va unutilmas tajribalar sizni kutmoqda!</p>
+  <p class="text-sm text-gray-400 leading-relaxed mb-5" data-i18n="footer.desc">Aqso Tour – sizning orzudagi sayohatlaringizni amalga oshirish uchun ishonchli hamkoringiz. Eng yaxshi yo'nalishlar, qulay narxlar va unutilmas tajribalar sizni kutmoqda!</p>
   
   <div class="flex gap-3 mb-7">
     <a href="https://instagram.com/" target="_blank" class="w-9 h-9 rounded-full border border-white/10 flex items-center justify-center text-gray-400 no-underline transition-all hover:border-ared hover:text-ared"><i data-lucide="instagram" class="w-4 h-4"></i></a>
@@ -188,24 +201,22 @@
     <a href="https://t.me/AqsoTour" target="_blank" class="w-9 h-9 rounded-full border border-white/10 flex items-center justify-center text-gray-400 no-underline transition-all hover:border-ared hover:text-ared"><i data-lucide="send" class="w-4 h-4"></i></a>
   </div>
 
-  <div class="text-sm font-bold text-white mb-3">Tezkor havola</div>
+  <div class="text-sm font-bold text-white mb-3" data-i18n="footer.quicklinks">Tezkor havola</div>
   <ul class="mb-7 space-y-2.5 list-none p-0">
-    <li><button onclick="scrollToSec('hero')" class="text-sm text-gray-400 hover:text-ared2 transition-colors bg-transparent border-none cursor-pointer font-sans">Bosh sahifa</button></li>
-    <li><button onclick="scrollToSec('menu')" class="text-sm text-gray-400 hover:text-ared2 transition-colors bg-transparent border-none cursor-pointer font-sans">Xizmatlar</button></li>
+    <li><button onclick="scrollToSec('hero')" class="text-sm text-gray-400 hover:text-ared2 transition-colors bg-transparent border-none cursor-pointer font-sans" data-i18n="footer.home">Bosh sahifa</button></li>
+    <li><button onclick="scrollToSec('menu')" class="text-sm text-gray-400 hover:text-ared2 transition-colors bg-transparent border-none cursor-pointer font-sans" data-i18n="footer.services">Xizmatlar</button></li>
     <li><button onclick="scrollToSec('faq')" class="text-sm text-gray-400 hover:text-ared2 transition-colors bg-transparent border-none cursor-pointer font-sans">FAQ</button></li>
-    <li><button onclick="scrollToSec('location')" class="text-sm text-gray-400 hover:text-ared2 transition-colors bg-transparent border-none cursor-pointer font-sans">Aloqa</button></li>
+    <li><button onclick="scrollToSec('location')" class="text-sm text-gray-400 hover:text-ared2 transition-colors bg-transparent border-none cursor-pointer font-sans" data-i18n="footer.contact">Aloqa</button></li>
   </ul>
 
-  <div class="text-sm font-bold text-white mb-3">Biz bilan bog'laning</div>
+  <div class="text-sm font-bold text-white mb-3" data-i18n="footer.contactus">Biz bilan bog'laning</div>
   <ul class="space-y-2.5 list-none p-0 mb-6">
-    <li class="flex items-center gap-2.5 text-sm text-gray-400"><i data-lucide="map-pin" class="w-4 h-4 shrink-0"></i> <a href="http://aqso-tour-visitka.vercel.app" target="_blank" class="text-gray-400 no-underline hover:text-ared2 transition-colors">Andijon, O'zbekiston</a></li>
+    <li class="flex items-center gap-2.5 text-sm text-gray-400"><i data-lucide="map-pin" class="w-4 h-4 shrink-0"></i> <a href="http://aqso-tour-visitka.vercel.app" target="_blank" class="text-gray-400 no-underline hover:text-ared2 transition-colors" data-i18n="location.addr.val">Andijon, O'zbekiston</a></li>
     <li class="flex items-center gap-2.5 text-sm text-gray-400"><i data-lucide="phone" class="w-4 h-4 shrink-0"></i> <a href="tel:+998770074909" class="text-gray-400 no-underline hover:text-ared2 transition-colors">+998 (77) 007-49-09</a></li>
     <li class="flex items-center gap-2.5 text-sm text-gray-400"><i data-lucide="mail" class="w-4 h-4 shrink-0"></i> <a href="mailto:aqsotourtraveling@gmail.com" class="text-gray-400 no-underline hover:text-ared2 transition-colors">aqsotourtraveling@gmail.com</a></li>
   </ul>
 
-  <div class="text-center text-[11px] text-gray-500 border-t border-white/5 pt-5 mt-5">
-    © 2026 Aqso Tour. Barcha huquqlar himoyalangan.
-  </div>
+  <div class="text-center text-[11px] text-gray-500 border-t border-white/5 pt-5 mt-5" data-i18n="footer.copyright">© 2026 Aqso Tour. Barcha huquqlar himoyalangan.</div>
 </footer>
 
 <!-- LIGHTBOX -->
@@ -229,7 +240,7 @@
     <div class="text-center py-12 text-gray-500"><span class="text-3xl block mb-3 opacity-50">✈️</span><span class="text-sm">Hali tur tanlanmagan</span></div>
   </div>
   <div class="mt-auto px-6 py-5 border-t border-white/10 sticky bottom-0 bg-navy2">
-    <div class="flex justify-between text-lg font-bold mb-3.5"><span>Jami:</span><span class="text-ared"><span id="cartTotal">0</span> so'm</span></div>
+    <div class="flex justify-between text-lg font-bold mb-3.5"><span data-i18n="cart.total">Jami:</span><span class="text-ared"><span id="cartTotal">0</span> <span data-i18n="cart.currency">so'm</span></span></div>
     <div class="flex gap-2 mb-3">
       <button id="btnDineIn" onclick="selectOrderType('dine_in')" class="flex-1 py-2.5 rounded-lg border border-white/10 text-gray-500 text-[10px] font-semibold tracking-wider uppercase transition-all cursor-pointer bg-transparent font-sans" data-i18n="cart.dinein">🏢 Ofisda</button>
       <button id="btnOnline" onclick="selectOrderType('online')" class="flex-1 py-2.5 rounded-lg border border-white/10 text-gray-500 text-[10px] font-semibold tracking-wider uppercase transition-all cursor-pointer bg-transparent font-sans" data-i18n="cart.online">🌐 Online</button>
@@ -309,24 +320,6 @@
     }).join('');
   }
 
-  // Phone & Email
-  var ph = cfg.PHONE || '';
-  var em = cfg.EMAIL || '';
-  var pl = document.getElementById('phoneLink');
-  if (pl) pl.innerHTML = '<a href="tel:' + ph.replace(/[\s()-]/g,'') + '" class="text-gray-200 no-underline">' + ph + '</a>';
-  var el = document.getElementById('emailLink');
-  if (el) el.innerHTML = '<a href="mailto:' + em + '" class="text-gray-200 no-underline">' + em + '</a>';
-
-  // Footer social
-  var fs = document.getElementById('footerSocial');
-  if (fs) {
-    var socClass = 'w-8 h-8 rounded-full border border-white/10 flex items-center justify-center text-gray-400 no-underline text-sm transition-all hover:border-ared hover:text-ared';
-    fs.innerHTML =
-      '<a href="https://instagram.com/" target="_blank" class="' + socClass + '">📷</a>' +
-      '<a href="https://youtube.com/" target="_blank" class="' + socClass + '">▶️</a>' +
-      '<a href="https://t.me/' + (cfg.ADMIN_TG||'') + '" target="_blank" class="' + socClass + '">✈️</a>';
-  }
-
   // TG
   var tb = document.getElementById('tgBotLink');
   if (tb) tb.href = 'https://t.me/' + (cfg.BOT_USERNAME || '');
@@ -382,11 +375,9 @@ document.getElementById('lightbox').addEventListener('click', function(e) {
 
 <script src="app.js"></script>
 <script>
-  // Lucide ikonlarni ishga tushirish
   document.addEventListener('DOMContentLoaded', function() {
     if (window.lucide) lucide.createIcons();
   });
-  // app.js yuklangandan keyin ham qayta ishga tushirish
   setTimeout(function() { if (window.lucide) lucide.createIcons(); }, 500);
 </script>
 </body>
