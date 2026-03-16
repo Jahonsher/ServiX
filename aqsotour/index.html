@@ -99,6 +99,10 @@
     .product-info h3 { font-size:14px; font-weight:600; margin-bottom:4px; color:#fff; }
     .product-info .cat { font-size:10px; letter-spacing:1px; text-transform:uppercase; color:#8a8ea0; margin-bottom:8px; }
     .product-info .price { font-size:16px; font-weight:700; color:#e53935; display:block; margin-bottom:10px; }
+    .product-soldout { pointer-events:none; opacity:0.85; }
+    .product-soldout .product-img-wrap::before { content:''; position:absolute; inset:0; background:rgba(10,14,39,0.4); z-index:1; }
+    .soldout-badge { position:absolute; top:10px; right:10px; z-index:2; background:rgba(239,68,68,0.9); color:#fff; font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:4px 10px; border-radius:6px; }
+    .soldout-btn { width:100%; padding:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); color:#6b7280; font-family:'Inter',sans-serif; font-size:11px; font-weight:600; text-align:center; border-radius:10px; letter-spacing:0.5px; }
     @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
     .fade-up { animation:fadeUp .5s ease both; }
   </style>
@@ -236,22 +240,31 @@
 <div id="overlay" onclick="closePanels()" class="fixed inset-0 z-[45] bg-black/70 backdrop-blur-sm"></div>
 
 <!-- CART PANEL -->
-<div class="panel fixed top-0 right-0 h-full w-[min(360px,100vw)] bg-navy2 border-l border-white/10 z-50 overflow-y-auto flex flex-col" id="cartPanel">
-  <div class="flex items-center justify-between px-6 py-5 border-b border-white/10 sticky top-0 bg-navy2 z-10">
-    <span class="text-lg font-bold text-white" data-i18n="cart.title">Tanlangan turlar</span>
-    <button onclick="closePanels()" class="w-8 h-8 rounded-lg border border-white/10 text-gray-500 flex items-center justify-center text-sm cursor-pointer hover:text-white hover:border-ared">✕</button>
-  </div>
-  <div id="cartItems" class="flex-1">
-    <div class="text-center py-12 text-gray-500"><span class="text-3xl block mb-3 opacity-50">✈️</span><span class="text-sm">Hali tur tanlanmagan</span></div>
-  </div>
-  <div class="mt-auto px-6 py-5 border-t border-white/10 sticky bottom-0 bg-navy2">
-    <div class="flex justify-between text-lg font-bold mb-3.5"><span data-i18n="cart.total">Jami:</span><span class="text-ared"><span id="cartTotal">0</span> <span data-i18n="cart.currency">so'm</span></span></div>
-    <div class="flex gap-2 mb-3">
-      <button id="btnDineIn" onclick="selectOrderType('dine_in')" class="flex-1 py-2.5 rounded-lg border border-white/10 text-gray-500 text-[10px] font-semibold tracking-wider uppercase transition-all cursor-pointer bg-transparent font-sans" data-i18n="cart.dinein">🏢 Ofisda</button>
-      <button id="btnOnline" onclick="selectOrderType('online')" class="flex-1 py-2.5 rounded-lg border border-white/10 text-gray-500 text-[10px] font-semibold tracking-wider uppercase transition-all cursor-pointer bg-transparent font-sans" data-i18n="cart.online">🌐 Online</button>
+<div class="panel fixed top-0 right-0 h-full w-[min(380px,100vw)] bg-navy border-l border-white/10 z-50 overflow-y-auto flex flex-col" id="cartPanel">
+  <div class="flex items-center justify-between px-5 py-4 border-b border-white/10 sticky top-0 bg-navy z-10">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg bg-ared/15 flex items-center justify-center text-sm">🛒</div>
+      <span class="text-base font-bold text-white" data-i18n="cart.title">Tanlangan turlar</span>
     </div>
-    <div id="tableInputWrap" class="hidden"><input id="tableInput" type="text" placeholder="Izoh..." class="w-full py-2.5 px-3.5 bg-navy border border-white/10 rounded-lg text-gray-200 text-sm outline-none mb-3 font-sans focus:border-ared"/></div>
-    <button id="checkoutBtn" onclick="checkout()" class="w-full py-3.5 bg-ared text-white font-bold text-xs tracking-widest uppercase rounded-xl border-none cursor-pointer hover:bg-ared2 disabled:opacity-40 disabled:cursor-not-allowed font-sans" data-i18n="cart.checkout">Bron Qilish</button>
+    <button onclick="closePanels()" class="w-8 h-8 rounded-full bg-white/5 border border-white/10 text-gray-400 flex items-center justify-center text-xs cursor-pointer hover:text-white hover:bg-ared/20 hover:border-ared/40 transition-all">✕</button>
+  </div>
+  <div id="cartItems" class="flex-1 px-4 py-3">
+    <div class="text-center py-16 text-gray-500">
+      <div class="w-14 h-14 mx-auto mb-3 rounded-full bg-white/5 flex items-center justify-center text-2xl">✈️</div>
+      <span class="text-sm font-medium">Hali tur tanlanmagan</span>
+    </div>
+  </div>
+  <div class="mt-auto px-5 py-4 border-t border-white/10 sticky bottom-0 bg-navy">
+    <div class="flex justify-between items-center mb-4">
+      <span class="text-sm text-gray-400 font-medium" data-i18n="cart.total">Jami:</span>
+      <span class="text-xl font-extrabold text-ared"><span id="cartTotal">0</span> <span class="text-sm font-semibold" data-i18n="cart.currency">so'm</span></span>
+    </div>
+    <div class="flex gap-2 mb-3">
+      <button id="btnDineIn" onclick="selectOrderType('dine_in')" class="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 text-[11px] font-semibold tracking-wide transition-all cursor-pointer bg-white/[0.03] font-sans hover:border-ared/40 hover:text-ared" data-i18n="cart.dinein">🏢 Ofisda</button>
+      <button id="btnOnline" onclick="selectOrderType('online')" class="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 text-[11px] font-semibold tracking-wide transition-all cursor-pointer bg-white/[0.03] font-sans hover:border-ared/40 hover:text-ared" data-i18n="cart.online">🌐 Online</button>
+    </div>
+    <div id="tableInputWrap" class="hidden"><input id="tableInput" type="text" placeholder="Izoh..." class="w-full py-2.5 px-3.5 bg-navy2 border border-white/10 rounded-xl text-gray-200 text-sm outline-none mb-3 font-sans focus:border-ared transition-colors"/></div>
+    <button id="checkoutBtn" onclick="checkout()" class="w-full py-3.5 bg-gradient-to-r from-ared to-red-700 text-white font-bold text-xs tracking-widest uppercase rounded-xl border-none cursor-pointer hover:shadow-lg hover:shadow-ared/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed font-sans" data-i18n="cart.checkout">Bron Qilish</button>
   </div>
 </div>
 

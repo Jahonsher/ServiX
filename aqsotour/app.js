@@ -49,6 +49,7 @@ const translations = {
     "menu.title":           "Turlar",
     "tab.all":              "Barchasi",
     "product.add":          "Qo'shish",
+    "product.soldout":      "Tugagan",
     "product.added":        "✓ Qo'shildi",
     "product.loading":      "Yuklanmoqda...",
     "product.notfound":     "Turlar topilmadi",
@@ -58,9 +59,9 @@ const translations = {
     "cart.total":           "Jami:",
     "cart.currency":        "so'm",
     "cart.ordertype":       "📍 Buyurtma turi",
-    "cart.dinein":          "🪑 Restoranda",
+    "cart.dinein":          "🏢 Ofisda",
     "cart.online":          "🌐 Online",
-    "cart.tableplaceholder":"Stol raqamini kiriting...",
+    "cart.tableplaceholder":"Izoh yozing...",
     "cart.checkout":        "Bron Qilish",
     "cart.sending":         "Yuborilmoqda...",
     "user.title":           "Profilim",
@@ -71,7 +72,7 @@ const translations = {
     "profile.guest":        "Mehmon",
     "alert.emptycart":      "⚠️ Savatcha bo'sh!",
     "alert.notelegram":     "⚠️ Buyurtma berish uchun Telegram bot orqali kiring!\n\n@" + BOT_USERNAME + " ga /start yuboring",
-    "alert.selecttype":     "⚠️ Buyurtma turini tanlang: Restoranda yoki Online",
+    "alert.selecttype":     "⚠️ Buyurtma turini tanlang: Ofisda yoki Online",
     "alert.entertable":     "⚠️ Stol raqamini kiriting!",
     "alert.success":        "✅ Buyurtma muvaffaqiyatli qabul qilindi!",
     "alert.error":          "❌ Xato: ",
@@ -141,6 +142,7 @@ const translations = {
     "menu.title":           "Туры",
     "tab.all":              "Все",
     "product.add":          "Добавить",
+    "product.soldout":      "Закончилось",
     "product.added":        "✓ Добавлено",
     "product.loading":      "Загрузка...",
     "product.notfound":     "Туры не найдены",
@@ -150,7 +152,7 @@ const translations = {
     "cart.total":           "Итого:",
     "cart.currency":        "сум",
     "cart.ordertype":       "📍 Тип заказа",
-    "cart.dinein":          "🪑 В ресторане",
+    "cart.dinein":          "🏢 В офисе",
     "cart.online":          "🌐 Онлайн",
     "cart.tableplaceholder":"Введите номер стола...",
     "cart.checkout":        "Связаться с нами",
@@ -163,7 +165,7 @@ const translations = {
     "profile.guest":        "Гость",
     "alert.emptycart":      "⚠️ Корзина пуста!",
     "alert.notelegram":     "⚠️ Для заказа войдите через Telegram бот!\n\nОтправьте /start боту @" + BOT_USERNAME,
-    "alert.selecttype":     "⚠️ Выберите тип заказа: В ресторане или Онлайн",
+    "alert.selecttype":     "⚠️ Выберите тип заказа: В офисе или Онлайн",
     "alert.entertable":     "⚠️ Введите номер стола!",
     "alert.success":        "✅ Заказ успешно принят!",
     "alert.error":          "❌ Ошибка: ",
@@ -442,20 +444,37 @@ function renderProducts(list) {
   }
   list.forEach((p, i) => {
     const card = document.createElement("div");
-    card.className = "product-card fade-up";
+    const isActive = p.active !== false;
+    card.className = "product-card fade-up" + (isActive ? "" : " product-soldout");
     card.style.animationDelay = (i * 60) + "ms";
     const displayName = (currentLang === "ru" && p.name_ru) ? p.name_ru : p.name;
-    card.innerHTML =
-      '<div class="product-img-wrap">' +
-        '<img src="' + p.image + '" alt="' + displayName + '" onerror="this.style.display=\'none\';this.parentElement.nextElementSibling.style.display=\'flex\'">' +
-      '</div>' +
-      '<div class="img-placeholder" style="display:none">✈️</div>' +
-      '<div class="product-info">' +
-        '<h3>' + displayName + '</h3>' +
-        '<div class="cat">' + p.category + '</div>' +
-        '<span class="price">' + Number(p.price).toLocaleString() + ' ' + t("cart.currency") + '</span>' +
-        '<button class="add-btn" data-id="' + p.id + '" onclick="addToCart(' + p.id + ')">' + t("product.add") + '</button>' +
-      '</div>';
+
+    if (isActive) {
+      card.innerHTML =
+        '<div class="product-img-wrap">' +
+          '<img src="' + p.image + '" alt="' + displayName + '" onerror="this.style.display=\'none\';this.parentElement.nextElementSibling.style.display=\'flex\'">' +
+        '</div>' +
+        '<div class="img-placeholder" style="display:none">✈️</div>' +
+        '<div class="product-info">' +
+          '<h3>' + displayName + '</h3>' +
+          '<div class="cat">' + p.category + '</div>' +
+          '<span class="price">' + Number(p.price).toLocaleString() + ' ' + t("cart.currency") + '</span>' +
+          '<button class="add-btn" data-id="' + p.id + '" onclick="addToCart(' + p.id + ')">' + t("product.add") + '</button>' +
+        '</div>';
+    } else {
+      card.innerHTML =
+        '<div class="product-img-wrap">' +
+          '<img src="' + p.image + '" alt="' + displayName + '" style="filter:grayscale(80%) brightness(0.6)" onerror="this.style.display=\'none\';this.parentElement.nextElementSibling.style.display=\'flex\'">' +
+          '<div class="soldout-badge">' + t("product.soldout") + '</div>' +
+        '</div>' +
+        '<div class="img-placeholder" style="display:none">✈️</div>' +
+        '<div class="product-info">' +
+          '<h3 style="opacity:0.5">' + displayName + '</h3>' +
+          '<div class="cat">' + p.category + '</div>' +
+          '<span class="price" style="opacity:0.4;text-decoration:line-through">' + Number(p.price).toLocaleString() + ' ' + t("cart.currency") + '</span>' +
+          '<div class="soldout-btn">' + t("product.soldout") + '</div>' +
+        '</div>';
+    }
     container.appendChild(card);
   });
   updateProductButtons();
@@ -515,20 +534,20 @@ function updateCart() {
   if (badge)   badge.textContent   = count;
   if (totalEl) totalEl.textContent = Number(total).toLocaleString();
   if (!cart.length) {
-    container.innerHTML = '<div class="empty-state"><div class="icon">🛒</div><p>' + t("cart.empty") + '</p></div>';
+    container.innerHTML = '<div class="text-center py-16 text-gray-500"><div class="w-14 h-14 mx-auto mb-3 rounded-full bg-white/5 flex items-center justify-center text-2xl">✈️</div><span class="text-sm font-medium">' + t("cart.empty") + '</span></div>';
     return;
   }
   container.innerHTML = cart.map(item => {
     const name = (currentLang === "ru" && item.name_ru) ? item.name_ru : item.name;
-    return '<div class="cart-item">' +
+    return '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">' +
       '<div>' +
-        '<div class="cart-item-name">' + name + '</div>' +
-        '<div class="cart-item-price">' + Number(item.price).toLocaleString() + ' ' + t("cart.currency") + '</div>' +
+        '<div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:4px">' + name + '</div>' +
+        '<div style="font-size:15px;font-weight:700;color:#e53935">' + Number(item.price).toLocaleString() + ' ' + t("cart.currency") + '</div>' +
       '</div>' +
-      '<div class="qty-controls">' +
-        '<button class="qty-btn" onclick="changeQty(' + item.id + ',-1)">−</button>' +
-        '<span class="qty-num">' + item.quantity + '</span>' +
-        '<button class="qty-btn" onclick="changeQty(' + item.id + ',1)">+</button>' +
+      '<div style="display:flex;align-items:center;gap:8px">' +
+        '<button onclick="changeQty(' + item.id + ',-1)" style="width:32px;height:32px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-family:Inter,sans-serif">−</button>' +
+        '<span style="font-size:15px;font-weight:700;min-width:24px;text-align:center;color:#fff">' + item.quantity + '</span>' +
+        '<button onclick="changeQty(' + item.id + ',1)" style="width:32px;height:32px;border-radius:10px;border:1px solid rgba(229,57,53,0.3);background:rgba(229,57,53,0.12);color:#e53935;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-family:Inter,sans-serif">+</button>' +
       '</div>' +
     '</div>';
   }).join("");
@@ -559,8 +578,8 @@ function selectOrderType(type) {
   const btnDineIn  = document.getElementById("btnDineIn");
   const btnOnline  = document.getElementById("btnOnline");
   const tableWrap  = document.getElementById("tableInputWrap");
-  const activeStyle   = "background:var(--gold);color:var(--dark);border-color:var(--gold);font-weight:500;";
-  const inactiveStyle = "background:rgba(201,168,76,0.08);color:var(--muted);border-color:var(--border);font-weight:300;";
+  const activeStyle   = "background:#e53935;color:#fff;border-color:#e53935;font-weight:600;";
+  const inactiveStyle = "background:rgba(255,255,255,0.03);color:#9ca3af;border-color:rgba(255,255,255,0.1);font-weight:500;";
   if (type === "dine_in") {
     btnDineIn.style.cssText += activeStyle;
     btnOnline.style.cssText += inactiveStyle;
