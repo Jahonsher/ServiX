@@ -576,7 +576,9 @@ app.get("/products", async (req, res) => {
   try {
     const rId = req.query.restaurantId;
     if (!rId) return res.status(400).json({ error: "restaurantId kerak" });
-    const products = await Product.find({ active: true, restaurantId: rId }).sort({ id: 1 });
+    // Barcha mahsulotlarni qaytaramiz (active va inactive)
+    // Frontend inactive ni "Tugagan" deb ko'rsatadi
+    const products = await Product.find({ restaurantId: rId }).sort({ id: 1 });
     res.json(products);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });

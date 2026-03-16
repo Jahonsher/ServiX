@@ -437,7 +437,7 @@ function renderProducts(list) {
   if (!container) return;
   container.innerHTML = "";
   if (!list || !list.length) {
-    container.innerHTML = '<div class="col-span-2 text-center py-12 text-gray-500"><span class="text-3xl block mb-3 opacity-50">✈️</span><span class="text-sm">' + t("product.notfound") + '</span></div>';
+    container.innerHTML = '<div class="col-span-2 text-center py-16 text-gray-500"><div class="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center text-3xl">✈️</div><span class="text-sm font-medium">' + t("product.notfound") + '</span></div>';
     return;
   }
   list.forEach((p, i) => {
