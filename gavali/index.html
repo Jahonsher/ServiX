@@ -35,7 +35,7 @@
       "https://images.unsplash.com/photo-1606312619070-d48b4c652a52?w=1200&q=90",
       "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=1200&q=90"
     ],
-    HERO_IMAGE: "https://images.unsplash.com/photo-1481391319762-47dff72954d9?w=1600&q=85",
+    HERO_IMAGE:  "https://images.unsplash.com/photo-1599599810694-b5b37304c041?w=1600&q=85",
     EVENTS_BG:   "https://images.unsplash.com/photo-1548907040-4baa42d10919?w=1400&q=80"
   };
 </script>
@@ -60,6 +60,10 @@
       --border2: rgba(200,169,110,0.08);
       --text:    #f0e6d6;
       --muted:   #8a7260;
+      --accent-color: #6b8f5e;
+      --accent-dark: #4a6b40;
+      --accent-border: rgba(107,143,94,0.3);
+      --accent-bg: rgba(107,143,94,0.12);
       --tg-bg:   #1a0f00;
     }
 
@@ -424,6 +428,14 @@
     .add-btn:hover {
       background:var(--sage); border-color:var(--sage);
       color:var(--choco);
+    }
+    .product-soldout { pointer-events:none; opacity:0.85; }
+    .product-soldout img { filter:grayscale(70%) brightness(0.6); }
+    .soldout-label {
+      width:100%; padding:9px; text-align:center;
+      background:rgba(200,169,110,0.08); border:1px solid rgba(200,169,110,0.15);
+      color:var(--muted); font-size:9px; font-weight:500;
+      letter-spacing:2.5px; text-transform:uppercase; border-radius:2px;
     }
 
     /* ===== FEATURES ===== */
@@ -1281,6 +1293,6 @@ document.getElementById('lightbox').addEventListener('click', function(e) {
 });
 </script>
 
-<script src="app.js"></script>
+<script src="https://e-comerce-bot-main-production.up.railway.app/static/app.js"></script>
 </body>
 </html>

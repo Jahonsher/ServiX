@@ -514,7 +514,7 @@ function updateProductButtons() {
     const inCart = cart.find(p => p.id === id);
     if (inCart) {
       btn.innerHTML = t("product.added");
-      btn.style.background = "linear-gradient(135deg,#e8c86e,#c8a84e)";
+      btn.style.background = "linear-gradient(135deg,var(--accent-color,#e53935),var(--accent-dark,#c62828))";
       btn.style.color = "var(--dark)";
     } else {
       btn.innerHTML = t("product.add");
@@ -542,12 +542,12 @@ function updateCart() {
     return '<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">' +
       '<div>' +
         '<div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:4px">' + name + '</div>' +
-        '<div style="font-size:15px;font-weight:700;color:#e53935">' + Number(item.price).toLocaleString() + ' ' + t("cart.currency") + '</div>' +
+        '<div style="font-size:15px;font-weight:700;color:var(--accent-color,#e53935)">' + Number(item.price).toLocaleString() + ' ' + t("cart.currency") + '</div>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:8px">' +
         '<button onclick="changeQty(' + item.id + ',-1)" style="width:32px;height:32px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-family:Inter,sans-serif">−</button>' +
         '<span style="font-size:15px;font-weight:700;min-width:24px;text-align:center;color:#fff">' + item.quantity + '</span>' +
-        '<button onclick="changeQty(' + item.id + ',1)" style="width:32px;height:32px;border-radius:10px;border:1px solid rgba(229,57,53,0.3);background:rgba(229,57,53,0.12);color:#e53935;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-family:Inter,sans-serif">+</button>' +
+        '<button onclick="changeQty(' + item.id + ',1)" style="width:32px;height:32px;border-radius:10px;border:1px solid var(--accent-border,rgba(229,57,53,0.3));background:var(--accent-bg,rgba(229,57,53,0.12));color:var(--accent-color,#e53935);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;font-family:Inter,sans-serif">+</button>' +
       '</div>' +
     '</div>';
   }).join("");
@@ -578,7 +578,8 @@ function selectOrderType(type) {
   const btnDineIn  = document.getElementById("btnDineIn");
   const btnOnline  = document.getElementById("btnOnline");
   const tableWrap  = document.getElementById("tableInputWrap");
-  const activeStyle   = "background:#e53935;color:#fff;border-color:#e53935;font-weight:600;";
+  var accentColor = getComputedStyle(document.documentElement).getPropertyValue("--accent-color").trim() || "#e53935";
+  const activeStyle   = "background:"+accentColor+";color:#fff;border-color:"+accentColor+";font-weight:600;";
   const inactiveStyle = "background:rgba(255,255,255,0.03);color:#9ca3af;border-color:rgba(255,255,255,0.1);font-weight:500;";
   if (type === "dine_in") {
     btnDineIn.style.cssText += activeStyle;
