@@ -238,6 +238,7 @@ function showPage(page) {
   if (page === 'inventory')     renderInventory(main);
   if (page === 'analytics')     renderAnalytics(main);
   if (page === 'notifications') renderNotifications(main);
+  if (page === 'siteSettings')  renderSiteSettings(main);
 }
 
 // ===== HELPERS =====
@@ -1673,4 +1674,126 @@ async function clearReadNotifs() {
   if (!confirm('O\'qilgan bildirishnomalarni tozalash?')) return;
   await apiFetch('/admin/notifications/clear', { method: 'DELETE' });
   loadNotifications();
+}
+// ===================================================
+// ===== SITE SETTINGS PAGE ==========================
+// ===================================================
+async function renderSiteSettings(main) {
+  main.innerHTML = '<div class="page"><h1 class="text-2xl font-bold mb-1" style="color:#f1f5f9">🌐 Sayt sozlamalari</h1><p class="text-sm mb-6" style="color:#64748b">Restoran saytingiz dizayn va ma\'lumotlarini boshqaring</p><div id="siteSettingsContent"><div style="text-align:center;padding:48px;color:#475569">Yuklanmoqda...</div></div></div>';
+
+  var d = await apiFetch('/admin/site-settings');
+  if (!d.ok) { document.getElementById('siteSettingsContent').innerHTML = '<div style="color:#ef4444">Xato</div>'; return; }
+  var s = d.settings || {};
+  var apiBase = API.replace(/\/+$/, '');
+  var siteUrl = apiBase + '/site/' + (adminInfo.restaurantId || '');
+
+  var html = '' +
+    '<div style="background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.15);border-radius:12px;padding:16px;margin-bottom:24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+      '<span style="font-size:13px;color:#94a3b8">Sayt manzili:</span>' +
+      '<a href="' + siteUrl + '" target="_blank" style="color:#22d3ee;font-weight:600;word-break:break-all;font-size:14px">' + siteUrl + '</a>' +
+      '<button onclick="navigator.clipboard.writeText(\'' + siteUrl + '\');this.textContent=\'✅ Nusxalandi\'" class="px-3 py-1 rounded-lg text-xs" style="background:rgba(6,182,212,0.15);color:#22d3ee;border:1px solid rgba(6,182,212,0.2);cursor:pointer">📋 Nusxalash</button>' +
+    '</div>' +
+
+    '<div class="grid grid-cols-1 md:grid-cols-2 gap-6">' +
+      // Asosiy ma'lumotlar
+      '<div style="background:#111827;border:1px solid rgba(6,182,212,0.12);border-radius:12px;padding:24px">' +
+        '<h3 class="text-sm font-bold mb-4" style="color:#22d3ee">📋 Asosiy ma\'lumotlar</h3>' +
+        ssInput('ssNameUz', 'Restoran nomi (UZ)', s.restaurantName || '') +
+        ssInput('ssNameRu', 'Restoran nomi (RU)', s.nameRu || '') +
+        ssInput('ssSubtitleUz', 'Shior (UZ)', s.subtitle || '') +
+        ssInput('ssSubtitleRu', 'Shior (RU)', s.subtitleRu || '') +
+        ssInput('ssBadgeUz', 'Badge (UZ)', s.heroBadge || '') +
+        ssInput('ssBadgeRu', 'Badge (RU)', s.heroBadgeRu || '') +
+      '</div>' +
+
+      // Aloqa
+      '<div style="background:#111827;border:1px solid rgba(6,182,212,0.12);border-radius:12px;padding:24px">' +
+        '<h3 class="text-sm font-bold mb-4" style="color:#22d3ee">📞 Aloqa</h3>' +
+        ssInput('ssPhone', 'Telefon', s.phone || '') +
+        ssInput('ssAddressUz', 'Manzil (UZ)', s.address || '') +
+        ssInput('ssAddressRu', 'Manzil (RU)', s.addressRu || '') +
+        ssInput('ssMetroUz', 'Metro (UZ)', s.metro || '') +
+        ssInput('ssWorkHoursUz', 'Ish vaqti (UZ)', s.workHours || '') +
+        ssInput('ssAdminTg', 'Admin Telegram', s.adminTg || '') +
+        ssInput('ssBotUsername', 'Bot username', s.botUsername || '') +
+      '</div>' +
+
+      // Rasmlar
+      '<div style="background:#111827;border:1px solid rgba(6,182,212,0.12);border-radius:12px;padding:24px">' +
+        '<h3 class="text-sm font-bold mb-4" style="color:#22d3ee">🖼 Rasmlar</h3>' +
+        ssInput('ssHeroImg', 'Hero rasm URL', s.heroImage || '') +
+        ssInput('ssEventsBg', 'Tadbirlar fon rasm', s.eventsBg || '') +
+        ssInput('ssMapEmbed', 'Google Map embed URL', s.mapEmbed || '') +
+        '<label class="block text-xs uppercase tracking-widest mb-2 mt-3" style="color:#64748b">Galereya (har qatorga 1 URL)</label>' +
+        '<textarea id="ssGallery" rows="4" class="inp" style="resize:vertical;font-size:12px">' + (s.gallery || []).join('\n') + '</textarea>' +
+      '</div>' +
+
+      // Tema
+      '<div style="background:#111827;border:1px solid rgba(6,182,212,0.12);border-radius:12px;padding:24px">' +
+        '<h3 class="text-sm font-bold mb-4" style="color:#22d3ee">🎨 Ranglar temasi</h3>' +
+        '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px" id="themeGrid">' +
+          themeBtn('gold', '#d4aa4e', s.theme) +
+          themeBtn('emerald', '#34d399', s.theme) +
+          themeBtn('ruby', '#e53935', s.theme) +
+          themeBtn('ocean', '#06b6d4', s.theme) +
+          themeBtn('violet', '#8b5cf6', s.theme) +
+        '</div>' +
+        '<input type="hidden" id="ssTheme" value="' + (s.theme || 'gold') + '"/>' +
+        '<div class="mt-4" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
+          '<div><label class="block text-xs uppercase tracking-widest mb-2" style="color:#64748b">Ochilish soati</label><input id="ssWorkStart" class="inp" type="number" min="0" max="23" value="' + (s.workStart || 10) + '"/></div>' +
+          '<div><label class="block text-xs uppercase tracking-widest mb-2" style="color:#64748b">Yopilish soati</label><input id="ssWorkEnd" class="inp" type="number" min="0" max="23" value="' + (s.workEnd || 23) + '"/></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<button onclick="saveSiteSettings()" class="mt-6 px-8 py-3 rounded-xl text-sm font-bold text-white" style="background:var(--sx-grad)">💾 Saqlash</button>';
+
+  document.getElementById('siteSettingsContent').innerHTML = html;
+}
+
+function ssInput(id, label, value) {
+  return '<div class="mb-3"><label class="block text-xs uppercase tracking-widest mb-1" style="color:#64748b">' + label + '</label><input id="' + id + '" class="inp" type="text" value="' + (value || '').replace(/"/g, '&quot;') + '"/></div>';
+}
+
+function themeBtn(name, color, current) {
+  var active = (current || 'gold') === name;
+  return '<div onclick="selectTheme(\'' + name + '\')" style="cursor:pointer;text-align:center;padding:12px 8px;border-radius:10px;border:2px solid ' + (active ? color : 'transparent') + ';background:' + (active ? color + '15' : '#1a2235') + ';transition:all .2s">' +
+    '<div style="width:32px;height:32px;border-radius:50%;background:' + color + ';margin:0 auto 6px;box-shadow:0 4px 12px ' + color + '40"></div>' +
+    '<div style="font-size:10px;font-weight:600;color:' + (active ? color : '#64748b') + ';text-transform:uppercase;letter-spacing:1px">' + name + '</div></div>';
+}
+
+function selectTheme(name) {
+  document.getElementById('ssTheme').value = name;
+  var colors = { gold:'#d4aa4e', emerald:'#34d399', ruby:'#e53935', ocean:'#06b6d4', violet:'#8b5cf6' };
+  var grid = document.getElementById('themeGrid');
+  grid.innerHTML = themeBtn('gold','#d4aa4e',name) + themeBtn('emerald','#34d399',name) + themeBtn('ruby','#e53935',name) + themeBtn('ocean','#06b6d4',name) + themeBtn('violet','#8b5cf6',name);
+}
+
+async function saveSiteSettings() {
+  var gallery = document.getElementById('ssGallery').value.trim().split('\n').filter(function(x){return x.trim()});
+  var body = {
+    restaurantName: document.getElementById('ssNameUz').value.trim(),
+    nameRu: document.getElementById('ssNameRu').value.trim(),
+    subtitle: document.getElementById('ssSubtitleUz').value.trim(),
+    subtitleRu: document.getElementById('ssSubtitleRu').value.trim(),
+    heroBadge: document.getElementById('ssBadgeUz').value.trim(),
+    heroBadgeRu: document.getElementById('ssBadgeRu').value.trim(),
+    phone: document.getElementById('ssPhone').value.trim(),
+    address: document.getElementById('ssAddressUz').value.trim(),
+    addressRu: document.getElementById('ssAddressRu').value.trim(),
+    metro: document.getElementById('ssMetroUz').value.trim(),
+    workHours: document.getElementById('ssWorkHoursUz').value.trim(),
+    adminTg: document.getElementById('ssAdminTg').value.trim(),
+    botUsername: document.getElementById('ssBotUsername').value.trim(),
+    heroImage: document.getElementById('ssHeroImg').value.trim(),
+    eventsBg: document.getElementById('ssEventsBg').value.trim(),
+    mapEmbed: document.getElementById('ssMapEmbed').value.trim(),
+    gallery: gallery,
+    theme: document.getElementById('ssTheme').value,
+    workStart: Number(document.getElementById('ssWorkStart').value) || 10,
+    workEnd: Number(document.getElementById('ssWorkEnd').value) || 23
+  };
+  var d = await apiFetch('/admin/site-settings', { method: 'PUT', body: JSON.stringify(body) });
+  if (d.ok) { alert('✅ Saqlandi!'); renderSiteSettings(document.getElementById('mainContent')); }
+  else alert('Xato: ' + (d.error || ''));
 }
