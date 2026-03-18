@@ -26,6 +26,7 @@
     SUBTITLE_RU:   "Планируйте идеальное путешествие с нами!",
     WORK_START:    9,
     WORK_END:      18,
+    SITE_TYPE:     "tour",
     LOGO_URL:      "https://start-up-blond.vercel.app/AqsoLogo.png",
     HERO_LOGO_URL: "https://start-up-blond.vercel.app/Aqso.png",
     GALLERY: [
@@ -261,10 +262,10 @@
       <span class="text-xl font-extrabold text-ared"><span id="cartTotal">0</span> <span class="text-sm font-semibold" data-i18n="cart.currency">so'm</span></span>
     </div>
     <div class="flex gap-2 mb-3">
-      <button id="btnDineIn" onclick="selectOrderType('dine_in')" class="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 text-[11px] font-semibold tracking-wide transition-all cursor-pointer bg-white/[0.03] font-sans hover:border-ared/40 hover:text-ared" data-i18n="cart.dinein">🏢 Ofisda</button>
+      <button id="btnDineIn" onclick="selectOrderType('dine_in')" class="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 text-[11px] font-semibold tracking-wide transition-all cursor-pointer bg-white/[0.03] font-sans hover:border-ared/40 hover:text-ared" data-i18n="cart.dinein">🏢 Ofisdan buyurtma</button>
       <button id="btnOnline" onclick="selectOrderType('online')" class="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 text-[11px] font-semibold tracking-wide transition-all cursor-pointer bg-white/[0.03] font-sans hover:border-ared/40 hover:text-ared" data-i18n="cart.online">🌐 Online</button>
     </div>
-    <div id="tableInputWrap" class="hidden"><input id="tableInput" type="text" placeholder="Izoh..." class="w-full py-2.5 px-3.5 bg-navy2 border border-white/10 rounded-xl text-gray-200 text-sm outline-none mb-3 font-sans focus:border-ared transition-colors"/></div>
+    <div id="tableInputWrap" class="hidden"><input id="tableInput" type="text" placeholder="Izoh yozing..." class="w-full py-2.5 px-3.5 bg-navy2 border border-white/10 rounded-xl text-gray-200 text-sm outline-none mb-3 font-sans focus:border-ared transition-colors"/></div>
     <button id="checkoutBtn" onclick="checkout()" class="w-full py-3.5 bg-gradient-to-r from-ared to-red-700 text-white font-bold text-xs tracking-widest uppercase rounded-xl border-none cursor-pointer hover:shadow-lg hover:shadow-ared/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed font-sans" data-i18n="cart.checkout">Bron Qilish</button>
   </div>
 </div>
@@ -346,7 +347,9 @@
   // Set active lang button
   document.querySelectorAll('.lang-b').forEach(function(btn) {
     if (btn.dataset.lang === lang) {
-      btn.classList.add('!bg-ared', '!text-white');
+      btn.style.background = '#e53935';
+      btn.style.color = '#fff';
+      btn.style.fontWeight = '700';
     }
   });
 })();

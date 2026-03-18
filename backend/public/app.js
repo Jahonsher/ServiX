@@ -22,6 +22,7 @@ const SUBTITLE_UZ   = _cfg.SUBTITLE_UZ   || "Eng yaxshi ta'm — eng yaxshi xizm
 const SUBTITLE_RU   = _cfg.SUBTITLE_RU   || "Лучший вкус — лучший сервис";
 const WORK_START    = _cfg.WORK_START    || 10;
 const WORK_END      = _cfg.WORK_END      || 23;
+const SITE_TYPE     = _cfg.SITE_TYPE     || "restaurant"; // "restaurant" | "tour"
 
 // ===================================================
 // ===== STATE =======================================
@@ -254,14 +255,18 @@ function setLang(lang) {
   updateProductButtons();
   renderProfile();
 
-  // Til tugmalarini yangilash (Tailwind class bilan)
+  // Til tugmalarini yangilash
   document.querySelectorAll(".lang-b").forEach(btn => {
     const isActive = btn.dataset.lang === lang;
-    btn.classList.toggle("active", isActive);
-    btn.classList.toggle("!bg-ared", isActive);
-    btn.classList.toggle("!text-white", isActive);
-    if (!isActive) {
-      btn.classList.remove("!bg-ared", "!text-white");
+    var accentColor = getComputedStyle(document.documentElement).getPropertyValue("--accent-color").trim() || "#e53935";
+    if (isActive) {
+      btn.style.background = accentColor;
+      btn.style.color = "#fff";
+      btn.style.fontWeight = "700";
+    } else {
+      btn.style.background = "transparent";
+      btn.style.color = "#9ca3af";
+      btn.style.fontWeight = "500";
     }
   });
 
@@ -573,6 +578,25 @@ function closePanels() {
 // ===================================================
 // ===== ORDER TYPE ==================================
 // ===================================================
+function initOrderType() {
+  // Tour saytlarda "Ofisdan buyurtma" avtomatik tanlanadi, "Online" ham bor
+  // Restoran saytlarda "Restoranda" (stol raqami) va "Online"
+  var btnDI = document.getElementById("btnDineIn");
+  var btnON = document.getElementById("btnOnline");
+  var tableInp = document.getElementById("tableInput");
+  if (SITE_TYPE === "tour") {
+    if (btnDI) btnDI.innerHTML = "🏢 " + (currentLang === "ru" ? "В офисе" : "Ofisda");
+    if (btnON) btnON.innerHTML = "🌐 Online";
+    if (tableInp) tableInp.placeholder = currentLang === "ru" ? "Комментарий..." : "Izoh yozing...";
+    if (tableInp) tableInp.type = "text";
+  } else {
+    if (btnDI) btnDI.innerHTML = "🪑 " + (currentLang === "ru" ? "В ресторане" : "Restoranda");
+    if (btnON) btnON.innerHTML = "🌐 Online";
+    if (tableInp) tableInp.placeholder = currentLang === "ru" ? "Номер стола..." : "Stol raqamini kiriting...";
+    if (tableInp) tableInp.type = "number";
+  }
+}
+
 function selectOrderType(type) {
   orderType = type;
   const btnDineIn  = document.getElementById("btnDineIn");
@@ -604,8 +628,12 @@ function checkout() {
   if (!orderType)   { alert(t("alert.selecttype")); return; }
   if (orderType === "dine_in") {
     const tableVal = document.getElementById("tableInput")?.value?.trim();
-    if (!tableVal) { alert(t("alert.entertable")); document.getElementById("tableInput")?.focus(); return; }
-    tableNumber = tableVal;
+    if (SITE_TYPE === "restaurant" && !tableVal) {
+      alert(t("alert.entertable"));
+      document.getElementById("tableInput")?.focus();
+      return;
+    }
+    tableNumber = tableVal || (SITE_TYPE === "tour" ? "Ofisdan" : "");
   }
   const btn = document.getElementById("checkoutBtn");
   if (btn) { btn.disabled = true; btn.textContent = t("cart.sending"); }
@@ -715,6 +743,7 @@ function bookEvent() {
 
 document.addEventListener("DOMContentLoaded", () => {
   applyTranslations();
+  initOrderType();
   document.querySelectorAll(".lang-b").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.lang === currentLang);
   });
