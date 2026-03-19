@@ -264,14 +264,39 @@ function loadCategories() {
     .then(function(cats) {
       var el = document.getElementById("filterTabs");
       if (!el) return;
-      var html = '<button class="tab-btn active" data-cat="all" onclick="filterCategory(\'all\',this)">' + t("tab.all") + '</button>';
+      el.innerHTML = "";
+
+      // "Barchasi" tugmasi
+      var allBtn = document.createElement("button");
+      allBtn.className = "tab-btn active";
+      allBtn.dataset.cat = "all";
+      allBtn.textContent = t("tab.all");
+      el.appendChild(allBtn);
+
       cats.forEach(function(cat) {
         var name = cat.name || cat;
         var nameRu = cat.name_ru || name;
         var display = (currentLang === "ru" && nameRu) ? nameRu : name;
-        html += '<button class="tab-btn" data-cat="' + name + '" data-name-ru="' + nameRu + '" onclick="filterCategory(\'' + name + '\',this)">' + display + '</button>';
+        var btn = document.createElement("button");
+        btn.className = "tab-btn";
+        btn.dataset.cat = name;
+        btn.dataset.nameRu = nameRu;
+        btn.textContent = display;
+        el.appendChild(btn);
       });
-      el.innerHTML = html;
+
+      // Event delegation — barcha tugmalar uchun bitta listener
+      if (!el._hasListener) {
+        el._hasListener = true;
+        el.addEventListener("click", function(e) {
+          var btn = e.target.closest(".tab-btn");
+          if (!btn) return;
+          var cat = btn.dataset.cat;
+          document.querySelectorAll(".tab-btn").forEach(function(b) { b.classList.remove("active"); });
+          btn.classList.add("active");
+          renderProducts(cat === "all" ? products : products.filter(function(p) { return p.category === cat; }));
+        });
+      }
     })
     .catch(function() {});
 }
