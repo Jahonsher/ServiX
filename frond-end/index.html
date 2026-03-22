@@ -267,9 +267,6 @@
 </head>
 <body>
 
-<!-- PARTICLES -->
-<div class="particles-container" id="particles"></div>
-
 <!-- TOPBAR -->
 <nav class="topbar" id="topbar">
   <div class="topbar-logo" onclick="window.scrollTo({top:0,behavior:'smooth'})" data-i18n="nav.title">✦ Imperial</div>
@@ -295,34 +292,10 @@
     <button class="hero-btn filled" onclick="scrollToSection('menu')" data-i18n="hero.btn">Menuni Ko'rish</button>
     <button class="hero-btn" onclick="bookEvent()" data-i18n="hero.bookbtn">Band qilish</button>
   </div>
-  <div class="scroll-indicator">
-    <div class="scroll-mouse"></div>
-    <span data-i18n="hero.scroll">pastga suring</span>
-  </div>
 </header>
 
-<!-- STATS BAR -->
-<div class="stats-bar reveal">
-  <div class="stat-item">
-    <div class="stat-num" data-count="150">0</div>
-    <div class="stat-label" data-i18n="stats.dishes">Taom turi</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-num" data-count="5000">0</div>
-    <div class="stat-label" data-i18n="stats.customers">Mijozlar</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-num" data-count="4">0</div>
-    <div class="stat-label" data-i18n="stats.rating">Reyting ⭐</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-num" data-count="3">0</div>
-    <div class="stat-label" data-i18n="stats.years">Yillik tajriba</div>
-  </div>
-</div>
-
 <!-- MENU -->
-<section id="menu" class="reveal">
+<section id="menu">
   <div class="section-title">
     <span class="sub" data-i18n="menu.sub">Bizning taomlar</span>
     <h2 data-i18n="menu.title">Menyu</h2>
@@ -462,7 +435,13 @@
 <footer class="footer-main" id="contact">
   <div class="footer-logo" data-i18n="nav.title">✦ Imperial</div>
   <div class="footer-tagline" data-i18n="hero.subtitle">Eng yaxshi ta'm — eng yaxshi xizmat</div>
-  <div class="footer-social" id="footerSocial"></div>
+
+  <div class="footer-social" id="footerSocial">
+    <a class="social-btn" href="https://t.me/Jahonsher" target="_blank">✈️ Admin @Jahonsher</a>
+    <a class="social-btn" href="https://t.me/mini_shop_jahonsher_bot" target="_blank">🤖 Telegram Bot</a>
+    <a class="social-btn" href="tel:+998770083413">📞 +998 77 008 34 13</a>
+  </div>
+
   <div class="footer-grid">
     <div>
       <div class="footer-col-title" data-i18n="footer.nav">Tezkor o'tish</div>
@@ -474,15 +453,29 @@
       </ul>
     </div>
     <div>
-      <div class="footer-col-title" data-i18n="footer.actions">Amallar</div>
+      <div class="footer-col-title" data-i18n="footer.actions">Xizmatlar</div>
       <ul class="footer-links">
         <li><button onclick="toggleCart()" data-i18n="footer.order">Buyurtma berish</button></li>
         <li><button onclick="bookEvent()" data-i18n="footer.book">Zal band qilish</button></li>
-        <li><a id="footerPhone" href="#" data-i18n="footer.callus">Qo'ng'iroq qilish</a></li>
-        <li><a id="footerContact" href="#" target="_blank" data-i18n="footer.contact">Bog'lanish</a></li>
+        <li><button onclick="bookEvent()" data-i18n="events.birthday.title">Tug'ilgan kun</button></li>
+        <li><button onclick="bookEvent()" data-i18n="events.corporate.title">Korporativ tadbir</button></li>
+        <li><a href="tel:+998770083413" data-i18n="footer.callus">Qo'ng'iroq qilish</a></li>
+        <li><a href="https://t.me/Jahonsher" target="_blank" data-i18n="footer.contact">Bog'lanish</a></li>
       </ul>
     </div>
   </div>
+
+  <div style="border-top:1px solid rgba(212,170,78,0.1);padding-top:16px;margin-bottom:16px;">
+    <div class="footer-col-title" style="margin-bottom:10px">📍 Manzil va aloqa</div>
+    <div style="font-family:'Cormorant Garamond',serif;font-size:14px;color:var(--muted);line-height:1.8;">
+      📍 Toshkent, Chilonzor tumani, Navroz ko'chasi 15-uy<br>
+      📞 <a href="tel:+998770083413" style="color:var(--gold2);text-decoration:none">+998 77 008 34 13</a><br>
+      🚇 Chilonzor metrosi (5 daqiqa yurish)<br>
+      🕐 Du–Ju: 10:00–23:00 | Sh–Ya: 09:00–00:00<br>
+      <span id="workStatus" style="font-weight:600"></span>
+    </div>
+  </div>
+
   <div class="footer-bottom">© 2026 <span id="footerName">Imperial Restoran</span> — <span data-i18n="footer.text">Barcha huquqlar himoyalangan</span></div>
 </footer>
 
@@ -679,60 +672,6 @@ document.getElementById('lightbox').addEventListener('click', function(e) {
 });
 </script>
 
-<script src="https://e-comerce-bot-main-production.up.railway.app/static/app.js"></script>
-
-<script>
-// ===== SCROLL REVEAL =====
-(function() {
-  var reveals = document.querySelectorAll('.reveal, .reveal-left, .reveal-scale');
-  var observer = new IntersectionObserver(function(entries) {
-    entries.forEach(function(entry) {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('visible');
-        // Counter animation
-        var counters = entry.target.querySelectorAll('[data-count]');
-        counters.forEach(function(counter) {
-          var target = parseInt(counter.getAttribute('data-count'));
-          var duration = 2000;
-          var start = 0;
-          var startTime = null;
-          function animate(timestamp) {
-            if (!startTime) startTime = timestamp;
-            var progress = Math.min((timestamp - startTime) / duration, 1);
-            var ease = 1 - Math.pow(1 - progress, 3);
-            counter.textContent = Math.floor(ease * target).toLocaleString();
-            if (target >= 1000) counter.textContent += '+';
-            if (progress < 1) requestAnimationFrame(animate);
-          }
-          requestAnimationFrame(animate);
-        });
-      }
-    });
-  }, { threshold: 0.15 });
-  reveals.forEach(function(el) { observer.observe(el); });
-})();
-
-// ===== FLOATING PARTICLES =====
-(function() {
-  var container = document.getElementById('particles');
-  if (!container) return;
-  for (var i = 0; i < 20; i++) {
-    var p = document.createElement('div');
-    p.className = 'particle';
-    p.style.left = Math.random() * 100 + '%';
-    p.style.animationDuration = (8 + Math.random() * 12) + 's';
-    p.style.animationDelay = (Math.random() * 10) + 's';
-    p.style.width = (1 + Math.random() * 2) + 'px';
-    p.style.height = p.style.width;
-    container.appendChild(p);
-  }
-})();
-
-// ===== ADD REVEAL TO SECTIONS =====
-(function() {
-  var sections = document.querySelectorAll('.events-section, .gallery-section, .location-section, .footer-main');
-  sections.forEach(function(s) { s.classList.add('reveal'); });
-})();
-</script>
+<script src="app.js"></script>
 </body>
 </html>
