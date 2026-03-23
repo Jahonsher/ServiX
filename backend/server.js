@@ -683,6 +683,81 @@ function registerBotHandlers(bot, restaurantId, webappUrl, chefId) {
 // ===================================================
 app.get("/", (req, res) => res.json({ status: "OK", bots: Object.keys(bots) }));
 
+// ===== KEEP-ALIVE PING (Railway cold start prevention) =====
+// Har 4 daqiqada o'ziga ping yuboradi — server "uxlab qolmaydi"
+function startKeepAlive() {
+  if (!DOMAIN) return;
+  setInterval(function() {
+    const https = require("https");
+    https.get("https://" + DOMAIN + "/", function() {}).on("error", function() {});
+  }, 4 * 60 * 1000); // 4 daqiqa
+  console.log("✅ Keep-alive ping ishga tushdi (har 4 daq)");
+}
+
+// ===== STATS CACHE — Dashboard uchun tez javob =====
+var statsCache = {};
+var statsCacheTime = {};
+var CACHE_TTL = 30000; // 30 sekund
+
+app.get("/admin/stats/fast", authMiddleware, async (req, res) => {
+  try {
+    var rId = req.admin.restaurantId;
+    var now = Date.now();
+    // Cache dan qaytarish (30 sekund ichida)
+    if (statsCache[rId] && statsCacheTime[rId] && (now - statsCacheTime[rId]) < CACHE_TTL) {
+      return res.json(statsCache[rId]);
+    }
+    // Yangi hisoblash
+    var today = new Date(); today.setHours(0,0,0,0);
+    var month = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    // PARALLEL — barcha so'rovlar bir vaqtda
+    var [todayOrders, monthOrders, ratedOrders, totalUsers, recentOrders] = await Promise.all([
+      Order.find({ restaurantId: rId, createdAt: { $gte: today } }).lean(),
+      Order.find({ restaurantId: rId, createdAt: { $gte: month } }).lean(),
+      Order.find({ restaurantId: rId, rating: { $ne: null } }).select("rating").lean(),
+      User.countDocuments({ restaurantId: rId }),
+      Order.find({ restaurantId: rId }).sort({ createdAt: -1 }).limit(8).lean()
+    ]);
+
+    // Haftalik — oldindan hisoblash
+    var weeklyData = [];
+    for (var i = 6; i >= 0; i--) {
+      var d = new Date(today); d.setDate(d.getDate() - i);
+      var dn = new Date(d); dn.setDate(dn.getDate() + 1);
+      var dayOrders = monthOrders.filter(function(o) { var ct = new Date(o.createdAt); return ct >= d && ct < dn; });
+      weeklyData.push({ date: d.toLocaleDateString("uz-UZ", { month: "short", day: "numeric" }), orders: dayOrders.length, revenue: dayOrders.reduce(function(s,o){return s+(o.total||0)},0) });
+    }
+
+    var topProducts = [];
+    var itemMap = {};
+    monthOrders.forEach(function(o) {
+      (o.items || []).forEach(function(item) {
+        if (!itemMap[item.name]) itemMap[item.name] = { quantity: 0, total: 0 };
+        itemMap[item.name].quantity += item.quantity || 1;
+        itemMap[item.name].total += (item.price || 0) * (item.quantity || 1);
+      });
+    });
+    topProducts = Object.keys(itemMap).map(function(k) { return { _id: k, quantity: itemMap[k].quantity, total: itemMap[k].total }; })
+      .sort(function(a,b) { return b.quantity - a.quantity; }).slice(0, 5);
+
+    var result = {
+      today: { orders: todayOrders.length, revenue: todayOrders.reduce(function(s,o){return s+(o.total||0)},0), online: todayOrders.filter(function(o){return o.orderType==="online"}).length, dineIn: todayOrders.filter(function(o){return o.orderType==="dine_in"}).length },
+      month: { orders: monthOrders.length, revenue: monthOrders.reduce(function(s,o){return s+(o.total||0)},0) },
+      weekly: weeklyData,
+      topProducts: topProducts,
+      rating: { avg: ratedOrders.length ? (ratedOrders.reduce(function(s,o){return s+o.rating},0)/ratedOrders.length).toFixed(1) : null, count: ratedOrders.length },
+      totalUsers: totalUsers,
+      recentOrders: recentOrders
+    };
+
+    // Cache ga saqlash
+    statsCache[rId] = result;
+    statsCacheTime[rId] = now;
+    res.json(result);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post("/wh/:restaurantId/:token", (req, res) => {
   const { restaurantId } = req.params;
   if (bots[restaurantId]) {
@@ -2302,6 +2377,7 @@ async function main() {
     // 6. Domain
     if (DOMAIN) {
       console.log("✅ Domain:", DOMAIN);
+      startKeepAlive();
     } else {
       console.warn("⚠️ RAILWAY_PUBLIC_DOMAIN topilmadi - webhook ishlamasligi mumkin");
     }

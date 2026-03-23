@@ -294,20 +294,25 @@ function fmtSalary(n) {
 
 // ===== DASHBOARD =====
 async function renderDashboard(main) {
+  // Skeleton loader — darhol ko'rinadi
   main.innerHTML = '<div class="page">' +
     pageHeader('Dashboard', 'Bugungi holat va statistika') +
-    '<div id="statsGrid" class="grid gap-4 mb-6" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr))"><div style="color:#64748b">Yuklanmoqda...</div></div>' +
+    '<div id="statsGrid" class="grid gap-4 mb-6" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">' +
+      '<div class="rounded-xl border p-4" style="background:#131c2e;border-color:rgba(6,182,212,0.08)"><div class="h-3 w-16 rounded bg-white/5 mb-3"></div><div class="h-7 w-12 rounded bg-white/5"></div></div>'.repeat(5) +
+    '</div>' +
     '<div class="grid gap-4 mb-5" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">' +
       '<div class="rounded-xl border p-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">📈 Haftalik buyurtmalar</div><div style="position:relative;height:220px"><canvas id="weeklyChart"></canvas></div></div>' +
       '<div class="rounded-xl border p-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">🔵 Buyurtma turi</div><div style="position:relative;height:220px"><canvas id="typeChart"></canvas></div></div>' +
     '</div>' +
-    '<div class="rounded-xl border p-5 mb-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">🏆 Ko\'p sotilgan (TOP 5)</div><div id="topChart"></div></div>' +
+    '<div class="rounded-xl border p-5 mb-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">🏆 Ko\'p sotilgan (TOP 5)</div><div id="topChart"><div style="color:#475569;font-size:13px">Yuklanmoqda...</div></div></div>' +
     '<div class="rounded-xl border overflow-hidden mb-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="px-5 py-4 border-b" style="border-color:rgba(6,182,212,0.12)"><span class="text-sm font-semibold">Oxirgi buyurtmalar</span></div><div id="recentOrders" class="overflow-x-auto"><div class="p-5" style="color:#64748b">Yuklanmoqda...</div></div></div>' +
   '</div>';
 
-  var stats = await apiFetch('/admin/stats');
+  // BITTA so'rov — /admin/stats/fast (stats + orders birgalikda, cache bilan)
+  var stats = await apiFetch('/admin/stats/fast');
   if (!stats) return;
 
+  // Stats kartalar — darhol ko'rsatish
   document.getElementById('statsGrid').innerHTML =
     statCard('📦', 'Bugungi buyurtmalar', stats.today.orders, 'Oylik: ' + stats.month.orders + ' ta') +
     statCard('💰', 'Bugungi daromad', Number(stats.today.revenue).toLocaleString(), 'Oylik: ' + Number(stats.month.revenue).toLocaleString() + " so'm") +
@@ -315,6 +320,7 @@ async function renderDashboard(main) {
     statCard('⭐', "O'rtacha reyting", stats.rating.avg || '—', stats.rating.count + ' ta baho') +
     statCard('👥', 'Foydalanuvchilar', stats.totalUsers, 'Jami');
 
+  // Grafiklar
   if (weeklyChart) weeklyChart.destroy();
   var wc = document.getElementById('weeklyChart');
   if (wc) weeklyChart = new Chart(wc.getContext('2d'), {
@@ -331,6 +337,7 @@ async function renderDashboard(main) {
     options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:12}}}}, cutout:'65%' }
   });
 
+  // Top mahsulotlar
   if (stats.topProducts && stats.topProducts.length) {
     var maxQ = stats.topProducts[0].quantity;
     var html = '';
@@ -352,10 +359,10 @@ async function renderDashboard(main) {
     document.getElementById('topChart').innerHTML = html;
   }
 
-  var od = await apiFetch('/admin/orders?limit=8');
-  if (od && od.orders) {
+  // Oxirgi buyurtmalar — fast endpoint dan keladi
+  if (stats.recentOrders && stats.recentOrders.length) {
     var rows = '';
-    od.orders.forEach(function(o) {
+    stats.recentOrders.forEach(function(o) {
       var name  = ((o.userInfo&&o.userInfo.first_name)||'') + ' ' + ((o.userInfo&&o.userInfo.last_name)||'');
       var phone = (o.userInfo&&o.userInfo.phone)||'';
       rows += '<tr>' +
