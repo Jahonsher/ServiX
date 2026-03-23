@@ -1,4 +1,3 @@
-
 const API = window.location.hostname === 'localhost'
   ? 'http://localhost:5000'
   : 'https://e-comerce-bot-main-production.up.railway.app';
@@ -478,41 +477,151 @@ async function submitCheckin(photo) {
 // ===================================================
 // ===== STATS PAGE ==================================
 // ===================================================
-async function renderStats() {
+var currentStatsMonth = null;
+
+async function renderStats(monthOverride) {
   var main = document.getElementById('mainContent');
   main.innerHTML = '<div style="text-align:center;padding:40px 0;color:#475569">Yuklanmoqda...</div>';
 
-  var now   = new Date();
-  var month = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  var d     = await apiFetch('/employee/stats?month=' + month);
+  var now = new Date();
+  if (!currentStatsMonth) currentStatsMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  if (monthOverride) currentStatsMonth = monthOverride;
+
+  var month = currentStatsMonth;
+  var d = await apiFetch('/employee/stats?month=' + month);
 
   if (!d.ok) { main.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171">Yuklanmadi</div>'; return; }
 
-  var s         = d.stats;
-  var last7     = d.last7 || [];
-  var monthName = now.toLocaleDateString('uz-UZ', { month:'long', year:'numeric' });
-  var pct       = s.workingDaysInMonth > 0 ? Math.min(100, Math.round((s.workedDays / s.workingDaysInMonth) * 100)) : 0;
-  var pctColor  = pct >= 90 ? '#22c55e' : pct >= 70 ? '#f59e0b' : '#ef4444';
+  var s = d.stats;
+  var records = d.records || [];
+  var last7 = d.last7 || [];
 
-  // Heatmap — oxirgi 7 kun
-  var dayNames = ['Ya','Du','Se','Ch','Pa','Ju','Sh'];
-  var heatCells = last7.map(function(day) {
-    var color = !day.status ? '#0f172a' :
-                day.status === 'keldi'  ? '#22c55e' :
-                day.status === 'dam'    ? '#a78bfa' :
-                day.status === 'kasal'  ? '#60a5fa' : '#ef4444';
-    var dt = new Date(day.date + 'T12:00:00');
-    var tip = day.checkIn ? (day.checkIn + (day.checkOut ? ' → ' + day.checkOut : '')) : (day.status || '—');
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px">' +
-      '<div style="font-size:9px;color:#475569">' + dayNames[dt.getDay()] + '</div>' +
-      '<div title="' + tip + '" style="width:32px;height:32px;border-radius:6px;background:' + color + '"></div>' +
-      '<div style="font-size:8px;color:#475569">' + dt.getDate() + '</div>' +
-    '</div>';
+  // Oy nomi
+  var [y, m] = month.split('-').map(Number);
+  var monthDate = new Date(y, m - 1, 1);
+  var monthName = monthDate.toLocaleDateString('uz-UZ', { month: 'long', year: 'numeric' });
+  var pct = s.workingDaysInMonth > 0 ? Math.min(100, Math.round((s.workedDays / s.workingDaysInMonth) * 100)) : 0;
+  var pctColor = pct >= 90 ? '#22c55e' : pct >= 70 ? '#f59e0b' : '#ef4444';
+
+  // Kalendar uchun oy kunlari
+  var daysInMonth = new Date(y, m, 0).getDate();
+  var firstDayOfWeek = new Date(y, m - 1, 1).getDay(); // 0=Ya, 1=Du...
+  // Du dan boshlash uchun: 0(Ya)->6, 1(Du)->0, 2(Se)->1...
+  var startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+
+  var weeklyOff = (empInfo && empInfo.weeklyOff) || 'sunday';
+  var dayIndexMap = { sunday:0, monday:1, tuesday:2, wednesday:3, thursday:4, friday:5, saturday:6 };
+  var offDayIndex = dayIndexMap[weeklyOff] || 0;
+
+  // Record map — sana bo'yicha
+  var recMap = {};
+  records.forEach(function(r) { recMap[r.date] = r; });
+
+  // Kalendar HTML
+  var calHeader = ['Du','Se','Ch','Pa','Ju','Sh','Ya'].map(function(d) {
+    return '<div style="font-size:10px;font-weight:600;color:#475569;text-align:center;padding:4px 0">' + d + '</div>';
   }).join('');
+
+  var calCells = '';
+  // Bo'sh kataklar (oldingi oy)
+  for (var i = 0; i < startOffset; i++) {
+    calCells += '<div style="padding:4px"></div>';
+  }
+
+  var today = new Date();
+  var todayStr = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0') + '-' + String(today.getDate()).padStart(2,'0');
+
+  for (var day = 1; day <= daysInMonth; day++) {
+    var dateStr = month + '-' + String(day).padStart(2, '0');
+    var dateObj = new Date(y, m - 1, day);
+    var dayOfWeek = dateObj.getDay(); // 0=Ya
+    var isOff = dayOfWeek === offDayIndex;
+    var rec = recMap[dateStr];
+    var isFuture = dateStr > todayStr;
+    var isToday = dateStr === todayStr;
+
+    // Rang aniqlash
+    var bgColor = '#0f172a'; // default — bo'sh
+    var textColor = '#475569';
+    var border = 'transparent';
+    var emoji = '';
+
+    if (isFuture) {
+      bgColor = '#0f172a';
+      textColor = '#334155';
+    } else if (rec) {
+      if (rec.status === 'keldi') {
+        bgColor = rec.lateMinutes > 0 ? '#854d0e' : '#14532d';
+        textColor = rec.lateMinutes > 0 ? '#fbbf24' : '#4ade80';
+        emoji = rec.lateMinutes > 0 ? '⚠' : '✓';
+      } else if (rec.status === 'kelmadi') {
+        bgColor = '#7f1d1d';
+        textColor = '#fca5a5';
+        emoji = '✗';
+      } else if (rec.status === 'dam') {
+        bgColor = '#312e81';
+        textColor = '#a5b4fc';
+        emoji = '😴';
+      } else if (rec.status === 'kasal') {
+        bgColor = '#1e3a5f';
+        textColor = '#93c5fd';
+        emoji = '🏥';
+      }
+    } else if (isOff && !isFuture) {
+      bgColor = '#1e1b4b';
+      textColor = '#818cf8';
+      emoji = '😴';
+    } else if (!isFuture && !isToday) {
+      // O'tmish, record yo'q, ish kuni — kelmadi
+      bgColor = '#450a0a';
+      textColor = '#fca5a5';
+      emoji = '✗';
+    }
+
+    if (isToday) border = '#22d3ee';
+
+    var tooltip = '';
+    if (rec) {
+      tooltip = (rec.checkIn || '—') + (rec.checkOut ? ' → ' + rec.checkOut : '') + (rec.lateMinutes > 0 ? ' (+' + rec.lateMinutes + ' daq)' : '');
+    }
+
+    calCells += '<div onclick="showDayDetail(\'' + dateStr + '\')" style="cursor:pointer;text-align:center;padding:6px 2px;border-radius:8px;background:' + bgColor + ';border:2px solid ' + border + ';transition:all .2s" title="' + tooltip + '">' +
+      '<div style="font-size:13px;font-weight:700;color:' + textColor + '">' + day + '</div>' +
+      (emoji ? '<div style="font-size:9px;line-height:1">' + emoji + '</div>' : '') +
+    '</div>';
+  }
+
+  // Oy o'tkazish tugmalari
+  var prevMonth = m === 1 ? (y-1) + '-12' : y + '-' + String(m-1).padStart(2,'0');
+  var nextMonth = m === 12 ? (y+1) + '-01' : y + '-' + String(m+1).padStart(2,'0');
+  var canNext = nextMonth <= now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
 
   main.innerHTML =
     '<div class="fade-up">' +
-      '<div style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:16px;text-transform:capitalize">' + monthName + '</div>' +
+
+      // ===== OY NAVIGATION =====
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
+        '<button onclick="renderStats(\'' + prevMonth + '\')" style="background:#1e293b;border:1px solid rgba(99,179,237,0.15);color:#94a3b8;border-radius:10px;padding:8px 14px;cursor:pointer;font-size:13px;font-family:inherit">← Oldingi</button>' +
+        '<div style="font-size:15px;font-weight:700;color:#f1f5f9;text-transform:capitalize">' + monthName + '</div>' +
+        (canNext ? '<button onclick="renderStats(\'' + nextMonth + '\')" style="background:#1e293b;border:1px solid rgba(99,179,237,0.15);color:#94a3b8;border-radius:10px;padding:8px 14px;cursor:pointer;font-size:13px;font-family:inherit">Keyingi →</button>' : '<div style="width:90px"></div>') +
+      '</div>' +
+
+      // ===== KALENDAR =====
+      '<div style="background:#1e293b;border:1px solid rgba(99,179,237,0.12);border-radius:14px;padding:16px;margin-bottom:16px">' +
+        '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">' + calHeader + '</div>' +
+        '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">' + calCells + '</div>' +
+        '<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;padding-top:10px;border-top:1px solid rgba(99,179,237,0.08)">' +
+          '<span style="font-size:10px;display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#14532d;display:inline-block"></span><span style="color:#4ade80">Keldi</span></span>' +
+          '<span style="font-size:10px;display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#854d0e;display:inline-block"></span><span style="color:#fbbf24">Kechikdi</span></span>' +
+          '<span style="font-size:10px;display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#7f1d1d;display:inline-block"></span><span style="color:#fca5a5">Kelmadi</span></span>' +
+          '<span style="font-size:10px;display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#312e81;display:inline-block"></span><span style="color:#a5b4fc">Dam kuni</span></span>' +
+          '<span style="font-size:10px;display:flex;align-items:center;gap:3px"><span style="width:10px;height:10px;border-radius:3px;background:#1e3a5f;display:inline-block"></span><span style="color:#93c5fd">Kasal</span></span>' +
+          '<span style="font-size:10px;display:flex;align-items:center;gap:3px"><span style="width:12px;height:12px;border-radius:3px;border:2px solid #22d3ee;display:inline-block"></span><span style="color:#22d3ee">Bugun</span></span>' +
+        '</div>' +
+      '</div>' +
+
+      // ===== KUN TAFSILOTI (bosilganda ko'rinadi) =====
+      '<div id="dayDetailBox" style="display:none;background:#1e293b;border:1px solid rgba(99,179,237,0.12);border-radius:12px;padding:16px;margin-bottom:16px"></div>' +
 
       // ===== MAOSH KARTA =====
       '<div style="background:linear-gradient(135deg,#1e3a5f,#1a2f4a);border:1px solid rgba(59,130,246,0.3);border-radius:16px;padding:20px;margin-bottom:16px">' +
@@ -521,18 +630,9 @@ async function renderStats() {
         '<div style="font-size:12px;color:#64748b">Oylik: ' + fmtSalary(s.salary) + '</div>' +
         '<div style="height:1px;background:rgba(99,179,237,0.15);margin:14px 0"></div>' +
         '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">' +
-          '<div style="text-align:center">' +
-            '<div style="font-size:16px;font-weight:700;color:#3b82f6">' + s.workingDaysInMonth + '</div>' +
-            '<div style="font-size:10px;color:#64748b">Oy ish kuni</div>' +
-          '</div>' +
-          '<div style="text-align:center;border-left:1px solid rgba(99,179,237,0.15);border-right:1px solid rgba(99,179,237,0.15)">' +
-            '<div style="font-size:16px;font-weight:700;color:#22c55e">' + s.workedDays + '</div>' +
-            '<div style="font-size:10px;color:#64748b">Kelgan kun</div>' +
-          '</div>' +
-          '<div style="text-align:center">' +
-            '<div style="font-size:16px;font-weight:700;color:#f59e0b">' + fmtSalary(s.dailySalary) + '</div>' +
-            '<div style="font-size:10px;color:#64748b">1 kunlik</div>' +
-          '</div>' +
+          '<div style="text-align:center"><div style="font-size:16px;font-weight:700;color:#3b82f6">' + s.workingDaysInMonth + '</div><div style="font-size:10px;color:#64748b">Oy ish kuni</div></div>' +
+          '<div style="text-align:center;border-left:1px solid rgba(99,179,237,0.15);border-right:1px solid rgba(99,179,237,0.15)"><div style="font-size:16px;font-weight:700;color:#22c55e">' + s.workedDays + '</div><div style="font-size:10px;color:#64748b">Kelgan kun</div></div>' +
+          '<div style="text-align:center"><div style="font-size:16px;font-weight:700;color:#f59e0b">' + fmtSalary(s.dailySalary) + '</div><div style="font-size:10px;color:#64748b">1 kunlik</div></div>' +
         '</div>' +
       '</div>' +
 
@@ -552,30 +652,51 @@ async function renderStats() {
         '</div>' +
       '</div>' +
 
-      // ===== HEATMAP =====
-      '<div style="background:#1e293b;border:1px solid rgba(99,179,237,0.12);border-radius:12px;padding:16px;margin-bottom:16px">' +
-        '<div style="font-size:11px;font-weight:600;color:#64748b;letter-spacing:1px;margin-bottom:12px">🗓 OXIRGI 7 KUN</div>' +
-        '<div style="display:flex;justify-content:space-around">' + heatCells + '</div>' +
-        '<div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap">' +
-          '<span style="font-size:10px;color:#22c55e">● Keldi</span>' +
-          '<span style="font-size:10px;color:#ef4444">● Kelmadi</span>' +
-          '<span style="font-size:10px;color:#a78bfa">● Dam kuni</span>' +
-          '<span style="font-size:10px;color:#60a5fa">● Kasal</span>' +
-        '</div>' +
-      '</div>' +
-
       // ===== OVERTIME =====
       (s.overtimeMin > 0 ?
         '<div style="background:rgba(167,139,250,0.1);border:1px solid rgba(167,139,250,0.25);border-radius:12px;padding:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">' +
-          '<div>' +
-            '<div style="font-size:13px;font-weight:600;color:#a78bfa">💪 Qo\'shimcha ish</div>' +
-            '<div style="font-size:11px;color:#64748b;margin-top:2px">Dam kunlari ishlagan vaqt</div>' +
-          '</div>' +
+          '<div><div style="font-size:13px;font-weight:600;color:#a78bfa">💪 Qo\'shimcha ish</div><div style="font-size:11px;color:#64748b;margin-top:2px">Dam kunlari ishlagan vaqt</div></div>' +
           '<div style="font-size:18px;font-weight:700;color:#a78bfa">' + formatMinutes(s.overtimeMin) + '</div>' +
         '</div>'
       : '') +
 
     '</div>';
+
+  // Records ni global saqlaymiz (dayDetail uchun)
+  window._statsRecords = recMap;
+}
+
+// Kun tafsilotini ko'rsatish
+function showDayDetail(dateStr) {
+  var box = document.getElementById('dayDetailBox');
+  if (!box) return;
+  var rec = window._statsRecords && window._statsRecords[dateStr];
+  var dt = new Date(dateStr + 'T12:00:00');
+  var dayName = dt.toLocaleDateString('uz-UZ', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  if (!rec) {
+    var weeklyOff = (empInfo && empInfo.weeklyOff) || 'sunday';
+    var dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+    var isOff = dayNames[dt.getDay()] === weeklyOff;
+    box.innerHTML = '<div style="font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:8px;text-transform:capitalize">📅 ' + dayName + '</div>' +
+      '<div style="font-size:13px;color:#64748b">' + (isOff ? '😴 Dam olish kuni' : '❌ Ma\'lumot yo\'q') + '</div>';
+    box.style.display = 'block';
+    return;
+  }
+
+  var statusLabel = rec.status === 'keldi' ? '✅ Keldi' : rec.status === 'kelmadi' ? '❌ Kelmadi' : rec.status === 'dam' ? '😴 Dam kuni' : rec.status === 'kasal' ? '🏥 Kasal' : rec.status;
+  var statusColor = rec.status === 'keldi' ? '#4ade80' : rec.status === 'kelmadi' ? '#fca5a5' : '#a5b4fc';
+
+  box.innerHTML =
+    '<div style="font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:12px;text-transform:capitalize">📅 ' + dayName + '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
+      '<div style="background:#0f172a;border-radius:10px;padding:12px;text-align:center"><div style="font-size:10px;color:#64748b;margin-bottom:4px">HOLAT</div><div style="font-size:14px;font-weight:700;color:' + statusColor + '">' + statusLabel + '</div></div>' +
+      '<div style="background:#0f172a;border-radius:10px;padding:12px;text-align:center"><div style="font-size:10px;color:#64748b;margin-bottom:4px">VAQT</div><div style="font-size:14px;font-weight:700;color:#f1f5f9">' + (rec.checkIn || '—') + (rec.checkOut ? ' → ' + rec.checkOut : '') + '</div></div>' +
+    '</div>' +
+    (rec.lateMinutes > 0 ? '<div style="margin-top:10px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:8px 12px;font-size:12px;color:#fbbf24">⚠️ ' + rec.lateMinutes + ' daqiqa kechikish</div>' : '') +
+    (rec.totalMinutes > 0 ? '<div style="margin-top:8px;font-size:12px;color:#64748b">Jami ishlagan: <strong style="color:#f1f5f9">' + formatMinutes(rec.totalMinutes) + '</strong></div>' : '') +
+    (rec.note ? '<div style="margin-top:8px;font-size:12px;color:#94a3b8">📝 ' + rec.note + '</div>' : '');
+  box.style.display = 'block';
 }
 
 function miniStatEmp(icon, val, color, label) {
