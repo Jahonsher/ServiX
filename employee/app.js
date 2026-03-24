@@ -489,21 +489,21 @@ async function renderStats(monthOverride) {
   if (monthOverride) currentStatsMonth = monthOverride;
   var month = currentStatsMonth;
   var d = await apiFetch('/employee/stats?month=' + month);
-  if (!d.ok) { main.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171">Yuklanmadi</div>'; return; }
+  if (!d || !d.ok || !d.stats) { main.innerHTML = '<div style="text-align:center;padding:40px;color:#f87171">Yuklanmadi</div>'; return; }
 
-  var s = d.stats;
+  var s = d.stats || {};
   var records = d.records || [];
   var [y, m] = month.split('-').map(Number);
   var monthDate = new Date(y, m - 1, 1);
   var monthName = monthDate.toLocaleDateString('uz-UZ', { month: 'long', year: 'numeric' });
-  var pct = s.workingDaysInMonth > 0 ? Math.min(100, Math.round((s.workedDays / s.workingDaysInMonth) * 100)) : 0;
+  var pct = (s.workingDaysInMonth || 0) > 0 ? Math.min(100, Math.round(((s.workedDays||0) / s.workingDaysInMonth) * 100)) : 0;
   var pctColor = pct >= 90 ? '#22c55e' : pct >= 70 ? '#f59e0b' : '#ef4444';
 
   var dailyPay = s.dailySalary || 0;
   var totalSalary = s.salary || 0;
   var workDays = s.workingDaysInMonth || 1;
   var earned = s.earnedSalary || 0;
-  var remainDays = Math.max(0, workDays - s.workedDays);
+  var remainDays = Math.max(0, workDays - (s.workedDays||0));
   var remainPay = Math.max(0, totalSalary - earned);
   var daysInMonth = new Date(y, m, 0).getDate();
   var firstDow = new Date(y, m - 1, 1).getDay();
@@ -512,7 +512,7 @@ async function renderStats(monthOverride) {
   var diMap = { sunday:0, monday:1, tuesday:2, wednesday:3, thursday:4, friday:5, saturday:6 };
   var offIdx = diMap[wOff] || 0;
   var recMap = {};
-  records.forEach(function(r) { recMap[r.date] = r; });
+  records.forEach(function(r) { if (r && r.date) recMap[r.date] = r; });
 
   var calH = ['Du','Se','Ch','Pa','Ju','Sh','Ya'].map(function(x) {
     return '<div style="font-size:10px;font-weight:600;color:#475569;text-align:center;padding:4px 0">' + x + '</div>';
@@ -750,6 +750,14 @@ async function renderHistory() {
 // ===================================================
 // ===== HELPERS =====================================
 // ===================================================
+function miniStatEmp(icon, value, color, label) {
+  return '<div style="background:#0f172a;border-radius:10px;padding:10px;text-align:center">' +
+    '<div style="font-size:16px;margin-bottom:4px">' + icon + '</div>' +
+    '<div style="font-size:14px;font-weight:700;color:' + color + '">' + value + '</div>' +
+    '<div style="font-size:9px;color:#64748b;margin-top:2px">' + label + '</div>' +
+  '</div>';
+}
+
 function fmtSalary(n) {
   if (!n) return '0';
   return Number(n).toLocaleString('uz-UZ') + ' so\'m';
