@@ -477,6 +477,15 @@ function superMiddleware(req, res, next) {
   } catch(e) { res.status(401).json({ error: "Token yaroqsiz" }); }
 }
 
+// ===== ADMIN ME — yangi modules olish uchun =====
+app.get("/admin/me", authMiddleware, async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin.id).select("username restaurantName role restaurantId modules");
+    if (!admin) return res.status(404).json({ error: "Topilmadi" });
+    res.json({ ok: true, admin: { username: admin.username, restaurantName: admin.restaurantName, role: admin.role, restaurantId: admin.restaurantId, modules: admin.modules || {} } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 async function empMiddleware(req, res, next) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Token kerak" });
@@ -906,7 +915,7 @@ app.post("/admin/login", async (req, res) => {
     const ok = await bcrypt.compare(password, admin.password);
     if (!ok) return res.status(401).json({ error: "Parol noto'g'ri" });
     const token = jwt.sign({ id: admin._id, username: admin.username, role: admin.role, restaurantName: admin.restaurantName, restaurantId: admin.restaurantId }, JWT_SECRET, { expiresIn: "7d" });
-    res.json({ ok: true, token, admin: { username: admin.username, restaurantName: admin.restaurantName, role: admin.role, restaurantId: admin.restaurantId } });
+    res.json({ ok: true, token, admin: { username: admin.username, restaurantName: admin.restaurantName, role: admin.role, restaurantId: admin.restaurantId, modules: admin.modules || {} } });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
