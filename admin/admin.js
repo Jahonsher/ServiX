@@ -155,26 +155,35 @@ function _startApp() {
   document.getElementById('sidebarRestName').textContent = adminInfo.restaurantName || 'Restoran';
   document.getElementById('adminUsername').textContent   = '@' + (adminInfo.username || '');
 
-  // ===== MODULLAR — faqat yoqilganlarni ko'rsatish =====
+  // ===== MODULLAR — serverdan yangi holat olish =====
+  apiFetch('/admin/me').then(function(d) {
+    if (d && d.ok && d.admin) {
+      adminInfo.modules = d.admin.modules || {};
+      localStorage.setItem('adminInfo', JSON.stringify(adminInfo));
+    }
+    filterSidebar();
+  }).catch(function() { filterSidebar(); });
+
+  showPage('dashboard');
+  startNotifPolling();
+}
+
+function filterSidebar() {
   var mods = adminInfo.modules || {};
-  var pageModuleMap = {
-    orders: 'orders', products: 'menu', categories: 'categories',
-    ratings: 'ratings', users: 'users', branches: 'branches',
-    employees: 'employees', attendance: 'attendance', empReport: 'empReport',
-    notifications: 'notifications'
+  var map = {
+    orders:'orders', products:'menu', categories:'categories',
+    ratings:'ratings', users:'users', branches:'branches',
+    employees:'employees', attendance:'attendance', empReport:'empReport',
+    notifications:'notifications'
   };
   document.querySelectorAll('.sidebar-item[data-page]').forEach(function(el) {
-    var page = el.dataset.page;
-    var modKey = pageModuleMap[page];
-    if (modKey && mods[modKey] === false) {
+    var key = map[el.dataset.page];
+    if (key && mods[key] === false) {
       el.style.display = 'none';
     } else {
       el.style.display = '';
     }
   });
-
-  showPage('dashboard');
-  startNotifPolling();
 }
 
 if (token) {
