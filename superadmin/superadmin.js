@@ -506,6 +506,24 @@ async function loadRestCards() {
       (r.phone   ? '<div style="font-size:12px;color:#64748b;margin-bottom:4px">📞 ' + r.phone   + '</div>' : '') +
       (r.address ? '<div style="font-size:12px;color:#64748b;margin-bottom:8px">📍 ' + r.address + '</div>' : '') +
 
+      // Yoqilgan modullar
+      (function() {
+        var mods = r.modules || {};
+        var modNames = {
+          orders:'📦', menu:'🍽', categories:'🗂', ratings:'⭐', users:'👥',
+          employees:'👷', attendance:'📋', empReport:'💰', branches:'🏢',
+          broadcast:'📢', notifications:'🔔'
+        };
+        var badges = '';
+        Object.keys(modNames).forEach(function(k) {
+          var on = mods[k] !== false;
+          badges += '<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;margin:1px;' +
+            (on ? 'background:rgba(6,182,212,0.1);color:#22d3ee' : 'background:rgba(100,116,139,0.1);color:#475569;text-decoration:line-through') +
+            '">' + modNames[k] + '</span>';
+        });
+        return '<div style="margin-bottom:10px;line-height:1.8">' + badges + '</div>';
+      })() +
+
       // Obuna ma'lumoti
       (function() {
         var subHtml = '';
@@ -554,6 +572,13 @@ function openRestModal(r) {
   document.getElementById('rWebapp').value      = r ? (r.webappUrl      || '') : '';
   document.getElementById('rId').disabled       = !!r;
   document.getElementById('rUsername').disabled = !!r;
+
+  // ===== MODULLAR — tahrirlashda hozirgi holatini yuklash =====
+  var mods = (r && r.modules) || {};
+  document.querySelectorAll('#moduleToggles input[data-mod]').forEach(function(cb) {
+    cb.checked = mods[cb.dataset.mod] !== false; // default true
+  });
+
   var modal = document.getElementById('restModal');
   modal.classList.remove('hidden');
   modal.classList.add('flex');
@@ -573,6 +598,12 @@ async function saveRest() {
   saveBtn.textContent = 'Saqlanmoqda...';
   saveBtn.disabled = true;
 
+  // ===== MODULLARNI YIG'ISH =====
+  var modules = {};
+  document.querySelectorAll('#moduleToggles input[data-mod]').forEach(function(cb) {
+    modules[cb.dataset.mod] = cb.checked;
+  });
+
   var body = {
     restaurantName: document.getElementById('rName').value.trim(),
     restaurantId:   document.getElementById('rId').value.trim().toLowerCase().replace(/\s+/g, '_'),
@@ -582,7 +613,8 @@ async function saveRest() {
     address:        document.getElementById('rAddress').value.trim(),
     botToken:       document.getElementById('rBotToken').value.trim(),
     chefId:         Number(document.getElementById('rChefId').value) || 0,
-    webappUrl:      document.getElementById('rWebapp').value.trim()
+    webappUrl:      document.getElementById('rWebapp').value.trim(),
+    modules:        modules
   };
   if (!body.restaurantName) { alert('Restoran nomi majburiy'); saveBtn.textContent = 'Saqlash'; saveBtn.disabled = false; return; }
   
@@ -595,7 +627,8 @@ async function saveRest() {
         address: body.address,
         botToken: body.botToken,
         chefId:   body.chefId,
-        webappUrl: body.webappUrl
+        webappUrl: body.webappUrl,
+        modules:  modules
       };
       if (body.password) upd.password = body.password;
       result = await api('/superadmin/restaurants/' + id, { method: 'PUT', body: JSON.stringify(upd) });

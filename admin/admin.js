@@ -154,6 +154,25 @@ function _startApp() {
   app.style.display = '';
   document.getElementById('sidebarRestName').textContent = adminInfo.restaurantName || 'Restoran';
   document.getElementById('adminUsername').textContent   = '@' + (adminInfo.username || '');
+
+  // ===== MODULLAR — faqat yoqilganlarni ko'rsatish =====
+  var mods = adminInfo.modules || {};
+  var pageModuleMap = {
+    orders: 'orders', products: 'menu', categories: 'categories',
+    ratings: 'ratings', users: 'users', branches: 'branches',
+    employees: 'employees', attendance: 'attendance', empReport: 'empReport',
+    notifications: 'notifications'
+  };
+  document.querySelectorAll('.sidebar-item[data-page]').forEach(function(el) {
+    var page = el.dataset.page;
+    var modKey = pageModuleMap[page];
+    if (modKey && mods[modKey] === false) {
+      el.style.display = 'none';
+    } else {
+      el.style.display = '';
+    }
+  });
+
   showPage('dashboard');
   startNotifPolling();
 }

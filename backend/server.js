@@ -247,7 +247,21 @@ const adminSchema = new mongoose.Schema({
   heroImage:      String,
   eventsBg:       String,
   gallery:        [String],
-  theme:          { type: String, default: "gold" } // gold, emerald, ruby, ocean, violet
+  theme:          { type: String, default: "gold" }, // gold, emerald, ruby, ocean, violet
+  // ===== MODULLAR — qaysi bo'limlar yoqilgan =====
+  modules: {
+    orders:        { type: Boolean, default: true },
+    menu:          { type: Boolean, default: true },
+    categories:    { type: Boolean, default: true },
+    ratings:       { type: Boolean, default: true },
+    users:         { type: Boolean, default: true },
+    employees:     { type: Boolean, default: true },
+    attendance:    { type: Boolean, default: true },
+    empReport:     { type: Boolean, default: true },
+    branches:      { type: Boolean, default: true },
+    broadcast:     { type: Boolean, default: true },
+    notifications: { type: Boolean, default: true }
+  }
 }, { timestamps: true });
 const Admin = mongoose.model("Admin", adminSchema);
 
