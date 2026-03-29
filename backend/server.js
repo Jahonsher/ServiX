@@ -8,6 +8,8 @@ const fs          = require("fs");
 const path        = require("path");
 const jwt         = require("jsonwebtoken");
 const bcrypt      = require("bcryptjs");
+const http        = require("http");
+const { Server }  = require("socket.io");
 const https       = require("https");
 const FormData    = require("form-data");
 
@@ -29,12 +31,44 @@ const DEFAULT_RESTAURANT_ID = process.env.RESTAURANT_ID || "imperial";
 const DEFAULT_RESTAURANT_NAME = process.env.RESTAURANT_NAME || "Imperial Restoran";
 
 const app = express();
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, { cors: { origin: "*" }, transports: ["websocket", "polling"] });
+
 app.use(cors());
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
 // Umumiy static fayllarni serve qilish (app.js barcha restoranlar uchun)
 app.use("/static", express.static(path.join(__dirname, "public")));
+
+// Waiter va Kitchen panellar uchun static
+app.use("/waiter", express.static(path.join(__dirname, "..", "waiter")));
+app.use("/kitchen", express.static(path.join(__dirname, "..", "kitchen")));
+
+// ===================================================
+// ===== SOCKET.IO ROOM TIZIMI ======================
+// ===================================================
+io.on("connection", (socket) => {
+  socket.on("join", (data) => {
+    try {
+      const decoded = jwt.verify(data.token, JWT_SECRET);
+      const restaurantId = decoded.restaurantId;
+      const panel = data.panel || "unknown";
+      const room = restaurantId + ":" + panel;
+      socket.join(room);
+      socket.restaurantId = restaurantId;
+      socket.panel = panel;
+      socket.userId = decoded.id;
+      console.log("Socket joined:", room, "user:", decoded.name || decoded.username || decoded.id);
+    } catch(e) {
+      socket.emit("error", { message: "Token yaroqsiz" });
+    }
+  });
+
+  socket.on("disconnect", () => {
+    // console.log("Socket disconnected:", socket.id);
+  });
+});
 
 // ===================================================
 // ===== MULTI-BOT MANAGER ===========================
@@ -260,7 +294,9 @@ const adminSchema = new mongoose.Schema({
     empReport:     { type: Boolean, default: true },
     branches:      { type: Boolean, default: true },
     broadcast:     { type: Boolean, default: true },
-    notifications: { type: Boolean, default: true }
+    notifications: { type: Boolean, default: true },
+    waiter:        { type: Boolean, default: false },
+    kitchen:       { type: Boolean, default: false }
   }
 }, { timestamps: true });
 const Admin = mongoose.model("Admin", adminSchema);
@@ -282,6 +318,8 @@ const employeeSchema = new mongoose.Schema({
   username:       { type: String, unique: true },
   password:       String,
   restaurantId:   { type: String, required: true },
+  role:           { type: String, enum: ["employee", "waiter", "chef"], default: "employee" },
+  tables:         [String],
   workStart:      { type: String, default: "09:00" },
   workEnd:        { type: String, default: "18:00" },
   salary:         { type: Number, default: 0 },
@@ -354,6 +392,34 @@ const notificationSchema = new mongoose.Schema({
   data:         Object  // extra data like orderId, productId, etc.
 }, { timestamps: true });
 const Notification = mongoose.model("Notification", notificationSchema);
+
+// ===================================================
+// ===== SHOT MODEL (Ofitsiant tizimi) ===============
+// ===================================================
+const shotSchema = new mongoose.Schema({
+  restaurantId:      { type: String, required: true },
+  tableNumber:       { type: String, required: true },
+  waiterId:          { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
+  waiterName:        String,
+  status:            { type: String, enum: ["open", "closed"], default: "open" },
+  items: [{
+    name:            String,
+    name_ru:         String,
+    price:           Number,
+    quantity:        Number,
+    addedBy:         { type: String, enum: ["customer", "waiter"], default: "customer" },
+    sentToKitchen:   { type: Boolean, default: false },
+    kitchenStatus:   { type: String, enum: ["pending", "cooking", "ready"], default: "pending" },
+    addedAt:         { type: Date, default: Date.now }
+  }],
+  total:             { type: Number, default: 0 },
+  customerTelegramId: Number,
+  openedAt:          { type: Date, default: Date.now },
+  closedAt:          Date
+}, { timestamps: true });
+shotSchema.index({ restaurantId: 1, status: 1 });
+shotSchema.index({ restaurantId: 1, tableNumber: 1, status: 1 });
+const Shot = mongoose.model("Shot", shotSchema);
 
 // ===================================================
 // ===== AUDIT LOG MODEL =============================
@@ -859,12 +925,88 @@ app.post("/order", async (req, res) => {
     const db = await User.findOne({ telegramId: Number(telegramId), restaurantId });
     const ui = { first_name: db?.first_name || user?.first_name || "", last_name: db?.last_name || user?.last_name || "", username: db?.username || user?.username || "", phone: db?.phone || user?.phone || "" };
     const total = items.reduce((s, i) => s + Number(i.price) * i.quantity, 0);
+
+    // ===== DINE_IN: Shot tizimi =====
+    const adminInfo = await Admin.findOne({ restaurantId, role: "admin" });
+    if (orderType === "dine_in" && tableNumber && adminInfo?.modules?.waiter) {
+      try {
+        // 1. Shu stol + restoran uchun OCHIQ shot bormi?
+        let shot = await Shot.findOne({ restaurantId, tableNumber: String(tableNumber), status: "open" });
+        
+        if (shot) {
+          // Mavjud shotga itemlarni qo'shish
+          const newItems = items.map(i => ({
+            name: i.name, name_ru: i.name_ru || "", price: Number(i.price), quantity: Number(i.quantity) || 1,
+            addedBy: "customer", sentToKitchen: false, kitchenStatus: "pending", addedAt: new Date()
+          }));
+          shot.items.push(...newItems);
+          shot.total = shot.items.reduce((s, i) => s + (i.price * i.quantity), 0);
+          if (!shot.customerTelegramId) shot.customerTelegramId = Number(telegramId);
+          await shot.save();
+        } else {
+          // Yangi shot ochish — ofitsiant topish
+          let assignedWaiter = null;
+          // a) Stol ga biriktirilgan ofitsiant
+          assignedWaiter = await Employee.findOne({ restaurantId, role: "waiter", active: true, tables: String(tableNumber) });
+          // b) Eng kam ochiq shoti bor ofitsiant
+          if (!assignedWaiter) {
+            const waiters = await Employee.find({ restaurantId, role: "waiter", active: true });
+            if (waiters.length > 0) {
+              const waiterCounts = await Promise.all(waiters.map(async w => ({
+                waiter: w, count: await Shot.countDocuments({ restaurantId, waiterId: w._id, status: "open" })
+              })));
+              waiterCounts.sort((a, b) => a.count - b.count);
+              assignedWaiter = waiterCounts[0].waiter;
+            }
+          }
+          const shotItems = items.map(i => ({
+            name: i.name, name_ru: i.name_ru || "", price: Number(i.price), quantity: Number(i.quantity) || 1,
+            addedBy: "customer", sentToKitchen: false, kitchenStatus: "pending", addedAt: new Date()
+          }));
+          shot = await Shot.create({
+            restaurantId, tableNumber: String(tableNumber),
+            waiterId: assignedWaiter?._id || null, waiterName: assignedWaiter?.name || "",
+            status: "open", items: shotItems, total,
+            customerTelegramId: Number(telegramId)
+          });
+        }
+
+        // Socket eventlar: ofitsiantga signal
+        io.to(restaurantId + ":waiter").emit("new-order", shot);
+        io.to(restaurantId + ":customer").emit("shot-updated", shot);
+
+        // Order ham yaratamiz (admin panel uchun)
+        const order = await Order.create({ telegramId: Number(telegramId), items, total, userInfo: ui, orderType: "dine_in", tableNumber: String(tableNumber), status: "Yangi", restaurantId });
+
+        // Telegram xabar (adminga)
+        const name  = (ui.first_name + " " + ui.last_name).trim() || "ID:" + telegramId;
+        const targetChef = adminInfo?.chefId || (restaurantId === DEFAULT_RESTAURANT_ID ? DEFAULT_CHEF_ID : null);
+        if (targetChef && bots[restaurantId]) {
+          let m = "🆕 Yangi buyurtma (Stol " + tableNumber + ")!\nMijoz: " + name + "\n\nMahsulotlar:\n";
+          items.forEach(i => { m += "- " + i.name + " x" + i.quantity + " | " + Number(i.price).toLocaleString() + " som\n"; });
+          m += "\nJami: " + total.toLocaleString() + " som";
+          await bots[restaurantId].sendMessage(targetChef, m);
+        }
+
+        await createNotification(restaurantId, "order_new",
+          "🆕 Stol " + tableNumber + " — yangi buyurtma",
+          (ui.first_name || "Mijoz") + " — " + total.toLocaleString() + " so'm",
+          "🛒", "admin", null, { orderId: order._id, shotId: shot._id }
+        );
+
+        return res.json({ success: true, order, shot });
+      } catch(shotErr) {
+        console.error("Shot xato:", shotErr.message);
+        // Shot xato bo'lsa eski logika bilan davom etamiz
+      }
+    }
+
+    // ===== ONLINE yoki waiter moduli yo'q: Eski logika =====
     const order = await Order.create({ telegramId: Number(telegramId), items, total, userInfo: ui, orderType: orderType||"online", tableNumber: tableNumber||"Online", status: "Yangi", restaurantId });
     const name  = (ui.first_name + " " + ui.last_name).trim() || "ID:" + telegramId;
     const uname = ui.username ? " (@" + ui.username + ")" : "";
     const phone = ui.phone ? "\nTel: " + ui.phone : "";
     const table = orderType === "dine_in" ? "Stol: " + tableNumber : "Online";
-    const adminInfo = await Admin.findOne({ restaurantId, role: "admin" });
     const targetChef = adminInfo?.chefId || (restaurantId === DEFAULT_RESTAURANT_ID ? DEFAULT_CHEF_ID : null);
     let m = "🆕 Yangi buyurtma!\n\n" + table + "\nMijoz: " + name + uname + phone + "\n\nMahsulotlar:\n";
     items.forEach(i => { m += "- " + i.name + " x" + i.quantity + " | " + Number(i.price).toLocaleString() + " som\n"; });
@@ -2185,6 +2327,317 @@ app.get("/admin/analytics/advanced", authMiddleware, async (req, res) => {
 });
 
 // ===================================================
+// ===== WAITER ENDPOINTS ============================
+// ===================================================
+
+// Waiter middleware
+async function waiterMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Token kerak" });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const emp = await Employee.findById(decoded.id).select("active restaurantId role name tables");
+    if (!emp || !emp.active) return res.status(401).json({ error: "Akkaunt o'chirilgan", deleted: true });
+    if (emp.role !== "waiter" && emp.role !== "chef") return res.status(403).json({ error: "Ruxsat yo'q — faqat ofitsiant" });
+    const blockCheck = await isBotBlocked(emp.restaurantId);
+    if (blockCheck.blocked) return res.status(403).json({ error: "BLOCKED", message: blockCheck.reason, blocked: true });
+    req.waiter = { id: emp._id, restaurantId: emp.restaurantId, name: emp.name, role: emp.role, tables: emp.tables || [] };
+    next();
+  } catch(e) { res.status(401).json({ error: "Token yaroqsiz" }); }
+}
+
+// Waiter login
+app.post("/waiter/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const emp = await Employee.findOne({ username });
+    if (!emp) return res.status(401).json({ error: "Ishchi topilmadi" });
+    if (!emp.active) return res.status(401).json({ error: "Akkaunt o'chirilgan" });
+    if (emp.role !== "waiter") return res.status(403).json({ error: "Bu foydalanuvchi ofitsiant emas" });
+    const blockCheck = await isBotBlocked(emp.restaurantId);
+    if (blockCheck.blocked) return res.status(403).json({ error: "BLOCKED", message: blockCheck.reason, blocked: true });
+    const ok = await bcrypt.compare(password, emp.password);
+    if (!ok) return res.status(401).json({ error: "Parol noto'g'ri" });
+    // modules tekshirish
+    const admin = await Admin.findOne({ restaurantId: emp.restaurantId, role: "admin" });
+    if (!admin?.modules?.waiter) return res.status(403).json({ error: "Ofitsiant moduli yoqilmagan" });
+    const token = jwt.sign({ id: emp._id, restaurantId: emp.restaurantId, name: emp.name, role: "waiter" }, JWT_SECRET, { expiresIn: "30d" });
+    res.json({ ok: true, token, waiter: { id: emp._id, name: emp.name, restaurantId: emp.restaurantId, tables: emp.tables || [] } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Ochiq shotlar ro'yxati
+app.get("/waiter/shots", waiterMiddleware, async (req, res) => {
+  try {
+    const shots = await Shot.find({ restaurantId: req.waiter.restaurantId, status: "open" }).sort({ openedAt: -1 });
+    res.json({ ok: true, shots });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Bitta shot tafsiloti
+app.get("/waiter/shots/:id", waiterMiddleware, async (req, res) => {
+  try {
+    const shot = await Shot.findById(req.params.id);
+    if (!shot) return res.status(404).json({ error: "Shot topilmadi" });
+    res.json({ ok: true, shot });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Shotga mahsulot qo'shish
+app.post("/waiter/shots/:id/add-item", waiterMiddleware, async (req, res) => {
+  try {
+    const { items } = req.body; // [{name, name_ru, price, quantity}]
+    if (!items?.length) return res.status(400).json({ error: "Mahsulot kerak" });
+    const shot = await Shot.findById(req.params.id);
+    if (!shot || shot.status !== "open") return res.status(400).json({ error: "Shot topilmadi yoki yopilgan" });
+    const newItems = items.map(i => ({
+      name: i.name, name_ru: i.name_ru || "", price: Number(i.price), quantity: Number(i.quantity) || 1,
+      addedBy: "waiter", sentToKitchen: false, kitchenStatus: "pending", addedAt: new Date()
+    }));
+    shot.items.push(...newItems);
+    shot.total = shot.items.reduce((s, i) => s + (i.price * i.quantity), 0);
+    await shot.save();
+    // Socket events
+    io.to(shot.restaurantId + ":waiter").emit("shot-updated", shot);
+    io.to(shot.restaurantId + ":customer").emit("shot-updated", shot);
+    res.json({ ok: true, shot });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Oshpazga yuborish (yuborilmagan itemlarni)
+app.post("/waiter/shots/:id/to-kitchen", waiterMiddleware, async (req, res) => {
+  try {
+    const shot = await Shot.findById(req.params.id);
+    if (!shot || shot.status !== "open") return res.status(400).json({ error: "Shot topilmadi yoki yopilgan" });
+    let sentCount = 0;
+    const sentItems = [];
+    shot.items.forEach(item => {
+      if (!item.sentToKitchen) {
+        item.sentToKitchen = true;
+        item.kitchenStatus = "pending";
+        sentCount++;
+        sentItems.push(item);
+      }
+    });
+    if (sentCount === 0) return res.status(400).json({ error: "Yuborilmagan mahsulot yo'q" });
+    await shot.save();
+    // Socket: oshpazga yuborish
+    io.to(shot.restaurantId + ":kitchen").emit("to-kitchen", {
+      shotId: shot._id, tableNumber: shot.tableNumber, waiterName: shot.waiterName, items: sentItems, sentAt: new Date()
+    });
+    io.to(shot.restaurantId + ":waiter").emit("shot-updated", shot);
+    res.json({ ok: true, shot, sentCount });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Shot yopish (to'lov)
+app.post("/waiter/shots/:id/close", waiterMiddleware, async (req, res) => {
+  try {
+    const shot = await Shot.findById(req.params.id);
+    if (!shot || shot.status !== "open") return res.status(400).json({ error: "Shot topilmadi yoki allaqachon yopilgan" });
+    shot.status = "closed";
+    shot.closedAt = new Date();
+    shot.total = shot.items.reduce((s, i) => s + (i.price * i.quantity), 0);
+    await shot.save();
+    // Socket events
+    io.to(shot.restaurantId + ":waiter").emit("shot-closed", shot);
+    io.to(shot.restaurantId + ":customer").emit("shot-closed", shot);
+    io.to(shot.restaurantId + ":kitchen").emit("shot-closed", shot);
+    res.json({ ok: true, shot });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Restoran mahsulotlari
+app.get("/waiter/products", waiterMiddleware, async (req, res) => {
+  try {
+    const products = await Product.find({ restaurantId: req.waiter.restaurantId, active: true }).sort({ category: 1, name: 1 });
+    const categories = await Category.find({ restaurantId: req.waiter.restaurantId, active: true }).sort({ order: 1 });
+    res.json({ ok: true, products, categories });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Oylik hisobot
+app.get("/waiter/stats", waiterMiddleware, async (req, res) => {
+  try {
+    const month = req.query.month || new Date().toISOString().slice(0, 7); // "2026-03"
+    const [y, m] = month.split("-").map(Number);
+    const start = new Date(y, m - 1, 1);
+    const end = new Date(y, m, 1);
+    const shots = await Shot.find({
+      restaurantId: req.waiter.restaurantId,
+      waiterId: req.waiter.id,
+      openedAt: { $gte: start, $lt: end }
+    }).sort({ openedAt: 1 });
+    const totalShots = shots.length;
+    const closedShots = shots.filter(s => s.status === "closed");
+    const totalSum = closedShots.reduce((s, sh) => s + sh.total, 0);
+    const uniqueCustomers = new Set(shots.filter(s => s.customerTelegramId).map(s => s.customerTelegramId)).size;
+    // Kunlik breakdown
+    const daily = {};
+    const daysInMonth = new Date(y, m, 0).getDate();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = String(d).padStart(2, "0");
+      daily[key] = { shots: 0, total: 0 };
+    }
+    closedShots.forEach(s => {
+      const day = String(new Date(s.openedAt).getDate()).padStart(2, "0");
+      if (daily[day]) { daily[day].shots++; daily[day].total += s.total; }
+    });
+    res.json({ ok: true, month, totalShots, closedShots: closedShots.length, totalSum, uniqueCustomers, avgShot: closedShots.length ? Math.round(totalSum / closedShots.length) : 0, daily });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Yangi shot ochish (ofitsiant tomonidan)
+app.post("/waiter/shots/open", waiterMiddleware, async (req, res) => {
+  try {
+    const { tableNumber } = req.body;
+    if (!tableNumber) return res.status(400).json({ error: "Stol raqami kerak" });
+    // Allaqachon ochiq shot bormi?
+    const existing = await Shot.findOne({ restaurantId: req.waiter.restaurantId, tableNumber: String(tableNumber), status: "open" });
+    if (existing) return res.status(400).json({ error: "Bu stolda ochiq shot allaqachon bor", shot: existing });
+    const shot = await Shot.create({
+      restaurantId: req.waiter.restaurantId, tableNumber: String(tableNumber),
+      waiterId: req.waiter.id, waiterName: req.waiter.name, status: "open", items: [], total: 0
+    });
+    io.to(shot.restaurantId + ":waiter").emit("new-shot", shot);
+    res.json({ ok: true, shot });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ===================================================
+// ===== KITCHEN ENDPOINTS ===========================
+// ===================================================
+
+// Kitchen middleware
+async function kitchenMiddleware(req, res, next) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "Token kerak" });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const emp = await Employee.findById(decoded.id).select("active restaurantId role name");
+    if (!emp || !emp.active) return res.status(401).json({ error: "Akkaunt o'chirilgan", deleted: true });
+    if (emp.role !== "chef") return res.status(403).json({ error: "Ruxsat yo'q — faqat oshpaz" });
+    const blockCheck = await isBotBlocked(emp.restaurantId);
+    if (blockCheck.blocked) return res.status(403).json({ error: "BLOCKED", message: blockCheck.reason, blocked: true });
+    req.chef = { id: emp._id, restaurantId: emp.restaurantId, name: emp.name };
+    next();
+  } catch(e) { res.status(401).json({ error: "Token yaroqsiz" }); }
+}
+
+// Kitchen login
+app.post("/kitchen/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const emp = await Employee.findOne({ username });
+    if (!emp) return res.status(401).json({ error: "Ishchi topilmadi" });
+    if (!emp.active) return res.status(401).json({ error: "Akkaunt o'chirilgan" });
+    if (emp.role !== "chef") return res.status(403).json({ error: "Bu foydalanuvchi oshpaz emas" });
+    const blockCheck = await isBotBlocked(emp.restaurantId);
+    if (blockCheck.blocked) return res.status(403).json({ error: "BLOCKED", message: blockCheck.reason, blocked: true });
+    const ok = await bcrypt.compare(password, emp.password);
+    if (!ok) return res.status(401).json({ error: "Parol noto'g'ri" });
+    const admin = await Admin.findOne({ restaurantId: emp.restaurantId, role: "admin" });
+    if (!admin?.modules?.kitchen) return res.status(403).json({ error: "Oshpaz moduli yoqilmagan" });
+    const token = jwt.sign({ id: emp._id, restaurantId: emp.restaurantId, name: emp.name, role: "chef" }, JWT_SECRET, { expiresIn: "30d" });
+    res.json({ ok: true, token, chef: { id: emp._id, name: emp.name, restaurantId: emp.restaurantId } });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Oshpazga yuborilgan buyurtmalar (pending + cooking)
+app.get("/kitchen/orders", kitchenMiddleware, async (req, res) => {
+  try {
+    const shots = await Shot.find({
+      restaurantId: req.chef.restaurantId, status: "open",
+      "items.sentToKitchen": true
+    }).sort({ openedAt: 1 });
+    // Faqat oshpazga yuborilgan va tayyor bo'lmagan itemlarni qaytarish
+    const orders = shots.map(shot => {
+      const kitchenItems = shot.items.filter(i => i.sentToKitchen);
+      return {
+        shotId: shot._id, tableNumber: shot.tableNumber, waiterName: shot.waiterName,
+        items: kitchenItems, openedAt: shot.openedAt
+      };
+    }).filter(o => o.items.some(i => i.kitchenStatus !== "ready"));
+    res.json({ ok: true, orders });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Oxirgi tayyor bo'lgan buyurtmalar (1 soat ichida)
+app.get("/kitchen/recent", kitchenMiddleware, async (req, res) => {
+  try {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const shots = await Shot.find({
+      restaurantId: req.chef.restaurantId,
+      "items.sentToKitchen": true,
+      updatedAt: { $gte: oneHourAgo }
+    }).sort({ updatedAt: -1 });
+    const recent = shots.map(shot => {
+      const readyItems = shot.items.filter(i => i.sentToKitchen && i.kitchenStatus === "ready");
+      if (!readyItems.length) return null;
+      return { shotId: shot._id, tableNumber: shot.tableNumber, waiterName: shot.waiterName, items: readyItems, status: shot.status };
+    }).filter(Boolean);
+    res.json({ ok: true, recent });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Item statusini "cooking" ga o'zgartirish
+app.post("/kitchen/orders/:shotId/cooking", kitchenMiddleware, async (req, res) => {
+  try {
+    const { itemIndexes } = req.body; // [0, 1, 2] — qaysi itemlar
+    const shot = await Shot.findById(req.params.shotId);
+    if (!shot) return res.status(404).json({ error: "Shot topilmadi" });
+    if (!itemIndexes?.length) {
+      // Barcha pending itemlarni cooking ga
+      shot.items.forEach(item => {
+        if (item.sentToKitchen && item.kitchenStatus === "pending") item.kitchenStatus = "cooking";
+      });
+    } else {
+      itemIndexes.forEach(idx => {
+        if (shot.items[idx] && shot.items[idx].sentToKitchen) shot.items[idx].kitchenStatus = "cooking";
+      });
+    }
+    await shot.save();
+    io.to(shot.restaurantId + ":kitchen").emit("shot-updated", shot);
+    io.to(shot.restaurantId + ":waiter").emit("shot-updated", shot);
+    res.json({ ok: true, shot });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Item(lar) tayyor
+app.post("/kitchen/orders/:shotId/ready", kitchenMiddleware, async (req, res) => {
+  try {
+    const { itemIndexes } = req.body;
+    const shot = await Shot.findById(req.params.shotId);
+    if (!shot) return res.status(404).json({ error: "Shot topilmadi" });
+    const readyItems = [];
+    if (!itemIndexes?.length) {
+      // Barcha cooking itemlarni ready ga
+      shot.items.forEach(item => {
+        if (item.sentToKitchen && item.kitchenStatus === "cooking") {
+          item.kitchenStatus = "ready";
+          readyItems.push(item);
+        }
+      });
+    } else {
+      itemIndexes.forEach(idx => {
+        if (shot.items[idx] && shot.items[idx].sentToKitchen) {
+          shot.items[idx].kitchenStatus = "ready";
+          readyItems.push(shot.items[idx]);
+        }
+      });
+    }
+    await shot.save();
+    // Socket events
+    io.to(shot.restaurantId + ":waiter").emit("kitchen-ready", {
+      shotId: shot._id, tableNumber: shot.tableNumber, items: readyItems
+    });
+    io.to(shot.restaurantId + ":kitchen").emit("shot-updated", shot);
+    io.to(shot.restaurantId + ":customer").emit("shot-updated", shot);
+    res.json({ ok: true, shot });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ===================================================
 // ===== EMPLOYEE ENDPOINTS ==========================
 // ===================================================
 app.post("/employee/login", async (req, res) => {
@@ -2318,8 +2771,8 @@ async function main() {
     await connectDB();
 
     // 2. Serverni ishga tushiramiz
-    app.listen(PORT, () => {
-      console.log("✅ Server " + PORT + " portda ishga tushdi");
+    httpServer.listen(PORT, () => {
+      console.log("✅ Server " + PORT + " portda ishga tushdi (Socket.IO bilan)");
     });
 
     // 3. Superadmin yaratish/yangilash
