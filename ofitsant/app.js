@@ -13,6 +13,77 @@ var categories = [];
 var selectedItems = {}; // { productId: { ...product, qty: N } }
 var statsMonth = new Date().toISOString().slice(0, 7);
 
+// ===== AUDIO BILDIRISHNOMA =====
+var audioCtx = null;
+try {
+  var AC = window.AudioContext || window.webkitAudioContext;
+  if (AC) audioCtx = new AC();
+} catch(e) {}
+
+function playSound(type) {
+  try {
+    if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    gain.gain.value = 0.35;
+
+    if (type === 'new-order') {
+      // Yangi buyurtma — ikki marta ding-ding (baland)
+      osc.frequency.value = 880;
+      osc.type = 'sine';
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+      osc.stop(audioCtx.currentTime + 0.15);
+      setTimeout(function() {
+        try {
+          var osc2 = audioCtx.createOscillator();
+          var gain2 = audioCtx.createGain();
+          osc2.connect(gain2);
+          gain2.connect(audioCtx.destination);
+          osc2.frequency.value = 1100;
+          osc2.type = 'sine';
+          gain2.gain.value = 0.35;
+          osc2.start();
+          gain2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+          osc2.stop(audioCtx.currentTime + 0.2);
+        } catch(e2) {}
+      }, 180);
+    } else if (type === 'kitchen-ready') {
+      // Tayyor — uch marta tez beep (past → baland)
+      osc.frequency.value = 660;
+      osc.type = 'sine';
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+      osc.stop(audioCtx.currentTime + 0.12);
+      setTimeout(function() {
+        try {
+          var o2 = audioCtx.createOscillator();
+          var g2 = audioCtx.createGain();
+          o2.connect(g2); g2.connect(audioCtx.destination);
+          o2.frequency.value = 880; o2.type = 'sine'; g2.gain.value = 0.35;
+          o2.start();
+          g2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+          o2.stop(audioCtx.currentTime + 0.12);
+        } catch(e2) {}
+      }, 150);
+      setTimeout(function() {
+        try {
+          var o3 = audioCtx.createOscillator();
+          var g3 = audioCtx.createGain();
+          o3.connect(g3); g3.connect(audioCtx.destination);
+          o3.frequency.value = 1100; o3.type = 'sine'; g3.gain.value = 0.35;
+          o3.start();
+          g3.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+          o3.stop(audioCtx.currentTime + 0.25);
+        } catch(e2) {}
+      }, 300);
+    }
+  } catch(e) {}
+}
+
 // ===== INIT =====
 (function init() {
   if (token && waiterInfo.id) {
@@ -75,6 +146,7 @@ function connectSocket() {
   });
   socket.on('disconnect', function() { setConn(false); });
   socket.on('new-order', function(shot) {
+    playSound('new-order');
     showToast('🆕 Yangi buyurtma', 'Stol ' + shot.tableNumber);
     loadShots();
     if (currentShot && currentShot._id === shot._id) renderShotDetail(shot);
@@ -84,6 +156,7 @@ function connectSocket() {
     if (currentShot && currentShot._id === shot._id) renderShotDetail(shot);
   });
   socket.on('kitchen-ready', function(data) {
+    playSound('kitchen-ready');
     showToast('✅ Tayyor!', 'Stol ' + data.tableNumber + ' — ' + data.items.map(function(i){return i.name;}).join(', '));
     loadShots();
     if (currentShot && currentShot._id === data.shotId) loadShotDetail(data.shotId);
