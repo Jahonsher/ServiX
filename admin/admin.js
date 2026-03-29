@@ -174,7 +174,7 @@ function filterSidebar() {
     orders:'orders', products:'menu', categories:'categories',
     ratings:'ratings', users:'users', branches:'branches',
     employees:'employees', attendance:'attendance', empReport:'empReport',
-    notifications:'notifications'
+    notifications:'notifications', waiters:'waiter', chefs:'kitchen'
   };
   document.querySelectorAll('.sidebar-item[data-page]').forEach(function(el) {
     var key = map[el.dataset.page];
@@ -264,6 +264,8 @@ function showPage(page) {
   if (page === 'attendance') renderAttendance(main, '');
   if (page === 'empReport')  renderEmpReport(main);
   if (page === 'notifications') renderNotifications(main);
+  if (page === 'waiters')       renderWaiters(main);
+  if (page === 'chefs')         renderChefs(main);
 }
 
 // ===== HELPERS =====
@@ -934,6 +936,215 @@ async function deleteEmp(id) {
   if (!confirm('Ishchini o\'chirishni tasdiqlaysizmi?')) return;
   var d = await apiFetch('/admin/employees/' + id, { method: 'DELETE' });
   if (d.ok) renderEmployees(document.getElementById('mainContent'));
+  else alert('Xato: ' + (d.error||''));
+}
+
+// ===================================================
+// ===== OFITSIANTLAR ================================
+// ===================================================
+async function renderWaiters(main) {
+  main.innerHTML = '<div style="text-align:center;padding:40px;color:#475569">Yuklanmoqda...</div>';
+  var emps = await apiFetch('/admin/employees');
+  var waiters = (emps || []).filter(function(e) { return e.role === 'waiter'; });
+
+  var rows = waiters.map(function(e) {
+    var tables = (e.tables && e.tables.length) ? e.tables.join(', ') : '—';
+    return '<tr style="border-bottom:1px solid rgba(6,182,212,0.08)">' +
+      '<td style="padding:12px 8px"><div style="font-size:14px;font-weight:600;color:#f1f5f9">' + e.name + '</div><div style="font-size:11px;color:#64748b">' + (e.phone||'—') + '</div></td>' +
+      '<td style="padding:12px 8px;font-size:13px;color:#22d3ee">' + (e.username||'—') + '</td>' +
+      '<td style="padding:12px 8px;font-size:13px;color:#f59e0b;font-weight:600">' + tables + '</td>' +
+      '<td style="padding:12px 8px"><span style="font-size:11px;padding:3px 8px;border-radius:99px;background:' + (e.active?'rgba(34,197,94,0.15)':'rgba(239,68,68,0.15)') + ';color:' + (e.active?'#4ade80':'#f87171') + '">' + (e.active?'Faol':'Faol emas') + '</span></td>' +
+      '<td style="padding:12px 8px"><div style="display:flex;gap:6px">' +
+        '<button onclick="openWaiterModal(' + JSON.stringify(JSON.stringify(e)) + ')" style="padding:5px 10px;background:rgba(6,182,212,0.15);border:1px solid rgba(6,182,212,0.3);color:#22d3ee;border-radius:6px;font-size:11px;cursor:pointer">✏️ Tahrir</button>' +
+        '<button onclick="deleteWaiter(\'' + e._id + '\')" style="padding:5px 10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#f87171;border-radius:6px;font-size:11px;cursor:pointer">🗑</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+
+  main.innerHTML =
+    '<div class="fade-up">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">' +
+        '<div style="font-size:18px;font-weight:700;color:#f1f5f9">🧑‍🍳 Ofitsiantlar <span style="font-size:13px;color:#64748b;font-weight:400">(' + waiters.length + ' ta)</span></div>' +
+        '<button onclick="openWaiterModal(null)" style="padding:9px 18px;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;color:#000;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">+ Ofitsiant qo\'shish</button>' +
+      '</div>' +
+      '<div style="background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.15);border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:#fbbf24">' +
+        '💡 Ofitsiant — <strong>/waiter/</strong> panelidan foydalanadi. Stol biriktirsangiz, shu stolga kelgan buyurtmalar avtomatik ofitsiantga birikadi.' +
+      '</div>' +
+      '<div style="background:#1e293b;border:1px solid rgba(6,182,212,0.12);border-radius:12px;overflow:hidden">' +
+        '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">' +
+          '<thead><tr style="background:rgba(245,158,11,0.05)">' +
+            '<th style="padding:10px 8px;text-align:left;font-size:11px;color:#64748b;font-weight:600">ISM</th>' +
+            '<th style="padding:10px 8px;text-align:left;font-size:11px;color:#64748b;font-weight:600">LOGIN</th>' +
+            '<th style="padding:10px 8px;text-align:left;font-size:11px;color:#64748b;font-weight:600">STOLLAR</th>' +
+            '<th style="padding:10px 8px;text-align:left;font-size:11px;color:#64748b;font-weight:600">HOLAT</th>' +
+            '<th style="padding:10px 8px;text-align:left;font-size:11px;color:#64748b;font-weight:600">AMAL</th>' +
+          '</tr></thead>' +
+          '<tbody>' + (rows || '<tr><td colspan="5" style="padding:40px;text-align:center;color:#475569">Ofitsiantlar yo\'q — "Ofitsiant qo\'shish" tugmasini bosing</td></tr>') + '</tbody>' +
+        '</table></div>' +
+      '</div>' +
+    '</div>';
+}
+
+function openWaiterModal(empJson) {
+  var emp = empJson ? JSON.parse(empJson) : null;
+  document.getElementById('waiterModalTitle').textContent = emp ? 'Ofitsiantni tahrirlash' : 'Yangi ofitsiant';
+  var tablesVal = emp && emp.tables ? emp.tables.join(', ') : '';
+  document.getElementById('waiterModalBody').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:12px">' +
+      empInp('wName',     'ISM FAMILIYA', 'text',     emp ? (emp.name||'') : '') +
+      empInp('wPhone',    'TELEFON',       'text',     emp ? (emp.phone||'') : '') +
+      empInp('wUsername', 'LOGIN',         'text',     emp ? (emp.username||'') : '') +
+      empInp('wPassword', 'PAROL' + (emp ? ' (o\'zgartirish uchun)' : ''), 'password', '') +
+      '<div>' +
+        '<label style="font-size:10px;font-weight:600;color:#64748b;letter-spacing:1px;display:block;margin-bottom:5px">STOLLAR <span style="color:#f59e0b">(vergul bilan: 1, 2, 3)</span></label>' +
+        '<input id="wTables" type="text" value="' + tablesVal + '" placeholder="1, 2, 3, 4, 5" style="width:100%;padding:10px 12px;background:#0f172a;border:1px solid rgba(245,158,11,0.25);border-radius:8px;color:#f1f5f9;font-size:13px;outline:none;box-sizing:border-box;font-family:inherit">' +
+        '<div style="font-size:11px;color:#64748b;margin-top:4px">Bu ofitsiantga biriktirilgan stollar raqami</div>' +
+      '</div>' +
+      '<div id="wErr" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#f87171;padding:10px;border-radius:8px;font-size:13px"></div>' +
+      '<button id="wSaveBtn" onclick="saveWaiter(\'' + (emp ? emp._id : '') + '\')" style="width:100%;padding:12px;background:linear-gradient(135deg,#f59e0b,#d97706);border:none;color:#000;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">' +
+        (emp ? '💾 Saqlash' : '+ Qo\'shish') +
+      '</button>' +
+    '</div>';
+  document.getElementById('waiterModal').style.display = 'flex';
+}
+
+function closeWaiterModal() { document.getElementById('waiterModal').style.display = 'none'; }
+
+async function saveWaiter(empId) {
+  var errEl = document.getElementById('wErr');
+  errEl.style.display = 'none';
+  var name     = (document.getElementById('wName')?.value || '').trim();
+  var phone    = (document.getElementById('wPhone')?.value || '').trim();
+  var username = (document.getElementById('wUsername')?.value || '').trim();
+  var password = document.getElementById('wPassword')?.value || '';
+  var tablesRaw = (document.getElementById('wTables')?.value || '').trim();
+  var tables   = tablesRaw ? tablesRaw.split(',').map(function(t){ return t.trim(); }).filter(Boolean) : [];
+
+  if (!name)               { errEl.textContent = 'Ism kiritilmagan';   errEl.style.display='block'; return; }
+  if (!username)           { errEl.textContent = 'Login kiritilmagan'; errEl.style.display='block'; return; }
+  if (!empId && !password) { errEl.textContent = 'Parol kiritilmagan'; errEl.style.display='block'; return; }
+
+  var body = { name: name, phone: phone, username: username, position: 'Ofitsiant', role: 'waiter', tables: tables };
+  if (password) body.password = password;
+
+  var btn = document.getElementById('wSaveBtn');
+  if (btn) { btn.textContent = 'Saqlanmoqda...'; btn.disabled = true; }
+
+  var url    = empId ? '/admin/employees/' + empId : '/admin/employees';
+  var method = empId ? 'PUT' : 'POST';
+  var d = await apiFetch(url, { method: method, body: JSON.stringify(body) });
+
+  if (btn) { btn.textContent = empId ? '💾 Saqlash' : '+ Qo\'shish'; btn.disabled = false; }
+  if (!d)      { errEl.textContent = 'Server javob bermadi'; errEl.style.display='block'; return; }
+  if (d.error) { errEl.textContent = d.error;                errEl.style.display='block'; return; }
+
+  closeWaiterModal();
+  renderWaiters(document.getElementById('mainContent'));
+}
+
+async function deleteWaiter(id) {
+  if (!confirm('Ofitsiantni o\'chirishni tasdiqlaysizmi?')) return;
+  var d = await apiFetch('/admin/employees/' + id, { method: 'DELETE' });
+  if (d.ok) renderWaiters(document.getElementById('mainContent'));
+  else alert('Xato: ' + (d.error||''));
+}
+
+// ===================================================
+// ===== OSHPAZLAR ===================================
+// ===================================================
+async function renderChefs(main) {
+  main.innerHTML = '<div style="text-align:center;padding:40px;color:#475569">Yuklanmoqda...</div>';
+  var emps = await apiFetch('/admin/employees');
+  var chefs = (emps || []).filter(function(e) { return e.role === 'chef'; });
+
+  var rows = chefs.map(function(e) {
+    return '<tr style="border-bottom:1px solid rgba(6,182,212,0.08)">' +
+      '<td style="padding:12px 8px"><div style="font-size:14px;font-weight:600;color:#f1f5f9">' + e.name + '</div><div style="font-size:11px;color:#64748b">' + (e.phone||'—') + '</div></td>' +
+      '<td style="padding:12px 8px;font-size:13px;color:#22d3ee">' + (e.username||'—') + '</td>' +
+      '<td style="padding:12px 8px"><span style="font-size:11px;padding:3px 8px;border-radius:99px;background:' + (e.active?'rgba(34,197,94,0.15)':'rgba(239,68,68,0.15)') + ';color:' + (e.active?'#4ade80':'#f87171') + '">' + (e.active?'Faol':'Faol emas') + '</span></td>' +
+      '<td style="padding:12px 8px"><div style="display:flex;gap:6px">' +
+        '<button onclick="openChefModal(' + JSON.stringify(JSON.stringify(e)) + ')" style="padding:5px 10px;background:rgba(6,182,212,0.15);border:1px solid rgba(6,182,212,0.3);color:#22d3ee;border-radius:6px;font-size:11px;cursor:pointer">✏️ Tahrir</button>' +
+        '<button onclick="deleteChef(\'' + e._id + '\')" style="padding:5px 10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#f87171;border-radius:6px;font-size:11px;cursor:pointer">🗑</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+
+  main.innerHTML =
+    '<div class="fade-up">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">' +
+        '<div style="font-size:18px;font-weight:700;color:#f1f5f9">🍳 Oshpazlar <span style="font-size:13px;color:#64748b;font-weight:400">(' + chefs.length + ' ta)</span></div>' +
+        '<button onclick="openChefModal(null)" style="padding:9px 18px;background:linear-gradient(135deg,#f97316,#ea580c);border:none;color:#fff;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">+ Oshpaz qo\'shish</button>' +
+      '</div>' +
+      '<div style="background:rgba(249,115,22,0.05);border:1px solid rgba(249,115,22,0.15);border-radius:12px;padding:14px 18px;margin-bottom:16px;font-size:13px;color:#fb923c">' +
+        '💡 Oshpaz — <strong>/kitchen/</strong> panelidan foydalanadi. Ofitsiant buyurtmani oshpazga yuborganda real-time ko\'rinadi.' +
+      '</div>' +
+      '<div style="background:#1e293b;border:1px solid rgba(6,182,212,0.12);border-radius:12px;overflow:hidden">' +
+        '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">' +
+          '<thead><tr style="background:rgba(249,115,22,0.05)">' +
+            '<th style="padding:10px 8px;text-align:left;font-size:11px;color:#64748b;font-weight:600">ISM</th>' +
+            '<th style="padding:10px 8px;text-align:left;font-size:11px;color:#64748b;font-weight:600">LOGIN</th>' +
+            '<th style="padding:10px 8px;text-align:left;font-size:11px;color:#64748b;font-weight:600">HOLAT</th>' +
+            '<th style="padding:10px 8px;text-align:left;font-size:11px;color:#64748b;font-weight:600">AMAL</th>' +
+          '</tr></thead>' +
+          '<tbody>' + (rows || '<tr><td colspan="4" style="padding:40px;text-align:center;color:#475569">Oshpazlar yo\'q — "Oshpaz qo\'shish" tugmasini bosing</td></tr>') + '</tbody>' +
+        '</table></div>' +
+      '</div>' +
+    '</div>';
+}
+
+function openChefModal(empJson) {
+  var emp = empJson ? JSON.parse(empJson) : null;
+  document.getElementById('chefModalTitle').textContent = emp ? 'Oshpazni tahrirlash' : 'Yangi oshpaz';
+  document.getElementById('chefModalBody').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:12px">' +
+      empInp('cName',     'ISM FAMILIYA', 'text',     emp ? (emp.name||'') : '') +
+      empInp('cPhone2',   'TELEFON',       'text',     emp ? (emp.phone||'') : '') +
+      empInp('cUsername', 'LOGIN',         'text',     emp ? (emp.username||'') : '') +
+      empInp('cPassword', 'PAROL' + (emp ? ' (o\'zgartirish uchun)' : ''), 'password', '') +
+      '<div id="cErr" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#f87171;padding:10px;border-radius:8px;font-size:13px"></div>' +
+      '<button id="cSaveBtn" onclick="saveChef(\'' + (emp ? emp._id : '') + '\')" style="width:100%;padding:12px;background:linear-gradient(135deg,#f97316,#ea580c);border:none;color:#fff;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">' +
+        (emp ? '💾 Saqlash' : '+ Qo\'shish') +
+      '</button>' +
+    '</div>';
+  document.getElementById('chefModal').style.display = 'flex';
+}
+
+function closeChefModal() { document.getElementById('chefModal').style.display = 'none'; }
+
+async function saveChef(empId) {
+  var errEl = document.getElementById('cErr');
+  errEl.style.display = 'none';
+  var name     = (document.getElementById('cName')?.value || '').trim();
+  var phone    = (document.getElementById('cPhone2')?.value || '').trim();
+  var username = (document.getElementById('cUsername')?.value || '').trim();
+  var password = document.getElementById('cPassword')?.value || '';
+
+  if (!name)               { errEl.textContent = 'Ism kiritilmagan';   errEl.style.display='block'; return; }
+  if (!username)           { errEl.textContent = 'Login kiritilmagan'; errEl.style.display='block'; return; }
+  if (!empId && !password) { errEl.textContent = 'Parol kiritilmagan'; errEl.style.display='block'; return; }
+
+  var body = { name: name, phone: phone, username: username, position: 'Oshpaz', role: 'chef' };
+  if (password) body.password = password;
+
+  var btn = document.getElementById('cSaveBtn');
+  if (btn) { btn.textContent = 'Saqlanmoqda...'; btn.disabled = true; }
+
+  var url    = empId ? '/admin/employees/' + empId : '/admin/employees';
+  var method = empId ? 'PUT' : 'POST';
+  var d = await apiFetch(url, { method: method, body: JSON.stringify(body) });
+
+  if (btn) { btn.textContent = empId ? '💾 Saqlash' : '+ Qo\'shish'; btn.disabled = false; }
+  if (!d)      { errEl.textContent = 'Server javob bermadi'; errEl.style.display='block'; return; }
+  if (d.error) { errEl.textContent = d.error;                errEl.style.display='block'; return; }
+
+  closeChefModal();
+  renderChefs(document.getElementById('mainContent'));
+}
+
+async function deleteChef(id) {
+  if (!confirm('Oshpazni o\'chirishni tasdiqlaysizmi?')) return;
+  var d = await apiFetch('/admin/employees/' + id, { method: 'DELETE' });
+  if (d.ok) renderChefs(document.getElementById('mainContent'));
   else alert('Xato: ' + (d.error||''));
 }
 

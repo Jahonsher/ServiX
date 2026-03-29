@@ -512,11 +512,12 @@ async function loadRestCards() {
         var modNames = {
           orders:'📦', menu:'🍽', categories:'🗂', ratings:'⭐', users:'👥',
           employees:'👷', attendance:'📋', empReport:'💰', branches:'🏢',
-          broadcast:'📢', notifications:'🔔'
+          broadcast:'📢', notifications:'🔔', waiter:'🧑‍🍳', kitchen:'🍳'
         };
+        var defaultFalse = ['waiter', 'kitchen'];
         var badges = '';
         Object.keys(modNames).forEach(function(k) {
-          var on = mods[k] !== false;
+          var on = defaultFalse.indexOf(k) !== -1 ? mods[k] === true : mods[k] !== false;
           badges += '<span style="display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;margin:1px;' +
             (on ? 'background:rgba(6,182,212,0.1);color:#22d3ee' : 'background:rgba(100,116,139,0.1);color:#475569;text-decoration:line-through') +
             '">' + modNames[k] + '</span>';
@@ -575,8 +576,14 @@ function openRestModal(r) {
 
   // ===== MODULLAR — tahrirlashda hozirgi holatini yuklash =====
   var mods = (r && r.modules) || {};
+  var defaultFalse = ['waiter', 'kitchen']; // bu modullar default holda o'chirilgan
   document.querySelectorAll('#moduleToggles input[data-mod]').forEach(function(cb) {
-    cb.checked = mods[cb.dataset.mod] !== false; // default true
+    var mod = cb.dataset.mod;
+    if (defaultFalse.indexOf(mod) !== -1) {
+      cb.checked = mods[mod] === true; // default false
+    } else {
+      cb.checked = mods[mod] !== false; // default true
+    }
   });
 
   var modal = document.getElementById('restModal');
