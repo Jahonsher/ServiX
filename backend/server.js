@@ -23,31 +23,27 @@ const publicRoutes = require("./routes/public.routes");
 const adminRoutes = require("./routes/admin.routes");
 const superadminRoutes = require("./routes/superadmin.routes");
 const waiterEmployeeRoutes = require("./routes/waiter-employee.routes");
+const kitchenRoutes = require("./routes/kitchen.routes");
 
 // ===== APP SETUP =====
 const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: config.nodeEnv === "production" ? false : "*" },
+  cors: { origin: "*" },
   transports: ["websocket", "polling"],
 });
 
-// io ni app ga biriktirish (routelar ichidan foydalanish uchun)
 app.set("io", io);
 
 // Middleware
-app.use(cors({
-  origin: config.nodeEnv === "production"
-    ? [`https://${config.domain}`]
-    : "*",
-}));
+app.use(cors());
 app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 
-// Static files
+// Static files (services strukturasi)
 app.use("/static", express.static(path.join(__dirname, "..", "client", "shared")));
-app.use("/waiter", express.static(path.join(__dirname, "..", "client", "waiter")));
-app.use("/kitchen", express.static(path.join(__dirname, "..", "client", "kitchen")));
+app.use("/waiter", express.static(path.join(__dirname, "..", "client", "services", "waiter")));
+app.use("/kitchen", express.static(path.join(__dirname, "..", "client", "services", "kitchen")));
 
 // ===== SOCKET.IO =====
 io.on("connection", (socket) => {
@@ -70,16 +66,14 @@ app.use("/", publicRoutes);
 app.use("/admin", adminRoutes);
 app.use("/superadmin", superadminRoutes);
 app.use("/", waiterEmployeeRoutes);
-
-// Site generator (keyinroq template ga ko'chiriladi)
-// app.get("/site/:restaurantId", siteTemplate);
+app.use("/", kitchenRoutes);
 
 // ===== GRACEFUL SHUTDOWN =====
 process.on("SIGTERM", () => {
   logger.info("SIGTERM qabul qilindi — server to'xtamoqda...");
   Promise.all(botService.getActiveBots().map((rId) => botService.stopBot(rId)))
     .then(() => {
-      logger.info("✅ Webhooklar tozalandi. Server to'xtadi.");
+      logger.info("Webhooklar tozalandi. Server to'xtadi.");
       process.exit(0);
     })
     .catch(() => process.exit(0));
@@ -93,15 +87,13 @@ process.on("unhandledRejection", (e) => logger.error("unhandled:", e));
 // ===== BOOTSTRAP =====
 async function main() {
   try {
-    // 1. MongoDB
     await connectDB();
 
-    // 2. Server
     httpServer.listen(config.port, () => {
-      logger.info(`✅ Server ${config.port} portda ishga tushdi`);
+      logger.info(`Server ${config.port} portda ishga tushdi`);
     });
 
-    // 3. Superadmin
+    // Superadmin
     try {
       const { username, password } = config.superadmin;
       if (password) {
@@ -109,17 +101,17 @@ async function main() {
         const existing = await Admin.findOne({ role: "superadmin" });
         if (!existing) {
           await Admin.create({ username, password: hash, restaurantName: "SuperAdmin", restaurantId: "superadmin", role: "superadmin", active: true });
-          logger.info(`✅ Superadmin yaratildi: ${username}`);
+          logger.info(`Superadmin yaratildi: ${username}`);
         } else {
           await Admin.findByIdAndUpdate(existing._id, { password: hash, username, active: true });
-          logger.info(`✅ Superadmin yangilandi: ${username}`);
+          logger.info(`Superadmin yangilandi: ${username}`);
         }
       }
     } catch (e) {
       logger.error("Superadmin xato:", e.message);
     }
 
-    // 4. Default restoran/bot
+    // Default restoran/bot
     const def = config.defaultRestaurant;
     if (def.botToken) {
       try {
@@ -135,7 +127,7 @@ async function main() {
             botToken: def.botToken, chefId: def.chefId, webappUrl: def.webappUrl,
             role: "admin", active: true,
           });
-          logger.info("✅ Default admin yaratildi");
+          logger.info("Default admin yaratildi");
         } else {
           await Admin.findByIdAndUpdate(defAdmin._id, {
             botToken: def.botToken, chefId: def.chefId, webappUrl: def.webappUrl,
@@ -151,31 +143,31 @@ async function main() {
         }
 
         await botService.startBot(def.restaurantId, def.botToken, def.webappUrl, def.chefId);
-        logger.info(`✅ Default bot ishga tushdi: ${def.restaurantId}`);
+        logger.info(`Default bot ishga tushdi: ${def.restaurantId}`);
       } catch (e) {
         logger.error("Default bot xato:", e.message);
       }
     }
 
-    // 5. Boshqa restoranlar
+    // Boshqa restoranlar
     try {
       const allAdmins = await Admin.find({ role: "admin", active: true }).select("restaurantId restaurantName botToken chefId webappUrl");
       for (const a of allAdmins) {
-        if (a.restaurantId === def.restaurantId) continue;
+        if (def.botToken && a.restaurantId === def.restaurantId) continue;
         const { ensureRestaurant } = superadminRoutes;
         await ensureRestaurant(a.restaurantId, a.restaurantName);
         if (a.botToken) await botService.startBot(a.restaurantId, a.botToken, a.webappUrl, a.chefId);
       }
-      logger.info(`✅ Restoranlar sinxronlandi: ${allAdmins.length}`);
+      logger.info(`Restoranlar sinxronlandi: ${allAdmins.length}`);
     } catch (e) {
       logger.error("Restoran sync xato:", e.message);
     }
 
     if (config.domain) {
-      logger.info(`✅ Domain: ${config.domain}`);
+      logger.info(`Domain: ${config.domain}`);
     }
   } catch (err) {
-    logger.error("❌ Server start xato:", err.message);
+    logger.error("Server start xato:", err.message);
     process.exit(1);
   }
 }
