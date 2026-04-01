@@ -6,7 +6,6 @@ const config = require("../config");
 const { isBotBlocked } = require("../middleware/auth");
 const { loginLimiter } = require("../middleware/rateLimit");
 const logger = require("../utils/logger");
-const { getDistance } = require("../utils/helpers");
 
 const Admin = require("../models/Admin");
 const { Employee, Attendance, Shot, Branch } = require("../models");

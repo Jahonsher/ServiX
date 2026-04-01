@@ -343,4 +343,28 @@ router.get("/employee/stats", empMiddleware, async (req, res) => {
   }
 });
 
+// ===== Employee face descriptor =====
+router.get("/employee/face-descriptor", empMiddleware, async (req, res) => {
+  try {
+    const emp = await Employee.findById(req.employee.id).select("faceDescriptor photo");
+    res.json({ ok: true, faceDescriptor: emp.faceDescriptor || [], hasPhoto: !!emp.photo });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ===== Employee today attendance =====
+router.get("/employee/today", empMiddleware, async (req, res) => {
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const [att, emp] = await Promise.all([
+      Attendance.findOne({ employeeId: req.employee.id, date: today }),
+      Employee.findById(req.employee.id),
+    ]);
+    res.json({ ok: true, attendance: att, employee: emp });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

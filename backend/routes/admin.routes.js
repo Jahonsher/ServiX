@@ -631,6 +631,135 @@ router.delete("/notifications/clear", authMiddleware, async (req, res) => {
   }
 });
 
+// ===== STATS/FAST (cached) =====
+const statsCache = {};
+const statsCacheTime = {};
+const CACHE_TTL = 30000;
+
+router.get("/stats/fast", authMiddleware, async (req, res) => {
+  try {
+    const rId = req.admin.restaurantId;
+    const now = Date.now();
+    if (statsCache[rId] && statsCacheTime[rId] && (now - statsCacheTime[rId]) < CACHE_TTL) {
+      return res.json(statsCache[rId]);
+    }
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const month = new Date(today.getFullYear(), today.getMonth(), 1);
+    const [todayOrders, monthOrders, ratedOrders, totalUsers, recentOrders] = await Promise.all([
+      Order.find({ restaurantId: rId, createdAt: { $gte: today } }).lean(),
+      Order.find({ restaurantId: rId, createdAt: { $gte: month } }).lean(),
+      Order.find({ restaurantId: rId, rating: { $ne: null } }).select("rating").lean(),
+      User.countDocuments({ restaurantId: rId }),
+      Order.find({ restaurantId: rId }).sort({ createdAt: -1 }).limit(8).lean(),
+    ]);
+    const weeklyData = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const dn = new Date(d); dn.setDate(dn.getDate() + 1);
+      const dayOrders = monthOrders.filter((o) => { const ct = new Date(o.createdAt); return ct >= d && ct < dn; });
+      weeklyData.push({ date: d.toLocaleDateString("uz-UZ", { month: "short", day: "numeric" }), orders: dayOrders.length, revenue: dayOrders.reduce((s, o) => s + (o.total || 0), 0) });
+    }
+    const itemMap = {};
+    monthOrders.forEach((o) => (o.items || []).forEach((item) => {
+      if (!itemMap[item.name]) itemMap[item.name] = { quantity: 0, total: 0 };
+      itemMap[item.name].quantity += item.quantity || 1;
+      itemMap[item.name].total += (item.price || 0) * (item.quantity || 1);
+    }));
+    const topProducts = Object.entries(itemMap).map(([name, data]) => ({ _id: name, ...data })).sort((a, b) => b.quantity - a.quantity).slice(0, 5);
+    const result = {
+      today: { orders: todayOrders.length, revenue: todayOrders.reduce((s, o) => s + (o.total || 0), 0), online: todayOrders.filter((o) => o.orderType === "online").length, dineIn: todayOrders.filter((o) => o.orderType === "dine_in").length },
+      month: { orders: monthOrders.length, revenue: monthOrders.reduce((s, o) => s + (o.total || 0), 0) },
+      weekly: weeklyData, topProducts,
+      rating: { avg: ratedOrders.length ? (ratedOrders.reduce((s, o) => s + o.rating, 0) / ratedOrders.length).toFixed(1) : null, count: ratedOrders.length },
+      totalUsers, recentOrders,
+    };
+    statsCache[rId] = result;
+    statsCacheTime[rId] = now;
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ===== ADVANCED ANALYTICS =====
+router.get("/analytics/advanced", authMiddleware, async (req, res) => {
+  try {
+    const rId = (req.admin.role === "superadmin" && req.query.restaurantId) ? req.query.restaurantId : req.admin.restaurantId;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+
+    const allOrders = await Order.find({ restaurantId: rId, createdAt: { $gte: prevMonthStart } }).lean();
+    const monthOrders = allOrders.filter((o) => new Date(o.createdAt) >= monthStart);
+    const prevMonthOrders = allOrders.filter((o) => { const d = new Date(o.createdAt); return d >= prevMonthStart && d <= prevMonthEnd; });
+
+    const dailyTrend = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const dn = new Date(d); dn.setDate(dn.getDate() + 1);
+      const dayOrders = allOrders.filter((o) => { const ct = new Date(o.createdAt); return ct >= d && ct < dn; });
+      dailyTrend.push({ date: d.toISOString().split("T")[0], label: d.toLocaleDateString("uz-UZ", { month: "short", day: "numeric" }), orders: dayOrders.length, revenue: dayOrders.reduce((s, o) => s + (o.total || 0), 0) });
+    }
+
+    const todayOrders = monthOrders.filter((o) => new Date(o.createdAt) >= today);
+    const hourlyDist = [];
+    for (let h = 0; h < 24; h++) {
+      hourlyDist.push({ hour: h, label: String(h).padStart(2, "0") + ":00", orders: todayOrders.filter((o) => new Date(o.createdAt).getHours() === h).length });
+    }
+
+    const topProducts = {};
+    monthOrders.forEach((o) => (o.items || []).forEach((item) => {
+      if (!topProducts[item.name]) topProducts[item.name] = { totalRevenue: 0, totalQty: 0, orderCount: 0 };
+      topProducts[item.name].totalRevenue += (item.price || 0) * (item.quantity || 1);
+      topProducts[item.name].totalQty += item.quantity || 1;
+      topProducts[item.name].orderCount++;
+    }));
+
+    const categoryStats = {};
+    monthOrders.forEach((o) => (o.items || []).forEach((item) => {
+      const cat = item.category || "Boshqa";
+      if (!categoryStats[cat]) categoryStats[cat] = { totalRevenue: 0, totalQty: 0 };
+      categoryStats[cat].totalRevenue += (item.price || 0) * (item.quantity || 1);
+      categoryStats[cat].totalQty += item.quantity || 1;
+    }));
+
+    const [orderTypeDist, totalUsers, monthUsers, ratingDist] = await Promise.all([
+      Order.aggregate([{ $match: { restaurantId: rId, createdAt: { $gte: monthStart } } }, { $group: { _id: "$orderType", count: { $sum: 1 }, revenue: { $sum: "$total" } } }]),
+      User.countDocuments({ restaurantId: rId }),
+      User.countDocuments({ restaurantId: rId, createdAt: { $gte: monthStart } }),
+      Order.aggregate([{ $match: { restaurantId: rId, rating: { $ne: null } } }, { $group: { _id: "$rating", count: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
+    ]);
+
+    const weekdayStats = [0, 0, 0, 0, 0, 0, 0];
+    const weekdayNames = ["Yak", "Du", "Se", "Chor", "Pay", "Ju", "Sha"];
+    monthOrders.forEach((o) => { weekdayStats[new Date(o.createdAt).getDay()]++; });
+
+    const currentRevenue = monthOrders.reduce((s, o) => s + (o.total || 0), 0);
+    const prevRevenue = prevMonthOrders.reduce((s, o) => s + (o.total || 0), 0);
+
+    res.json({
+      ok: true,
+      overview: {
+        currentMonth: { orders: monthOrders.length, revenue: currentRevenue, avgOrderValue: monthOrders.length > 0 ? Math.round(currentRevenue / monthOrders.length) : 0 },
+        prevMonth: { orders: prevMonthOrders.length, revenue: prevRevenue, avgOrderValue: prevMonthOrders.length > 0 ? Math.round(prevRevenue / prevMonthOrders.length) : 0 },
+        revenueGrowth: prevRevenue > 0 ? Math.round(((currentRevenue - prevRevenue) / prevRevenue) * 100) : 0,
+        ordersGrowth: prevMonthOrders.length > 0 ? Math.round(((monthOrders.length - prevMonthOrders.length) / prevMonthOrders.length) * 100) : 0,
+        totalUsers, newUsers: monthUsers,
+      },
+      dailyTrend, hourlyDist,
+      topProducts: Object.entries(topProducts).map(([name, d]) => ({ _id: name, ...d })).sort((a, b) => b.totalQty - a.totalQty).slice(0, 10),
+      categoryStats: Object.entries(categoryStats).map(([name, d]) => ({ _id: name, ...d })).sort((a, b) => b.totalRevenue - a.totalRevenue),
+      orderTypeDist,
+      weekdayStats: weekdayNames.map((n, i) => ({ day: n, orders: weekdayStats[i] })),
+      ratingDist,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ===== SITE SETTINGS =====
 const SITE_SETTINGS_FIELDS = [
   "restaurantName", "phone", "address", "addressRu", "botUsername", "adminTg",
