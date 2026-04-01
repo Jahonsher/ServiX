@@ -14,11 +14,11 @@
 
 | Panel | URL | Maqsad |
 |---|---|---|
-| **Admin** | https://e-comerce-bot-main.vercel.app/ | Restoran egasi — menyu, buyurtmalar, ishchilar, statistika |
-| **Superadmin** | https://e-comerce-bot-main-superadmin.vercel.app/ | Platforma boshqaruvi — restoranlar CRUD, obuna, modullar |
-| **Ishchi** | https://e-comerce-bot-main-employee.vercel.app/ | Ishchi — davomat, check-in/out, yuz tanish |
-| **Ofitsiant** | https://servix-ofitsant.vercel.app/ | Ofitsiant — shotlar, buyurtma qo'shish, oshpazga yuborish |
-| **Oshxona** | https://servix-oshxona.vercel.app/ | Oshpaz — buyurtmalar oqimi, tayyorlash, tayyor qilish |
+| **Admin** | https://servix-admin.vercel.app/ | Restoran egasi — menyu, buyurtmalar, ishchilar, statistika |
+| **Superadmin** | https://servi-x.vercel.app/ | Platforma boshqaruvi — restoranlar CRUD, obuna, modullar |
+| **Ishchi** | https://servix-imployee.vercel.app/ | Ishchi — davomat, check-in/out, yuz tanish |
+| **Ofitsiant** | https://servix-waiter.vercel.app/ | Ofitsiant — shotlar, buyurtma qo'shish, oshpazga yuborish |
+| **Oshxona** | https://servix-kitchen.vercel.app/ | Oshpaz — buyurtmalar oqimi, tayyorlash, tayyor qilish |
 | **Webapp** | Telegram bot orqali ochiladi | Mijoz — menyu ko'rish, buyurtma berish (online/dine-in) |
 
 **Backend API:** `https://e-comerce-bot-main-production.up.railway.app`
@@ -28,44 +28,66 @@
 ## Loyiha fayl tuzilmasi
 
 ```
-e-comerce-bot-main/
+SERVIX/
 ├── backend/
-│   ├── server.js          — Asosiy server (2866 qator) — barcha model, API, Socket.IO
-│   ├── package.json       — Dependencies (express, mongoose, socket.io, telegram, jwt...)
-│   ├── models/            — (Eski, ishlatilmaydi — hamma narsa server.js da)
-│   ├── routes/            — (Eski, ishlatilmaydi)
-│   └── public/app.js      — Webapp frontend JS
+│   ├── config/
+│   │   ├── database.js      — DB ulanish konfiguratsiyasi
+│   │   └── index.js         — Config export
+│   │
+│   ├── middleware/
+│   │   ├── auth.js          — Auth middleware (JWT)
+│   │   ├── rateLimit.js     — So‘rov cheklash
+│   │   └── validate.js      — Validatsiya
+│   │
+│   ├── models/
+│   │   ├── Admin.js         — Admin modeli
+│   │   ├── Category.js      — Kategoriya modeli
+│   │   ├── Order.js         — Buyurtma modeli
+│   │   ├── Product.js       — Mahsulot modeli
+│   │   ├── User.js          — Foydalanuvchi modeli
+│   │   └── index.js         — Model export
+│   │
+│   ├── routes/
+│   │   ├── admin.routes.js            — Admin API
+│   │   ├── kitchen.routes.js          — Oshxona API
+│   │   ├── public.routes.js           — Public API
+│   │   ├── superadmin.routes.js       — Superadmin API
+│   │   └── waiter-employee.routes.js  — Ofitsiant/Ishchi API
+│   │
+│   ├── services/
+│   │   ├── bot.service.js        — Telegram bot logika
+│   │   ├── faceid.services.js    — FaceID (yuz tanish)
+│   │   └── notification.service.js — Notification tizimi
+│   │
+│   ├── utils/
+│   │   ├── helpers.js       — Yordamchi funksiyalar
+│   │   └── logger.js        — Log yozish
+│   │
+│   ├── .env                 — Muhit o‘zgaruvchilari
+│   ├── .gitignore
+│   ├── package-lock.json
+│   ├── package.json         — Dependencies (express, mongoose, socket.io, telegram, jwt...)
+│   └── server.js            — Asosiy server (API, Socket.IO, barcha logika)
 │
-├── admin/
-│   ├── index.html         — Admin panel UI (Tailwind + inline styles)
-│   └── admin.js           — Admin logika (2072 qator)
+├── client/
+│   ├── demos/
+│   │   ├── aqsotour/        — Landing page
+│   │   ├── gavali/          — Landing page
+│   │   └── imperial/        — Landing page
+│   │
+│   ├── services/
+│   │   ├── admin/           — Admin frontend
+│   │   ├── employee/        — Ishchi panel
+│   │   ├── kitchen/         — Oshxona panel
+│   │   └── waiter/          — Ofitsiant panel
+│   │
+│   └── shared/             — Umumiy komponent / util
 │
 ├── superadmin/
-│   ├── index.html         — Superadmin panel UI
-│   └── superadmin.js      — Superadmin logika
+│   ├── index.html          — Superadmin panel UI
+│   └── superadmin.js       — Superadmin logika
 │
-├── employee/
-│   ├── index.html         — Ishchi panel UI
-│   └── app.js             — Ishchi logika (check-in/out, yuz tanish)
-│
-├── waiter/
-│   ├── index.html         — Ofitsiant panel UI (dark theme, mobile-first)
-│   └── app.js             — Ofitsiant logika + Socket.IO client (492 qator)
-│
-├── kitchen/
-│   ├── index.html         — Oshxona panel UI (3 ustunli layout)
-│   └── app.js             — Oshxona logika + Socket.IO client (281 qator)
-│
-├── frond-end/
-│   ├── index.html         — Webapp (Telegram WebApp) — mijoz buyurtma beradi
-│   └── app.js             — Webapp logika (ko'p tilli: UZ/RU)
-│
-├── gavali/                — Gavali shirinliklar landing page
-│   └── index.html
-│
-└── aqsotour/              — AqsoTour sayohat landing page
-    ├── index.html
-    └── app.js
+└── README.md
 ```
 
 ---
