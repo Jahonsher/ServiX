@@ -1,13 +1,17 @@
 const mongoose = require("mongoose");
 
-const UserSchema = new mongoose.Schema({
-  telegramId: { type: Number, unique: true },
-  firstName: String,
-  username: String,
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
-});
+const userSchema = new mongoose.Schema(
+  {
+    telegramId: Number,
+    first_name: String,
+    last_name: String,
+    username: String,
+    phone: String,
+    restaurantId: { type: String, required: true },
+  },
+  { timestamps: true }
+);
 
-module.exports = mongoose.model("User", UserSchema);
+userSchema.index({ telegramId: 1, restaurantId: 1 }, { unique: true });
+
+module.exports = mongoose.model("User", userSchema);

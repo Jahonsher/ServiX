@@ -1,9 +1,0 @@
-[
-  { "id":1, "name":"Osh",     "name_ru":"Плов",    "price":45000, "category":"Taom",     "image":"https://restomenu.uz/images/history-of-foods/history_of_plov_palov.jpg" },
-  { "id":2, "name":"Lag'mon", "name_ru":"Лагман",  "price":38000, "category":"Taom",     "image":"https://lh3.googleusercontent.com/proxy/tN2PcyeS2M04Z7Z6C43wabu7vLNobov9wHs6kzkpQ8JyW5Oi6zyr4zuSzmgjqGhEory4azvXxaECnhY31_tmyzFQJiudz4SgL7_zHwI1gAdeG6fnM9G-RX6wJPJdD4EJmclszlOD9dp0" },
-  { "id":3, "name":"Steyk",   "name_ru":"Стейк",   "price":95000, "category":"Taom",     "image":"https://data.daryo.uz/media/cache/2017/01/steyk-530x374-530x374.jpg" },
-  { "id":4, "name":"Burger",  "name_ru":"Бургер",  "price":42000, "category":"Taom",     "image":"https://www.foodandwine.com/thmb/XE8ubzwObCIgMw7qJ9CsqUZocNM=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/MSG-Smash-Burger-FT-RECIPE0124-d9682401f3554ef683e24311abdf342b.jpg" },
-  { "id":5, "name":"Cola",    "name_ru":"Кола",    "price":8000,  "category":"Ichimlik", "image":"https://i5.walmartimages.com/asr/67b95539-ca9e-497b-973f-21702370982f.a9b8ef0677e5b1bd11cbeb9c9c0b0290.jpeg" },
-  { "id":6, "name":"Moxito",  "name_ru":"Мохито",  "price":18000, "category":"Ichimlik", "image":"https://www.savol-javob.com/wp-content/uploads/2020/03/2724454496.jpg" },
-  { "id":7, "name":"Choy",    "name_ru":"Чай",     "price":5000,  "category":"Ichimlik", "image":"https://uzbekistan.travel/storage/app/media/tea.jpg" }
-]
