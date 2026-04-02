@@ -463,38 +463,54 @@ router.get("/attendance/report", authMiddleware, moduleGuard("empReport"), async
     const rId = req.admin.restaurantId;
     const prefix = req.query.month || new Date().toISOString().slice(0, 7);
     const filter = { restaurantId: rId, date: { $regex: `^${prefix}` } };
+    if (req.query.branchId) {
+      const branchEmps = await Employee.find({ restaurantId: rId, branchId: req.query.branchId, active: true }).select("_id");
+      filter.employeeId = { $in: branchEmps.map((e) => e._id) };
+    }
     if (req.query.employeeId) filter.employeeId = req.query.employeeId;
 
     const [records, employees] = await Promise.all([
-      Attendance.find(filter).populate("employeeId", "name position salary").sort({ date: 1 }),
-      Employee.find({ restaurantId: rId, active: true }).select("-password"),
+      Attendance.find(filter).sort({ date: 1 }).lean(),
+      Employee.find(
+        Object.assign({ restaurantId: rId, active: true }, req.query.branchId ? { branchId: req.query.branchId } : {})
+      ).select("name position salary weeklyOff branchId photo").lean(),
     ]);
 
-    const empMap = {};
-    employees.forEach((emp) => {
-      empMap[emp._id.toString()] = {
-        employee: emp, worked: 0, absent: 0, late: 0, totalMinutes: 0, overtime: 0,
-        workingDays: calcWorkingDays(prefix, emp.weeklyOff),
-        dailySalary: 0, earnedSalary: 0,
+    // Har bir ishchi uchun records va stats yig'ish
+    const report = employees.map((emp) => {
+      const empId = emp._id.toString();
+      const empRecords = records.filter((r) => r.employeeId?.toString() === empId);
+      const workingDaysInMonth = calcWorkingDays(prefix, emp.weeklyOff);
+
+      let workedDays = 0, absentCount = 0, lateCount = 0, totalMinutes = 0, overtime = 0;
+      empRecords.forEach((r) => {
+        if (r.status === "keldi") workedDays++;
+        if (r.status === "kelmadi") absentCount++;
+        if (r.lateMinutes > 0) lateCount++;
+        totalMinutes += r.totalMinutes || 0;
+        overtime += r.overtimeMinutes || 0;
+      });
+
+      const dailySalary = workingDaysInMonth > 0 ? Math.round((emp.salary || 0) / workingDaysInMonth) : 0;
+      const earnedSalary = Math.round(dailySalary * workedDays);
+
+      return {
+        employee: emp,
+        stats: {
+          workedDays,
+          workingDaysInMonth,
+          absentCount,
+          lateCount,
+          totalMinutes,
+          overtime,
+          dailySalary,
+          earnedSalary,
+        },
+        records: empRecords,
       };
     });
 
-    records.forEach((r) => {
-      const key = r.employeeId?._id?.toString();
-      if (!key || !empMap[key]) return;
-      if (r.status === "keldi") empMap[key].worked++;
-      if (r.status === "kelmadi") empMap[key].absent++;
-      if (r.lateMinutes > 0) empMap[key].late++;
-      empMap[key].totalMinutes += r.totalMinutes || 0;
-      empMap[key].overtime += r.overtimeMinutes || 0;
-    });
-
-    Object.values(empMap).forEach((e) => {
-      e.dailySalary = e.workingDays > 0 ? Math.round(e.employee.salary / e.workingDays) : 0;
-      e.earnedSalary = Math.round(e.dailySalary * e.worked);
-    });
-
-    res.json({ ok: true, month: prefix, records, summary: Object.values(empMap) });
+    res.json({ ok: true, month: prefix, report });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

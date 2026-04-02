@@ -18,7 +18,20 @@ tailwind.config = {
   theme: {
     extend: {
       colors: { bg:'#0b0f1a', bg2:'#111827', bg3:'#1a2235', card:'#131c2e', accent:'#06b6d4', gold:'#f59e0b' },
-      fontFamily: { sans:['Manrope','sans-serif'], serif:['Playfair Display','serif'] }
+      fontFamily: { sans:['Manrope','sans-serif'], serif:['Playfair Display','serif'] },
+      keyframes: {
+        fadeIn:  { from:{opacity:'0',transform:'translateY(8px)'},  to:{opacity:'1',transform:'translateY(0)'} },
+        fadeUp:  { from:{opacity:'0',transform:'translateY(12px)'}, to:{opacity:'1',transform:'translateY(0)'} },
+        shimmer: { '0%':{backgroundPosition:'-400px 0'}, '100%':{backgroundPosition:'400px 0'} },
+        shake:   { '0%,100%':{transform:'translateX(0)'},'20%':{transform:'translateX(-6px)'},'40%':{transform:'translateX(6px)'},'60%':{transform:'translateX(-4px)'},'80%':{transform:'translateX(4px)'} },
+      },
+      animation: {
+        'fade-in': 'fadeIn .22s ease',
+        'fade-up': 'fadeUp .3s ease both',
+        'shimmer': 'shimmer 1.5s infinite linear',
+        'shake':   'shake .3s ease',
+      },
+      borderColor: { sx: 'rgba(6,182,212,0.12)' },
     }
   }
 }
@@ -28,33 +41,52 @@ tailwind.config = {
 <style>
   :root { --sx-cyan:#06b6d4; --sx-purple:#8b5cf6; --sx-grad:linear-gradient(135deg,#06b6d4,#8b5cf6); }
   body { background:#0b0f1a; color:#f1f5f9; font-family:'Manrope',sans-serif; }
+
+  /* Scrollbar */
   ::-webkit-scrollbar { width:4px; height:4px; }
-  ::-webkit-scrollbar-thumb { background:var(--sx-cyan); border-radius:2px; }
-  .sidebar-item { display:flex; align-items:center; gap:10px; padding:10px 20px; cursor:pointer; border-left:3px solid transparent; font-size:13px; font-weight:500; color:#64748b; transition:all .2s; }
-  .sidebar-item:hover { background:rgba(6,182,212,0.07); color:#f1f5f9; }
-  .sidebar-item.active { background:rgba(6,182,212,0.1); border-left-color:var(--sx-cyan); color:#22d3ee; }
-  .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; }
-  .badge-new      { background:rgba(245,158,11,0.15);  color:#f59e0b; }
-  .badge-accepted { background:rgba(16,185,129,0.15);  color:#10b981; }
-  .badge-rejected { background:rgba(239,68,68,0.15);   color:#ef4444; }
-  .badge-ready    { background:rgba(6,182,212,0.15);   color:#22d3ee; }
-  .badge-online   { background:rgba(139,92,246,0.15);  color:#a78bfa; }
-  .badge-dinein   { background:rgba(245,158,11,0.15);  color:#f59e0b; }
-  .cat-row { display:flex; align-items:center; gap:12px; padding:12px 20px; border-bottom:1px solid rgba(6,182,212,0.05); cursor:grab; transition:background .15s; }
+  ::-webkit-scrollbar-thumb { background:#06b6d4; border-radius:2px; }
+
+  /* Sidebar */
+  .sidebar-item { display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;font-size:13px;font-weight:500;color:#64748b;transition:all .2s;border-left:3px solid transparent; }
+  .sidebar-item:hover { background:rgba(6,182,212,0.07);color:#f1f5f9; }
+  .sidebar-item.active { background:rgba(6,182,212,0.1);border-left-color:#06b6d4;color:#22d3ee; }
+
+  /* Badges */
+  .badge { display:inline-block;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600; }
+  .badge-new { background:rgba(245,158,11,0.15);color:#f59e0b; }
+  .badge-accepted { background:rgba(16,185,129,0.15);color:#10b981; }
+  .badge-rejected { background:rgba(239,68,68,0.15);color:#ef4444; }
+  .badge-ready { background:rgba(6,182,212,0.15);color:#22d3ee; }
+  .badge-online { background:rgba(139,92,246,0.15);color:#a78bfa; }
+  .badge-dinein { background:rgba(245,158,11,0.15);color:#f59e0b; }
+
+  /* Category drag */
+  .cat-row { display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid rgba(6,182,212,0.05);cursor:grab;transition:background .15s; }
   .cat-row:last-child { border-bottom:none; }
   .cat-row.drag-over { background:rgba(6,182,212,0.08); }
-  .cat-row.dragging  { opacity:.4; }
-  .inp { width:100%; padding:11px 14px; background:#1a2235; border:1px solid rgba(6,182,212,0.12); border-radius:8px; color:#f1f5f9; font-family:'Manrope',sans-serif; font-size:14px; outline:none; transition:border-color .2s; }
-  .inp:focus { border-color:var(--sx-cyan); }
-  .sx-logo { display:inline-flex; align-items:center; gap:10px; }
-  .sx-icon { width:32px; height:32px; border-radius:9px; background:var(--sx-grad); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .sx-icon svg { width:18px; height:18px; }
-  .sx-name { font-size:16px; font-weight:800; color:#f1f5f9; letter-spacing:-0.5px; }
-  .sx-name b { background:var(--sx-grad); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
-  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .cat-row.dragging { opacity:.4; }
+
+  /* Input */
+  .inp { width:100%;padding:11px 14px;background:#1a2235;border:1px solid rgba(6,182,212,0.12);border-radius:8px;color:#f1f5f9;font-family:'Manrope',sans-serif;font-size:14px;outline:none;transition:border-color .2s; }
+  .inp:focus { border-color:#06b6d4; }
+
+  /* Logo */
+  .sx-logo { display:inline-flex;align-items:center;gap:10px; }
+  .sx-icon { width:32px;height:32px;border-radius:9px;background:var(--sx-grad);display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+  .sx-icon svg { width:18px;height:18px; }
+  .sx-name { font-size:16px;font-weight:800;color:#f1f5f9;letter-spacing:-0.5px; }
+  .sx-name b { background:var(--sx-grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent; }
+
+  /* Animations — Tailwind config dagi keyframes ishlatiladi */
   .page { animation:fadeIn .22s ease; }
-  @media(max-width:768px){ .sidebar{transform:translateX(-100%)} .sidebar.open{transform:translateX(0)} .main-wrap{margin-left:0!important} }
-  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-6px)} 40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+  .fade-up { animation:fadeUp .3s ease both; }
+
+  /* Skeleton — Tailwind animate-shimmer */
+  .skel { background:linear-gradient(90deg,#1a2235 25%,#243047 50%,#1a2235 75%);background-size:800px 100%;animation:shimmer 1.5s infinite linear;border-radius:8px; }
+  .skel-card { border:1px solid rgba(6,182,212,0.08);border-radius:12px;padding:16px;background:#131c2e; }
+
+  /* Responsive */
+  @media(max-width:768px) { .sidebar{transform:translateX(-100%)} .sidebar.open{transform:translateX(0)} .main-wrap{margin-left:0!important} }
 </style>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>

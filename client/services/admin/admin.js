@@ -289,6 +289,70 @@ function pageHeader(title, sub) {
   return '<div class="mb-6"><h1 class="font-serif text-3xl font-bold">' + title + '</h1>' + (sub ? '<p class="text-sm mt-1" style="color:#64748b">' + sub + '</p>' : '') + '</div>';
 }
 
+// ===== SKELETON LOADERS (Tailwind classes) =====
+function skelLine(w, h) {
+  return '<div class="skel" style="width:' + (w||'100%') + ';height:' + (h||'14px') + '"></div>';
+}
+
+function skelCard() {
+  return '<div class="skel-card mb-3">' +
+    '<div class="flex gap-3 items-center mb-4">' +
+      '<div class="skel w-11 h-11 rounded-xl shrink-0"></div>' +
+      '<div class="flex-1 space-y-2">' + skelLine('60%','16px') + skelLine('40%','12px') + '</div>' +
+    '</div>' +
+    '<div class="grid grid-cols-2 gap-2 mb-3">' +
+      '<div class="skel h-14 rounded-lg"></div>' +
+      '<div class="skel h-14 rounded-lg"></div>' +
+    '</div>' +
+    skelLine('80%','12px') +
+  '</div>';
+}
+
+function skelTable(rows) {
+  rows = rows || 5;
+  var h = '<div class="skel h-10 rounded-md mb-1"></div>';
+  var r = '';
+  for (var i = 0; i < rows; i++) {
+    r += '<div class="flex gap-3 py-3 border-b border-cyan-500/5">' +
+      '<div class="skel h-3.5" style="width:30%"></div>' +
+      '<div class="skel h-3.5" style="width:20%"></div>' +
+      '<div class="skel h-3.5" style="width:25%"></div>' +
+      '<div class="skel h-3.5" style="width:15%"></div>' +
+    '</div>';
+  }
+  return '<div class="rounded-xl border border-cyan-500/[0.08] p-5 mb-5 bg-card">' + h + r + '</div>';
+}
+
+function skelStats(n) {
+  n = n || 4;
+  var items = '';
+  for (var i = 0; i < n; i++) {
+    items += '<div class="skel-card">' +
+      '<div class="skel w-8 h-8 rounded-lg mb-3"></div>' +
+      skelLine('50%','12px') +
+      '<div class="skel h-7 rounded-md mb-1.5" style="width:60%"></div>' +
+      skelLine('40%','10px') +
+    '</div>';
+  }
+  return '<div class="grid gap-3.5 mb-5" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">' + items + '</div>';
+}
+
+function skelReport() {
+  return '<div class="skel-card mb-4">' +
+    '<div class="flex justify-between">' +
+      '<div class="space-y-2">' + skelLine('120px','12px') + '<div class="skel h-7 rounded-md" style="width:180px"></div></div>' +
+      '<div class="space-y-2 text-right">' + skelLine('80px','12px') + '<div class="skel h-7 rounded-md" style="width:80px"></div></div>' +
+    '</div>' +
+  '</div>' +
+  '<div class="skel-card mb-4">' +
+    skelLine('140px','12px') +
+    '<div class="flex gap-2 items-end mt-4">' +
+      '<div class="skel w-7 rounded" style="height:50px"></div>'.repeat(8) +
+    '</div>' +
+  '</div>' +
+  '<div class="space-y-3">' + skelCard() + skelCard() + '</div>';
+}
+
 function statCard(icon, label, value, sub) {
   return '<div class="rounded-xl border p-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)">' +
     '<div class="text-3xl mb-2">' + icon + '</div>' +
@@ -435,7 +499,7 @@ async function renderOrders(main, filter) {
           }).join('') +
         '</div>' +
       '</div>' +
-      '<div id="ordersTable" class="overflow-x-auto"><div class="p-5" style="color:#64748b">Yuklanmoqda...</div></div>' +
+      '<div id="ordersTable" class="overflow-x-auto">' + skelTable(6) + '</div>' +
     '</div>' +
   '</div>';
 
@@ -1281,25 +1345,35 @@ async function renderEmpReport(main) {
   var now   = new Date();
   var month = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
 
-  var bd = await apiFetch('/admin/branches');
-  var branches = (bd && bd.branches) ? bd.branches : [];
-
-  var branchOptions = '<option value="">🏢 Barcha filiallar</option>' +
-    branches.map(function(b) {
-      return '<option value="' + b._id + '">' + b.name + '</option>';
-    }).join('');
-
   main.innerHTML =
     '<div class="fade-up">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">' +
         '<div style="font-size:18px;font-weight:700;color:#f1f5f9">💰 Hisobot & Maosh</div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-          '<select id="reportBranch" onchange="loadReport()" style="padding:8px 12px;background:#1e293b;border:1px solid rgba(6,182,212,0.2);border-radius:8px;color:#f1f5f9;font-size:13px;font-family:inherit">' + branchOptions + '</select>' +
-          '<input type="month" id="reportMonth" value="' + month + '" onchange="loadReport()" style="padding:8px 12px;background:#1e293b;border:1px solid rgba(6,182,212,0.2);border-radius:8px;color:#f1f5f9;font-size:13px">' +
+          '<select id="reportBranch" style="padding:8px 12px;background:#1e293b;border:1px solid rgba(6,182,212,0.2);border-radius:8px;color:#f1f5f9;font-size:13px;font-family:inherit"><option value="">🏢 Barcha filiallar</option></select>' +
+          '<input type="month" id="reportMonth" value="' + month + '" style="padding:8px 12px;background:#1e293b;border:1px solid rgba(6,182,212,0.2);border-radius:8px;color:#f1f5f9;font-size:13px">' +
         '</div>' +
       '</div>' +
-      '<div id="reportContent"><div style="text-align:center;padding:40px;color:#475569">Yuklanmoqda...</div></div>' +
+      '<div id="reportContent">' + skelReport() + '</div>' +
     '</div>';
+
+  // Filiallarni va hisobotni parallel yuklash
+  var branchPromise = apiFetch('/admin/branches');
+
+  document.getElementById('reportMonth').addEventListener('change', loadReport);
+  document.getElementById('reportBranch').addEventListener('change', loadReport);
+
+  var bd = await branchPromise;
+  var branches = (bd && bd.branches) ? bd.branches : [];
+  if (branches.length) {
+    var branchEl = document.getElementById('reportBranch');
+    if (branchEl) {
+      branchEl.innerHTML = '<option value="">🏢 Barcha filiallar</option>' +
+        branches.map(function(b) {
+          return '<option value="' + b._id + '">' + b.name + '</option>';
+        }).join('');
+    }
+  }
 
   await loadReport();
 }
@@ -1310,12 +1384,18 @@ async function loadReport() {
   if (!monthEl) return;
   var month    = monthEl.value;
   var branchId = branchEl ? branchEl.value : '';
-  var d = await apiFetch('/admin/attendance/report?month=' + month + (branchId ? '&branchId=' + branchId : ''));
 
   var content = document.getElementById('reportContent');
   if (!content) return;
+  content.innerHTML = skelReport();
+
+  var d = await apiFetch('/admin/attendance/report?month=' + month + (branchId ? '&branchId=' + branchId : ''));
+
   if (!d || !d.ok || !d.report) {
-    content.innerHTML = '<div style="color:#f87171;padding:20px">' + (d && d.error ? d.error : 'Hisobot yuklanmadi') + '</div>';
+    var errMsg = 'Hisobot yuklanmadi';
+    if (d && d.error === 'MODULE_DISABLED') errMsg = d.message || 'Hisobot moduli yoqilmagan';
+    else if (d && d.error) errMsg = d.error;
+    content.innerHTML = '<div style="text-align:center;padding:40px"><div style="font-size:36px;margin-bottom:12px">📊</div><div style="color:#f87171;font-size:14px">' + errMsg + '</div></div>';
     return;
   }
 
