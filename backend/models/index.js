@@ -55,6 +55,7 @@ const employeeSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+employeeSchema.index({ restaurantId: 1, active: 1 });
 const Employee = mongoose.model("Employee", employeeSchema);
 
 // ===== ATTENDANCE =====
@@ -81,6 +82,8 @@ const attendanceSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+attendanceSchema.index({ restaurantId: 1, date: 1 });
+attendanceSchema.index({ employeeId: 1, date: 1 });
 const Attendance = mongoose.model("Attendance", attendanceSchema);
 
 // ===== INVENTORY =====

@@ -263,10 +263,10 @@ router.get("/analytics", superMiddleware, async (req, res) => {
     }
 
     // Soatlik
-    const todayOrders = monthOrders.filter((o) => new Date(o.createdAt) >= today);
+    const todayFiltered = monthOrders.filter((o) => new Date(o.createdAt) >= today);
     const hourly = [];
     for (let h = 0; h < 24; h++) {
-      hourly.push({ hour: h, label: String(h).padStart(2, "0") + ":00", orders: todayOrders.filter((o) => new Date(o.createdAt).getHours() === h).length });
+      hourly.push({ hour: h, label: String(h).padStart(2, "0") + ":00", orders: todayFiltered.filter((o) => new Date(o.createdAt).getHours() === h).length });
     }
 
     const monthRev = monthOrders.reduce((s, o) => s + (o.total || 0), 0);

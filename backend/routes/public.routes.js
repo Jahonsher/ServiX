@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const config = require("../config");
 const User = require("../models/User");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
@@ -14,7 +15,7 @@ const logger = require("../utils/logger");
 
 // ===== Health check =====
 router.get("/", (req, res) => {
-  res.json({ status: "OK", bots: botService.getActiveBots() });
+  res.json({ status: "OK", ts: Date.now() });
 });
 
 // ===== Block tekshirish =====
@@ -159,7 +160,18 @@ router.post("/order", orderLimiter, async (req, res) => {
       phone: db?.phone || user?.phone || "",
     };
 
-    const total = items.reduce((s, i) => s + Number(i.price) * (Number(i.quantity) || 1), 0);
+    // Narxlarni serverda DB dan tekshirish (mijoz narxni o'zgartirishi mumkin edi)
+    const productNames = items.map((i) => i.name);
+    const dbProducts = await Product.find({ restaurantId, name: { $in: productNames } }).lean();
+    const priceMap = {};
+    dbProducts.forEach((p) => { priceMap[p.name] = p.price; });
+
+    const verifiedItems = items.map((i) => ({
+      ...i,
+      price: priceMap[i.name] !== undefined ? priceMap[i.name] : Number(i.price) || 0,
+      quantity: Math.max(1, Math.min(100, Number(i.quantity) || 1)),
+    }));
+    const total = verifiedItems.reduce((s, i) => s + i.price * i.quantity, 0);
 
     // Admin ma'lumotlari
     const adminInfo = await Admin.findOne({ restaurantId, role: "admin" });
@@ -175,7 +187,7 @@ router.post("/order", orderLimiter, async (req, res) => {
 
         if (shot) {
           // Mavjud shotga qo'shish
-          const newItems = items.map((i) => ({
+          const newItems = verifiedItems.map((i) => ({
             name: i.name,
             name_ru: i.name_ru || "",
             price: Number(i.price),
@@ -288,7 +300,7 @@ router.post("/order", orderLimiter, async (req, res) => {
     // ===== ONLINE yoki waiter moduli yo'q =====
     const order = await Order.create({
       telegramId: Number(telegramId),
-      items,
+      items: verifiedItems,
       total,
       userInfo: ui,
       orderType: orderType || "online",
@@ -305,7 +317,7 @@ router.post("/order", orderLimiter, async (req, res) => {
     const bot = botService.getBot(restaurantId);
 
     let m = `🆕 Yangi buyurtma!\n\n${table}\nMijoz: ${name}${uname}${phone}\n\nMahsulotlar:\n`;
-    items.forEach((i) => {
+    verifiedItems.forEach((i) => {
       m += `- ${i.name} x${i.quantity} | ${Number(i.price).toLocaleString()} som\n`;
     });
     m += `\nJami: ${total.toLocaleString()} som`;
@@ -340,8 +352,20 @@ router.post("/order", orderLimiter, async (req, res) => {
   }
 });
 
-// ===== Webhook =====
+// ===== Webhook (HMAC hash bilan himoyalangan) =====
 router.post("/wh/:restaurantId/:hash", (req, res) => {
+  const crypto = require("crypto");
+  const expectedHash = crypto
+    .createHmac("sha256", config.jwtSecret)
+    .update(req.params.restaurantId)
+    .digest("hex")
+    .slice(0, 16);
+
+  if (req.params.hash !== expectedHash) {
+    logger.warn(`Webhook hash noto'g'ri: ${req.params.restaurantId}`);
+    return res.sendStatus(403);
+  }
+
   botService.processWebhook(req.params.restaurantId, req.body);
   res.sendStatus(200);
 });

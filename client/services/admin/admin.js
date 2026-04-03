@@ -247,7 +247,34 @@ document.getElementById('catModalCancel').addEventListener('click', closeCatModa
 document.getElementById('catModalSave').addEventListener('click', saveCat);
 
 // ===== NAV =====
+// ===== PAGE CACHE SYSTEM =====
+// Har bir sahifa HTML + timestamp saqlanadi. 10 sek ichida qayta ochsa cache dan oladi.
+var _pageCache = {};
+var _pageCacheTTL = 10000; // 10 sekund
+var _currentPage = null;
+
+function pageCacheKey(page) { return 'pc_' + (adminInfo.restaurantId || '') + '_' + page; }
+
+function getPageCache(page) {
+  var entry = _pageCache[page];
+  if (!entry) return null;
+  if (Date.now() - entry.time > _pageCacheTTL) { delete _pageCache[page]; return null; }
+  return entry.html;
+}
+
+function setPageCache(page) {
+  var main = document.getElementById('mainContent');
+  if (main) _pageCache[page] = { html: main.innerHTML, time: Date.now() };
+}
+
+// Ma'lumot o'zgarganda cache ni tozalash (CRUD operatsiyalardan keyin chaqiriladi)
+function clearPageCache(page) {
+  if (page) { delete _pageCache[page]; }
+  else { _pageCache = {}; } // hammasini tozalash
+}
+
 function showPage(page) {
+  _currentPage = page;
   document.querySelectorAll('.sidebar-item').forEach(function(el) {
     el.classList.toggle('active', el.dataset.page === page);
   });
@@ -256,19 +283,52 @@ function showPage(page) {
     document.getElementById('sidebarOverlay').classList.add('hidden');
   }
   var main = document.getElementById('mainContent');
-  if (page === 'dashboard')  renderDashboard(main);
-  if (page === 'orders')     renderOrders(main, 'all');
-  if (page === 'products')   renderProducts(main);
-  if (page === 'categories') renderCategories(main);
-  if (page === 'ratings')    renderRatings(main);
-  if (page === 'users')      renderUsers(main);
-  if (page === 'branches')   renderBranches(main);
-  if (page === 'employees')  renderEmployees(main);
-  if (page === 'attendance') renderAttendance(main, '');
-  if (page === 'empReport')  renderEmpReport(main);
-  if (page === 'notifications') renderNotifications(main);
-  if (page === 'waiters')       renderWaiters(main);
-  if (page === 'chefs')         renderChefs(main);
+
+  // Cache dan olish (10 sek ichida)
+  var cached = getPageCache(page);
+  if (cached) {
+    main.innerHTML = cached;
+    return;
+  }
+
+  // Skeleton ko'rsatib, keyin yuklash
+  if (page === 'dashboard')     renderDashboard(main);
+  else if (page === 'orders')   renderOrders(main, 'all');
+  else if (page === 'products') renderProducts(main);
+  else if (page === 'categories') renderCategories(main);
+  else if (page === 'ratings')  renderRatings(main);
+  else if (page === 'users')    renderUsers(main);
+  else if (page === 'branches') renderBranches(main);
+  else if (page === 'employees') renderEmployees(main);
+  else if (page === 'attendance') renderAttendance(main, '');
+  else if (page === 'empReport') renderEmpReport(main);
+  else if (page === 'notifications') renderNotifications(main);
+  else if (page === 'waiters')  renderWaiters(main);
+  else if (page === 'chefs')    renderChefs(main);
+  else if (page === 'inventory') renderInventory(main);
+  else if (page === 'analytics') renderAnalytics(main);
+  else if (page === 'siteSettings') renderSiteSettings(main);
+}
+
+// ===== SKELETON TEMPLATES =====
+function skelPageProducts() {
+  return '<div class="page">' + pageHeader('Menyu boshqaruvi', "Taomlarni qo'shish, tahrirlash, o'chirish") +
+    '<div class="flex justify-end mb-4"><div class="skel h-10 w-36 rounded-xl"></div></div>' +
+    '<div class="grid gap-4" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">' +
+      ('<div class="skel-card"><div class="skel h-36 rounded-lg mb-3"></div>' + skelLine('70%','16px') + skelLine('40%','14px') + '<div class="skel h-8 rounded-lg mt-3"></div></div>').repeat(6) +
+    '</div></div>';
+}
+
+function skelPageTable(title, sub, cols) {
+  return '<div class="page">' + pageHeader(title, sub) + skelTable(cols || 6) + '</div>';
+}
+
+function skelPageCards(title, sub, n) {
+  var items = '';
+  for (var i = 0; i < (n||4); i++) items += skelCard();
+  return '<div class="page">' + pageHeader(title, sub) +
+    '<div class="flex justify-end mb-4"><div class="skel h-10 w-36 rounded-xl"></div></div>' +
+    '<div class="flex flex-col gap-3">' + items + '</div></div>';
 }
 
 // ===== HELPERS =====
@@ -391,31 +451,38 @@ function fmtSalary(n) {
 
 // ===== DASHBOARD =====
 async function renderDashboard(main) {
-  // Skeleton loader — darhol ko'rinadi
+  main.innerHTML = '<div class="page">' +
+    pageHeader('Dashboard', 'Bugungi holat va statistika') +
+    skelStats(5) +
+    '<div class="grid gap-4 mb-5" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">' +
+      '<div class="skel-card"><div class="skel h-4 w-40 mb-4"></div><div class="skel h-52 rounded-lg"></div></div>' +
+      '<div class="skel-card"><div class="skel h-4 w-32 mb-4"></div><div class="skel h-52 rounded-lg"></div></div>' +
+    '</div>' +
+    '<div class="skel-card mb-5"><div class="skel h-4 w-36 mb-4"></div><div class="skel h-32 rounded-lg"></div></div>' +
+    skelTable(4) +
+  '</div>';
+
+  var stats = await apiFetch('/admin/stats/fast');
+  if (!stats) return;
+
   main.innerHTML = '<div class="page">' +
     pageHeader('Dashboard', 'Bugungi holat va statistika') +
     '<div id="statsGrid" class="grid gap-4 mb-6" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">' +
-      '<div class="rounded-xl border p-4" style="background:#131c2e;border-color:rgba(6,182,212,0.08)"><div class="h-3 w-16 rounded bg-white/5 mb-3"></div><div class="h-7 w-12 rounded bg-white/5"></div></div>'.repeat(5) +
+      statCard('📦', 'Bugungi buyurtmalar', stats.today.orders, 'Oylik: ' + stats.month.orders + ' ta') +
+      statCard('💰', 'Bugungi daromad', Number(stats.today.revenue).toLocaleString(), 'Oylik: ' + Number(stats.month.revenue).toLocaleString() + " so'm") +
+      statCard('🌐', 'Online / Restoranda', stats.today.online + ' / ' + stats.today.dineIn, 'Bugun') +
+      statCard('⭐', "O'rtacha reyting", stats.rating.avg || '—', stats.rating.count + ' ta baho') +
+      statCard('👥', 'Foydalanuvchilar', stats.totalUsers, 'Jami') +
     '</div>' +
     '<div class="grid gap-4 mb-5" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">' +
       '<div class="rounded-xl border p-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">📈 Haftalik buyurtmalar</div><div style="position:relative;height:220px"><canvas id="weeklyChart"></canvas></div></div>' +
       '<div class="rounded-xl border p-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">🔵 Buyurtma turi</div><div style="position:relative;height:220px"><canvas id="typeChart"></canvas></div></div>' +
     '</div>' +
-    '<div class="rounded-xl border p-5 mb-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">🏆 Ko\'p sotilgan (TOP 5)</div><div id="topChart"><div style="color:#475569;font-size:13px">Yuklanmoqda...</div></div></div>' +
-    '<div class="rounded-xl border overflow-hidden mb-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="px-5 py-4 border-b" style="border-color:rgba(6,182,212,0.12)"><span class="text-sm font-semibold">Oxirgi buyurtmalar</span></div><div id="recentOrders" class="overflow-x-auto"><div class="p-5" style="color:#64748b">Yuklanmoqda...</div></div></div>' +
+    '<div class="rounded-xl border p-5 mb-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">🏆 Ko\'p sotilgan (TOP 5)</div><div id="topChart"></div></div>' +
+    '<div class="rounded-xl border overflow-hidden mb-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="px-5 py-4 border-b" style="border-color:rgba(6,182,212,0.12)"><span class="text-sm font-semibold">Oxirgi buyurtmalar</span></div><div id="recentOrders" class="overflow-x-auto"></div></div>' +
   '</div>';
 
-  // BITTA so'rov — /admin/stats/fast (stats + orders birgalikda, cache bilan)
-  var stats = await apiFetch('/admin/stats/fast');
-  if (!stats) return;
-
-  // Stats kartalar — darhol ko'rsatish
-  document.getElementById('statsGrid').innerHTML =
-    statCard('📦', 'Bugungi buyurtmalar', stats.today.orders, 'Oylik: ' + stats.month.orders + ' ta') +
-    statCard('💰', 'Bugungi daromad', Number(stats.today.revenue).toLocaleString(), 'Oylik: ' + Number(stats.month.revenue).toLocaleString() + " so'm") +
-    statCard('🌐', 'Online / Restoranda', stats.today.online + ' / ' + stats.today.dineIn, 'Bugun') +
-    statCard('⭐', "O'rtacha reyting", stats.rating.avg || '—', stats.rating.count + ' ta baho') +
-    statCard('👥', 'Foydalanuvchilar', stats.totalUsers, 'Jami');
+  setPageCache('dashboard');
 
   // Grafiklar
   if (weeklyChart) weeklyChart.destroy();
@@ -534,6 +601,7 @@ async function renderOrders(main, filter) {
     '</tr>';
   });
 
+  setPageCache('orders');
   document.getElementById('ordersTable').innerHTML =
     '<table class="w-full border-collapse">' +
       '<thead><tr>' +
@@ -553,10 +621,12 @@ async function renderOrders(main, filter) {
 
 // ===== PRODUCTS =====
 async function renderProducts(main) {
+  var skelGrid = '';
+  for (var s = 0; s < 6; s++) skelGrid += '<div class="skel-card"><div class="skel h-36 rounded-lg mb-3"></div><div class="skel h-4 w-3/4 mb-2"></div><div class="skel h-3 w-1/2 mb-2"></div><div class="skel h-8 rounded-lg mt-3"></div></div>';
   main.innerHTML = '<div class="page">' +
     pageHeader('Menyu boshqaruvi', "Taomlarni qo'shish, tahrirlash, o'chirish") +
     '<div class="flex justify-end mb-4"><button id="addProductBtn" class="px-5 py-2.5 rounded-xl text-sm font-bold text-white" style="background:var(--sx-cyan, #06b6d4)">+ Taom qo\'shish</button></div>' +
-    '<div id="productsGrid" class="grid gap-4" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))"><div style="color:#64748b">Yuklanmoqda...</div></div>' +
+    '<div id="productsGrid" class="grid gap-4" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">' + skelGrid + '</div>' +
   '</div>';
   document.getElementById('addProductBtn').addEventListener('click', function() { openProductModal(null); });
   loadProductsGrid();
@@ -592,6 +662,7 @@ async function loadProductsGrid() {
     div.querySelector('.del-btn').addEventListener('click', function() { deleteProduct(p.id); });
     grid.appendChild(div);
   });
+  setPageCache('products');
 }
 
 async function loadCategoryOptions() {
@@ -715,6 +786,7 @@ async function loadCatList() {
     });
     list.appendChild(row);
   });
+  setPageCache('categories');
 }
 
 function openCatModal(cat) {
@@ -745,6 +817,7 @@ async function saveCat() {
   if (id) await apiFetch('/admin/categories/' + id, { method:'PUT', body:JSON.stringify(body) });
   else    await apiFetch('/admin/categories',        { method:'POST', body:JSON.stringify(body) });
   closeCatModal();
+  clearPageCache('categories');
   loadCatList();
 }
 
@@ -756,7 +829,7 @@ async function deleteCat(id) {
 
 // ===== RATINGS =====
 async function renderRatings(main) {
-  main.innerHTML = '<div class="page">' + pageHeader('Reytinglar', 'Mijozlar baholari') + '<div id="ratingsContent"><div style="color:#64748b">Yuklanmoqda...</div></div></div>';
+  main.innerHTML = '<div class="page">' + pageHeader('Reytinglar', 'Mijozlar baholari') + '<div id="ratingsContent">' + skelTable(4) + '</div></div>';
   var data = await apiFetch('/admin/orders?limit=500');
   if (!data) return;
   var rated = data.orders.filter(function(o){return o.rating;});
@@ -771,6 +844,7 @@ async function renderRatings(main) {
       '<div style="flex:1;height:6px;background:#1a2235;border-radius:3px;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:#f59e0b;border-radius:3px"></div></div>' +
       '<span style="font-size:12px;color:#64748b;width:20px;text-align:right">'+cnt+'</span>' +
     '</div>';
+  setPageCache('ratings');
   });
 
   var ratedRows = '';
@@ -798,13 +872,14 @@ async function renderRatings(main) {
         ['Mijoz','Mahsulotlar','Baho','Vaqt'].map(function(h){return '<th style="'+thStyle+'">'+h+'</th>';}).join('')+
       '</tr></thead><tbody>'+ratedRows+'</tbody></table></div>' +
     '</div>';
+  setPageCache('ratings');
 }
 
 // ===== USERS =====
 async function renderUsers(main) {
   main.innerHTML = '<div class="page">' + pageHeader("Foydalanuvchilar", "Ro'yxatdan o'tgan mijozlar") +
     '<div class="rounded-xl border overflow-hidden" style="background:#131c2e;border-color:rgba(6,182,212,0.12)">' +
-      '<div id="usersTable" class="overflow-x-auto"><div class="p-5" style="color:#64748b">Yuklanmoqda...</div></div>' +
+      '<div id="usersTable" class="overflow-x-auto">' + skelTable(4) + '</div>' +
     '</div></div>';
 
   var res = await apiFetch('/admin/users');
@@ -826,13 +901,14 @@ async function renderUsers(main) {
     '<table class="w-full border-collapse"><thead><tr>' +
       ['#','Ism','Username','Telefon','Telegram ID','Sana'].map(function(h){return '<th style="'+thStyle+'">'+h+'</th>';}).join('') +
     '</tr></thead><tbody>'+rows+'</tbody></table>';
+  setPageCache('users');
 }
 
 // ===================================================
 // ===== EMPLOYEES ===================================
 // ===================================================
 async function renderEmployees(main) {
-  main.innerHTML = '<div style="text-align:center;padding:40px;color:#475569">Yuklanmoqda...</div>';
+  main.innerHTML = '' + skelTable(5) + '';
   var emps = await apiFetch('/admin/employees');
 
   var rows = (emps || []).map(function(e) {
@@ -871,13 +947,14 @@ async function renderEmployees(main) {
         '</table></div>' +
       '</div>' +
     '</div>';
+  setPageCache('employees');
 }
 
 async function openEmpModal(empJson) {
   var emp = empJson ? JSON.parse(empJson) : null;
   _empPhotoBase64 = emp && emp.photo ? emp.photo : null;
   document.getElementById('empModalTitle').textContent = emp ? 'Ishchi tahrirlash' : 'Yangi ishchi';
-  document.getElementById('empModalBody').innerHTML = '<div style="text-align:center;padding:20px;color:#475569">Yuklanmoqda...</div>';
+  document.getElementById('empModalBody').innerHTML = '' + skelTable(3) + '';
   document.getElementById('empModal').style.display = 'flex';
 
   var bd = await apiFetch('/admin/branches');
@@ -1012,7 +1089,7 @@ async function deleteEmp(id) {
 // ===== OFITSIANTLAR ================================
 // ===================================================
 async function renderWaiters(main) {
-  main.innerHTML = '<div style="text-align:center;padding:40px;color:#475569">Yuklanmoqda...</div>';
+  main.innerHTML = '' + skelTable(5) + '';
   var emps = await apiFetch('/admin/employees');
   var waiters = (emps || []).filter(function(e) { return e.role === 'waiter'; });
 
@@ -1052,6 +1129,7 @@ async function renderWaiters(main) {
         '</table></div>' +
       '</div>' +
     '</div>';
+  setPageCache('waiters');
 }
 
 function openWaiterModal(empJson) {
@@ -1122,7 +1200,7 @@ async function deleteWaiter(id) {
 // ===== OSHPAZLAR ===================================
 // ===================================================
 async function renderChefs(main) {
-  main.innerHTML = '<div style="text-align:center;padding:40px;color:#475569">Yuklanmoqda...</div>';
+  main.innerHTML = '' + skelTable(5) + '';
   var emps = await apiFetch('/admin/employees');
   var chefs = (emps || []).filter(function(e) { return e.role === 'chef'; });
 
@@ -1159,6 +1237,7 @@ async function renderChefs(main) {
         '</table></div>' +
       '</div>' +
     '</div>';
+  setPageCache('chefs');
 }
 
 function openChefModal(empJson) {
@@ -1222,7 +1301,7 @@ async function deleteChef(id) {
 // ===================================================
 async function renderAttendance(main, selectedBranch) {
   selectedBranch = selectedBranch || '';
-  main.innerHTML = '<div style="text-align:center;padding:40px;color:#475569">Yuklanmoqda...</div>';
+  main.innerHTML = '' + skelTable(5) + '';
 
   var bd = await apiFetch('/admin/branches');
   var branches = (bd && bd.branches) ? bd.branches : [];
@@ -1294,6 +1373,7 @@ async function renderAttendance(main, selectedBranch) {
         '</div>' +
       '</div>' +
     '</div>';
+  setPageCache('attendance');
 }
 
 function attSumBox(icon, label, val, color) {
@@ -1488,6 +1568,7 @@ async function loadReport() {
     '</div>' +
     '<div style="font-size:12px;font-weight:600;color:#64748b;letter-spacing:1px;margin-bottom:10px">👥 ISHCHILAR HISOBOTI</div>' +
     '<div style="display:flex;flex-direction:column;gap:10px">' + (cards || '<div style="text-align:center;padding:40px;color:#475569">Ma\'lumot yo\'q</div>') + '</div>';
+  setPageCache('empReport');
 }
 
 function miniStat(icon, val, color) {
@@ -1568,7 +1649,7 @@ var branchMap = null;
 var branchMarker = null;
 
 async function renderBranches(main) {
-  main.innerHTML = '<div style="text-align:center;padding:40px;color:#475569">Yuklanmoqda...</div>';
+  main.innerHTML = '' + skelTable(5) + '';
   var d = await apiFetch('/admin/branches');
   var branches = (d && d.branches) ? d.branches : [];
 
@@ -1599,6 +1680,7 @@ async function renderBranches(main) {
           '<button onclick="openBranchModal(null)" style="padding:10px 24px;background:linear-gradient(135deg,var(--sx-cyan, #06b6d4),#1d4ed8);border:none;color:#fff;border-radius:8px;cursor:pointer;font-size:14px">+ Birinchi filial qo\'shish</button>' +
         '</div>') +
     '</div>';
+  setPageCache('branches');
 }
 
 function openBranchModal(branchJson) {
@@ -1730,8 +1812,9 @@ function startNotifPolling() {
 var inventoryChart = null;
 
 async function renderInventory(main) {
-  main.innerHTML = '<div class="page"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px"><div><h1 class="text-2xl font-bold" style="color:#f1f5f9">📦 Ombor boshqaruvi</h1><p class="text-sm mt-1" style="color:#64748b">Mahsulotlar zaxirasi va kirim-chiqim</p></div><button onclick="openInvModal()" class="px-4 py-2 rounded-xl text-sm font-bold text-white" style="background:var(--sx-grad)">+ Yangi mahsulot</button></div><div id="invSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"></div><div id="invTable" style="background:#111827;border:1px solid rgba(6,182,212,0.12);border-radius:12px;overflow:hidden"><div style="text-align:center;padding:32px;color:#475569">Yuklanmoqda...</div></div></div>';
+  main.innerHTML = '<div class="page"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px"><div><h1 class="text-2xl font-bold" style="color:#f1f5f9">📦 Ombor boshqaruvi</h1><p class="text-sm mt-1" style="color:#64748b">Mahsulotlar zaxirasi va kirim-chiqim</p></div><button onclick="openInvModal()" class="px-4 py-2 rounded-xl text-sm font-bold text-white" style="background:var(--sx-grad)">+ Yangi mahsulot</button></div><div id="invSummary" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"></div><div id="invTable" style="background:#111827;border:1px solid rgba(6,182,212,0.12);border-radius:12px;overflow:hidden">' + skelTable(4) + '</div></div>';
   await loadInventory();
+  setPageCache('inventory');
 }
 
 async function loadInventory() {
@@ -1847,7 +1930,7 @@ async function deleteInventory(id) {
 var analyticsCharts = {};
 
 async function renderAnalytics(main) {
-  main.innerHTML = '<div class="page" style="max-width:100%;overflow:hidden"><h1 class="text-2xl font-bold mb-1" style="color:#f1f5f9">📈 Kengaytirilgan analitika</h1><p class="text-sm mb-6" style="color:#64748b">30 kunlik chuqur tahlil va trendlar</p><div id="analyticsContent" style="overflow:hidden"><div style="text-align:center;padding:48px;color:#475569">Yuklanmoqda...</div></div></div>';
+  main.innerHTML = '<div class="page" style="max-width:100%;overflow:hidden"><h1 class="text-2xl font-bold mb-1" style="color:#f1f5f9">📈 Kengaytirilgan analitika</h1><p class="text-sm mb-6" style="color:#64748b">30 kunlik chuqur tahlil va trendlar</p><div id="analyticsContent" style="overflow:hidden">' + skelStats(4) + skelTable(5) + '</div></div>';
 
   var d = await apiFetch('/admin/analytics/advanced');
   if (!d.ok) { document.getElementById('analyticsContent').innerHTML = '<div style="text-align:center;padding:32px;color:#ef4444">Xato: ' + (d.error || 'Yuklab bolmadi') + '</div>'; return; }
@@ -1939,6 +2022,7 @@ async function renderAnalytics(main) {
   } else {
     tpEl.innerHTML = '<div style="text-align:center;padding:20px;color:#475569">Ma\'lumot yo\'q</div>';
   }
+  setPageCache('analytics');
 }
 
 // ===================================================
@@ -1947,6 +2031,7 @@ async function renderAnalytics(main) {
 async function renderNotifications(main) {
   main.innerHTML = '<div class="page"><div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:24px"><div><h1 class="text-2xl font-bold" style="color:#f1f5f9">🔔 Bildirishnomalar</h1><p class="text-sm mt-1" style="color:#64748b">Barcha bildirishnomalar va xabarlar</p></div><div style="display:flex;gap:8px"><button onclick="openReplyToSA()" class="px-4 py-2 rounded-xl text-xs font-semibold text-white" style="background:var(--sx-grad)">✉️ Superadminga yozish</button><button onclick="markAllRead()" class="px-4 py-2 rounded-xl text-xs font-semibold" style="background:rgba(6,182,212,0.1);color:#22d3ee;border:1px solid rgba(6,182,212,0.2)">✓ O\'qilgan</button><button onclick="clearReadNotifs()" class="px-4 py-2 rounded-xl text-xs font-semibold" style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2)">🗑 Tozalash</button></div></div><div id="notifList"></div></div>';
   await loadNotifications();
+  setPageCache('notifications');
 }
 
 function openReplyToSA() {
@@ -2038,7 +2123,7 @@ async function clearReadNotifs() {
 // ===== SITE SETTINGS PAGE ==========================
 // ===================================================
 async function renderSiteSettings(main) {
-  main.innerHTML = '<div class="page"><h1 class="text-2xl font-bold mb-1" style="color:#f1f5f9">🌐 Sayt sozlamalari</h1><p class="text-sm mb-6" style="color:#64748b">Restoran saytingiz dizayn va ma\'lumotlarini boshqaring</p><div id="siteSettingsContent"><div style="text-align:center;padding:48px;color:#475569">Yuklanmoqda...</div></div></div>';
+  main.innerHTML = '<div class="page"><h1 class="text-2xl font-bold mb-1" style="color:#f1f5f9">🌐 Sayt sozlamalari</h1><p class="text-sm mb-6" style="color:#64748b">Restoran saytingiz dizayn va ma\'lumotlarini boshqaring</p><div id="siteSettingsContent">' + skelStats(4) + skelTable(5) + '</div></div>';
 
   var d = await apiFetch('/admin/site-settings');
   if (!d.ok) { document.getElementById('siteSettingsContent').innerHTML = '<div style="color:#ef4444">Xato</div>'; return; }
@@ -2108,6 +2193,7 @@ async function renderSiteSettings(main) {
     '<button onclick="saveSiteSettings()" class="mt-6 px-8 py-3 rounded-xl text-sm font-bold text-white" style="background:var(--sx-grad)">💾 Saqlash</button>';
 
   document.getElementById('siteSettingsContent').innerHTML = html;
+  setPageCache('siteSettings');
 }
 
 function ssInput(id, label, value) {

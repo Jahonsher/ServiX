@@ -333,7 +333,9 @@ router.post("/branches", authMiddleware, moduleGuard("branches"), async (req, re
 
 router.put("/branches/:id", authMiddleware, moduleGuard("branches"), async (req, res) => {
   try {
-    res.json({ ok: true, branch: await Branch.findByIdAndUpdate(req.params.id, req.body, { new: true }) });
+    const update = { ...req.body };
+    delete update.restaurantId;
+    res.json({ ok: true, branch: await Branch.findOneAndUpdate({ _id: req.params.id, restaurantId: req.admin.restaurantId }, update, { new: true }) });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -341,7 +343,7 @@ router.put("/branches/:id", authMiddleware, moduleGuard("branches"), async (req,
 
 router.delete("/branches/:id", authMiddleware, moduleGuard("branches"), async (req, res) => {
   try {
-    await Branch.findByIdAndUpdate(req.params.id, { active: false });
+    await Branch.findOneAndUpdate({ _id: req.params.id, restaurantId: req.admin.restaurantId }, { active: false });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -378,7 +380,8 @@ router.put("/employees/:id", authMiddleware, moduleGuard("employees"), async (re
     const data = { ...req.body };
     if (data.password) data.password = await bcrypt.hash(data.password, 10);
     else delete data.password;
-    res.json({ ok: true, employee: await Employee.findByIdAndUpdate(req.params.id, data, { new: true }).select("-password") });
+    delete data.restaurantId; // restaurantId ni o'zgartirish taqiqlanadi
+    res.json({ ok: true, employee: await Employee.findOneAndUpdate({ _id: req.params.id, restaurantId: req.admin.restaurantId }, data, { new: true }).select("-password") });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -386,6 +389,8 @@ router.put("/employees/:id", authMiddleware, moduleGuard("employees"), async (re
 
 router.delete("/employees/:id", authMiddleware, moduleGuard("employees"), async (req, res) => {
   try {
+    const emp = await Employee.findOne({ _id: req.params.id, restaurantId: req.admin.restaurantId });
+    if (!emp) return res.status(404).json({ error: "Topilmadi" });
     await Attendance.deleteMany({ employeeId: req.params.id });
     await Employee.findByIdAndDelete(req.params.id);
     res.json({ ok: true });
@@ -547,15 +552,19 @@ router.post("/inventory/:id/move", authMiddleware, moduleGuard("inventory"), asy
   try {
     const { type, quantity, note } = req.body;
     if (!["in", "out", "adjust"].includes(type)) return res.status(400).json({ error: "type: in/out/adjust" });
-    if (!quantity && quantity !== 0) return res.status(400).json({ error: "quantity kerak" });
+    const qty = Number(quantity);
+    if (isNaN(qty) || qty < 0) return res.status(400).json({ error: "quantity musbat raqam bo'lishi kerak" });
 
-    const item = await Inventory.findById(req.params.id);
+    const item = await Inventory.findOne({ _id: req.params.id, restaurantId: req.admin.restaurantId });
     if (!item) return res.status(404).json({ error: "Topilmadi" });
 
     let newStock = item.currentStock;
-    if (type === "in") { newStock += Number(quantity); item.lastRestocked = new Date(); }
-    else if (type === "out") { newStock = Math.max(0, newStock - Number(quantity)); }
-    else if (type === "adjust") { newStock = Number(quantity); }
+    if (type === "in") { newStock += qty; item.lastRestocked = new Date(); }
+    else if (type === "out") {
+      if (qty > item.currentStock) return res.status(400).json({ error: "Omborda yetarli mahsulot yo'q (" + item.currentStock + " " + item.unit + " bor)" });
+      newStock -= qty;
+    }
+    else if (type === "adjust") { newStock = qty; }
 
     item.currentStock = newStock;
     await item.save();
