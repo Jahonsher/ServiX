@@ -151,66 +151,54 @@ router.get("/usage", authMiddleware, moduleGuard("aiAgent"), async (req, res) =>
   }
 });
 
-// ===== HISOBOT EKSPORT (Excel) =====
+// ===== HISOBOT EKSPORT (Excel/CSV) =====
 router.get("/export", authMiddleware, moduleGuard("aiAgent"), async (req, res) => {
   try {
-    const { collectAllData } = require("../services/ai.service");
-    const data = await collectAllData(req.admin.restaurantId);
+    const { collectExportData } = require("../services/ai.service");
+    const query = req.query.q || "oylik to'liq hisobot";
+    const data = await collectExportData(req.admin.restaurantId, query);
     const admin = await Admin.findOne({ restaurantId: req.admin.restaurantId, role: "admin" }).select("restaurantName");
     const name = admin?.restaurantName || req.admin.restaurantId;
     const sana = new Date().toLocaleDateString("uz-UZ");
 
-    // CSV format (Excel da ochiladi)
-    let csv = "\uFEFF"; // BOM — Excel da o'zbek harflar to'g'ri ko'rinishi uchun
+    let csv = "\uFEFF";
     csv += `ServiX Hisobot — ${name}\n`;
-    csv += `Sana: ${sana}\n\n`;
+    csv += `Davr: ${data._davr || "—"}\nSana: ${sana}\n\n`;
 
-    // Bugungi statistika
-    csv += "=== BUGUNGI STATISTIKA ===\n";
-    csv += `Buyurtmalar,${data.bugun.buyurtmalar}\n`;
-    csv += `Daromad,${data.bugun.daromad} so'm\n`;
-    csv += `Online,${data.bugun.online}\n`;
-    csv += `Restoranda,${data.bugun.restoranda}\n\n`;
-
-    // Oylik
-    csv += "=== OYLIK STATISTIKA ===\n";
-    csv += `Buyurtmalar,${data.oylik.buyurtmalar}\n`;
-    csv += `Daromad,${data.oylik.daromad} so'm\n\n`;
-
-    // Kunlik trend
-    csv += "=== KUNLIK TREND (7 kun) ===\n";
-    csv += "Sana,Buyurtmalar,Daromad\n";
-    data.kunlik_trend.forEach((d) => { csv += `${d.sana},${d.buyurtmalar},${d.daromad}\n`; });
-    csv += "\n";
-
-    // Top mahsulotlar
-    csv += "=== TOP MAHSULOTLAR ===\n";
-    csv += "Nomi,Sotilgan soni,Summa\n";
-    data.top_mahsulotlar.forEach((p) => { csv += `${p.nom},${p.soni},${p.summa}\n`; });
-    csv += "\n";
-
-    // Xodimlar
-    csv += "=== XODIMLAR ===\n";
-    csv += "Ism,Lavozim,Maosh,Bugungi holat,Kechikish (daq)\n";
-    data.xodimlar.forEach((x) => { csv += `${x.ism},${x.lavozim},${x.maosh},${x.bugungi_holat},${x.kechikish}\n`; });
-    csv += "\n";
-
-    // Ombor
-    if (data.ombor.length) {
-      csv += "=== OMBOR ===\n";
-      csv += "Nomi,Qoldiq,Birlik,Min stock,Holat\n";
+    if (data.buyurtmalar_soni !== undefined) {
+      csv += "Ko'rsatkich,Qiymat\n";
+      csv += `Buyurtmalar,${data.buyurtmalar_soni}\nDaromad,${data.jami_daromad} so'm\n`;
+      if (data.online !== undefined) csv += `Online,${data.online}\nRestoranda,${data.restoranda}\n`;
+      csv += "\n";
+    }
+    if (data.kunlik_breakdown && data.kunlik_breakdown.length) {
+      csv += "=== KUNLIK ===\nSana,Buyurtmalar,Daromad\n";
+      data.kunlik_breakdown.forEach((d) => { csv += `${d.sana},${d.buyurtmalar},${d.daromad}\n`; });
+      csv += "\n";
+    }
+    if (data.mahsulotlar && data.mahsulotlar.length) {
+      csv += "=== MAHSULOTLAR ===\nNomi,Soni,Summa\n";
+      data.mahsulotlar.forEach((p) => { csv += `${p.nom},${p.soni},${p.summa}\n`; });
+      csv += "\n";
+    }
+    if (data.xodimlar && data.xodimlar.length) {
+      csv += "=== XODIMLAR ===\nIsm,Lavozim,Maosh,Holat,Kechikish\n";
+      data.xodimlar.forEach((x) => { csv += `${x.ism},${x.lavozim},${x.maosh},${x.holat},${x.kechikish}\n`; });
+      csv += "\n";
+    }
+    if (data.ombor && data.ombor.length) {
+      csv += "=== OMBOR ===\nNomi,Qoldiq,Birlik,Min,Holat\n";
       data.ombor.forEach((o) => { csv += `${o.nomi},${o.qoldiq},${o.birlik},${o.min},${o.holat}\n`; });
     }
-
-    csv += `\n— ServiX AI hisobot | ${sana}\n`;
+    csv += `\n— ServiX AI | ${sana}\n`;
 
     const fileName = `ServiX_${name.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.csv`;
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     res.send(csv);
   } catch (e) {
-    logger.error("Export error:", e.message);
-    res.status(500).json({ error: "Hisobotni yuklab bo'lmadi" });
+    logger.error("Export:", e.message);
+    res.status(500).json({ error: "Yuklab bo'lmadi" });
   }
 });
 

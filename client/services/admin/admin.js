@@ -2297,14 +2297,21 @@ async function sendAiMessage() {
       var errMsg = d?.message || d?.error || 'Xatolik yuz berdi';
       messages.innerHTML += '<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:10px 14px;font-size:13px;color:#f87171;max-width:85%">' + errMsg + '</div>';
     } else {
-      // AI javobi — markdown-like formatting
       var answer = d.answer || '';
       var formatted = formatAiAnswer(answer);
-      messages.innerHTML += '<div style="display:flex;gap:8px;max-width:90%"><div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#8b5cf6,#06b6d4);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">🤖</div><div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.12);border-radius:12px;padding:12px 14px;font-size:13px;color:#e2e8f0;line-height:1.7;word-break:break-word">' + formatted + '</div></div>';
 
-      // Usage info
+      // AI javobi
+      messages.innerHTML += '<div style="display:flex;gap:8px;max-width:95%"><div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#8b5cf6,#06b6d4);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">🤖</div><div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.12);border-radius:12px;padding:12px 14px;font-size:13px;color:#e2e8f0;line-height:1.7;word-break:break-word;flex:1;overflow-x:auto">' + formatted + '</div></div>';
+
+      // Excel/fayl so'ralgan bo'lsa — download tugma ko'rsatish
+      var qLow = question.toLowerCase();
+      if (/excel|fayl|yukla|download|csv|hisobot.*tayyorla|report.*tayyorla/i.test(qLow)) {
+        var exportUrl = API + '/admin/ai/export?token=' + encodeURIComponent(token) + '&q=' + encodeURIComponent(question);
+        messages.innerHTML += '<div style="max-width:90%;margin-top:4px"><a href="' + exportUrl + '" download style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#10b981;border-radius:10px;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer">📊 Excel hisobot yuklab olish</a></div>';
+      }
+
       if (d.usage) {
-        document.getElementById('aiUsageInfo').textContent = d.usage.remaining + ' ta surov qoldi (oylik)';
+        document.getElementById('aiUsageInfo').textContent = d.usage.remaining + '/' + d.usage.limit + ' surov qoldi';
       }
     }
   } catch (e) {
@@ -2320,12 +2327,32 @@ async function sendAiMessage() {
 
 // AI javobni formatlash
 function formatAiAnswer(text) {
-  return text
+  var h = text
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // Bold
     .replace(/\*\*(.*?)\*\*/g, '<strong style="color:#c4b5fd">$1</strong>')
+    // Pul summalar
+    .replace(/(\d{1,3}(,\d{3})*(\.\d+)?)\s*so'm/g, '<span style="color:#22d3ee;font-weight:600">$1 so\'m</span>')
+    // Foiz o'sish/tushish
+    .replace(/↑\s*(\d+)/g, '<span style="color:#22c55e;font-weight:600">↑$1%</span>')
+    .replace(/↓\s*(\d+)/g, '<span style="color:#ef4444;font-weight:600">↓$1%</span>')
+    // Markdown jadval — HTML table ga
+    .replace(/\|(.+)\|\n\|[-\s|]+\|\n([\s\S]*?)(?=\n\n|\n— |$)/g, function(match, header, body) {
+      var cols = header.split('|').map(function(c){return c.trim();}).filter(Boolean);
+      var th = cols.map(function(c){return '<th style="padding:6px 10px;text-align:left;font-size:11px;color:#94a3b8;border-bottom:1px solid rgba(139,92,246,0.15)">'+c+'</th>';}).join('');
+      var rows = body.trim().split('\n').map(function(row) {
+        var cells = row.split('|').map(function(c){return c.trim();}).filter(Boolean);
+        return '<tr>' + cells.map(function(c){return '<td style="padding:5px 10px;font-size:12px;border-bottom:1px solid rgba(139,92,246,0.06)">'+c+'</td>';}).join('') + '</tr>';
+      }).join('');
+      return '<table style="width:100%;border-collapse:collapse;margin:8px 0;background:rgba(15,23,42,0.5);border-radius:8px;overflow:hidden"><thead><tr>'+th+'</tr></thead><tbody>'+rows+'</tbody></table>';
+    })
+    // Paragraflar
     .replace(/\n\n/g, '<br><br>')
     .replace(/\n/g, '<br>')
-    .replace(/(\d{1,3}(,\d{3})*)\s*so'm/g, '<span style="color:#22d3ee;font-weight:600">$1 so\'m</span>');
+    // Listlar
+    .replace(/•\s/g, '<span style="color:#8b5cf6">•</span> ')
+    .replace(/- ServiX AI/g, '<span style="color:#64748b;font-size:11px">— ServiX AI</span>');
+  return h;
 }
 
 function escapeHtml(t) {
