@@ -88,7 +88,9 @@ router.post("/chat", authMiddleware, moduleGuard("aiAgent"), async (req, res) =>
       return res.status(429).json({ error: "AI tizimi band. Biroz kutib qayta urinib ko'ring." });
     }
     if (e.response?.status === 400) {
-      return res.status(400).json({ error: "Savolni qayta yozing — tizimda xatolik bor." });
+      var apiMsg = e.response?.data?.error?.message || '';
+      logger.error("API 400:", apiMsg);
+      return res.status(400).json({ error: "AI xatolik: " + (apiMsg || "Savolni qayta yozing") });
     }
     if (e.code === 'ENOTFOUND' || e.code === 'ECONNREFUSED' || e.code === 'ERR_BAD_REQUEST') {
       return res.status(503).json({ error: "AI serveriga ulanib bo'lmadi. Internet aloqasini tekshiring." });
