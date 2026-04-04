@@ -71,13 +71,29 @@ router.post("/chat", authMiddleware, moduleGuard("aiAgent"), async (req, res) =>
     });
   } catch (e) {
     logger.error("AI chat error:", e.message);
+    if (e.response) {
+      logger.error("AI API response:", e.response.status, JSON.stringify(e.response.data));
+    }
     if (e.message === "AI Agent moduli yoqilmagan") {
       return res.status(403).json({ error: "MODULE_DISABLED", message: e.message });
     }
     if (e.message === "AI xizmati sozlanmagan") {
       return res.status(503).json({ error: "AI xizmati hozir mavjud emas" });
     }
-    res.status(500).json({ error: "AI javob berishda xatolik yuz berdi" });
+    // Anthropic API xatolari
+    if (e.response?.status === 401) {
+      return res.status(503).json({ error: "API key noto'g'ri yoki muddati o'tgan. Superadmin bilan bog'laning." });
+    }
+    if (e.response?.status === 429) {
+      return res.status(429).json({ error: "AI tizimi band. Biroz kutib qayta urinib ko'ring." });
+    }
+    if (e.response?.status === 400) {
+      return res.status(400).json({ error: "Savolni qayta yozing — tizimda xatolik bor." });
+    }
+    if (e.code === 'ENOTFOUND' || e.code === 'ECONNREFUSED' || e.code === 'ERR_BAD_REQUEST') {
+      return res.status(503).json({ error: "AI serveriga ulanib bo'lmadi. Internet aloqasini tekshiring." });
+    }
+    res.status(500).json({ error: "AI javob berishda xatolik: " + (e.response?.data?.error?.message || e.message) });
   }
 });
 

@@ -191,23 +191,29 @@ async function askAI(restaurantId, adminId, adminUsername, question) {
 
   // Anthropic API
   const axios = require("axios");
-  const response = await axios.post(
-    ANTHROPIC_API,
-    {
-      model: AI_MODEL,
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
-    },
-    {
-      headers: {
-        "x-api-key": config.anthropicApiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
+  let response;
+  try {
+    response = await axios.post(
+      ANTHROPIC_API,
+      {
+        model: AI_MODEL,
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
       },
-      timeout: 30000,
-    }
-  );
+      {
+        headers: {
+          "x-api-key": config.anthropicApiKey,
+          "anthropic-version": "2024-10-22",
+          "content-type": "application/json",
+        },
+        timeout: 30000,
+      }
+    );
+  } catch (apiErr) {
+    logger.error("Anthropic API error:", apiErr.response?.status, JSON.stringify(apiErr.response?.data || apiErr.message));
+    throw apiErr;
+  }
 
   const result = response.data;
   const answer = result.content?.[0]?.text || "Javob olib bo'lmadi";
