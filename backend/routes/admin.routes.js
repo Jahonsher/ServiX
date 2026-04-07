@@ -707,6 +707,100 @@ router.get("/stats/fast", authMiddleware, async (req, res) => {
   }
 });
 
+// ===== STATS/FILTER — date range bilan =====
+router.get("/stats/filter", authMiddleware, async (req, res) => {
+  try {
+    const rId = req.admin.restaurantId;
+    const { from, to, period } = req.query;
+
+    let startDate, endDate;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (period === "today") {
+      startDate = today;
+      endDate = new Date(today.getTime() + 86400000);
+    } else if (period === "yesterday") {
+      startDate = new Date(today.getTime() - 86400000);
+      endDate = today;
+    } else if (period === "week") {
+      startDate = new Date(today); startDate.setDate(startDate.getDate() - 7);
+      endDate = new Date(today.getTime() + 86400000);
+    } else if (period === "month") {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(today.getTime() + 86400000);
+    } else if (period === "prevMonth") {
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (from && to) {
+      startDate = new Date(from);
+      endDate = new Date(to); endDate.setDate(endDate.getDate() + 1);
+    } else {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(today.getTime() + 86400000);
+    }
+
+    const [orders, ratedOrders, totalUsers] = await Promise.all([
+      Order.find({ restaurantId: rId, createdAt: { $gte: startDate, $lt: endDate } }).lean(),
+      Order.find({ restaurantId: rId, rating: { $ne: null } }).select("rating").lean(),
+      User.countDocuments({ restaurantId: rId }),
+    ]);
+
+    const totalRevenue = orders.reduce((s, o) => s + (o.total || 0), 0);
+    const onlineCount = orders.filter((o) => o.orderType === "online").length;
+    const dineInCount = orders.filter((o) => o.orderType === "dine_in").length;
+
+    // Kunlik trend
+    const dayCount = Math.ceil((endDate - startDate) / 86400000);
+    const dailyData = [];
+    for (let i = 0; i < dayCount && i < 60; i++) {
+      const d = new Date(startDate.getTime() + i * 86400000);
+      const dn = new Date(d.getTime() + 86400000);
+      const dayOrders = orders.filter((o) => { const ct = new Date(o.createdAt); return ct >= d && ct < dn; });
+      if (dayOrders.length > 0 || dayCount <= 14) {
+        dailyData.push({
+          date: d.toLocaleDateString("uz-UZ", { month: "short", day: "numeric" }),
+          fullDate: d.toISOString().split("T")[0],
+          orders: dayOrders.length,
+          revenue: dayOrders.reduce((s, o) => s + (o.total || 0), 0),
+        });
+      }
+    }
+
+    // Top mahsulotlar
+    const itemMap = {};
+    orders.forEach((o) => (o.items || []).forEach((item) => {
+      if (!itemMap[item.name]) itemMap[item.name] = { quantity: 0, total: 0 };
+      itemMap[item.name].quantity += item.quantity || 1;
+      itemMap[item.name].total += (item.price || 0) * (item.quantity || 1);
+    }));
+    const topProducts = Object.entries(itemMap).map(([name, data]) => ({ _id: name, ...data })).sort((a, b) => b.quantity - a.quantity).slice(0, 10);
+
+    // Oxirgi buyurtmalar
+    const recentOrders = orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 10);
+
+    res.json({
+      period: period || "custom",
+      from: startDate.toISOString().split("T")[0],
+      to: new Date(endDate.getTime() - 86400000).toISOString().split("T")[0],
+      summary: {
+        orders: orders.length,
+        revenue: totalRevenue,
+        online: onlineCount,
+        dineIn: dineInCount,
+        avgCheck: orders.length > 0 ? Math.round(totalRevenue / orders.length) : 0,
+      },
+      daily: dailyData,
+      topProducts,
+      recentOrders,
+      rating: { avg: ratedOrders.length ? (ratedOrders.reduce((s, o) => s + o.rating, 0) / ratedOrders.length).toFixed(1) : null, count: ratedOrders.length },
+      totalUsers,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ===== ADVANCED ANALYTICS =====
 router.get("/analytics/advanced", authMiddleware, async (req, res) => {
   try {

@@ -452,104 +452,147 @@ function fmtSalary(n) {
 }
 
 // ===== DASHBOARD =====
+var _dashPeriod = 'month';
+var _dashFrom = '';
+var _dashTo = '';
+
 async function renderDashboard(main) {
   main.innerHTML = '<div class="page">' +
     pageHeader('Dashboard', 'Bugungi holat va statistika') +
-    skelStats(5) +
-    '<div class="grid gap-4 mb-5" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">' +
-      '<div class="skel-card"><div class="skel h-4 w-40 mb-4"></div><div class="skel h-52 rounded-lg"></div></div>' +
-      '<div class="skel-card"><div class="skel h-4 w-32 mb-4"></div><div class="skel h-52 rounded-lg"></div></div>' +
+    // FILTER BAR
+    '<div class="rounded-xl border p-4 mb-5 flex flex-wrap gap-2 items-center" style="background:#131c2e;border-color:rgba(6,182,212,0.12)">' +
+      '<span class="text-xs uppercase tracking-wider mr-2" style="color:#64748b">Davr:</span>' +
+      '<button class="dash-period-btn px-3 py-1.5 rounded-lg border text-xs font-medium transition-all" data-period="today" style="border-color:rgba(6,182,212,0.12);color:#64748b">Bugun</button>' +
+      '<button class="dash-period-btn px-3 py-1.5 rounded-lg border text-xs font-medium transition-all" data-period="yesterday" style="border-color:rgba(6,182,212,0.12);color:#64748b">Kecha</button>' +
+      '<button class="dash-period-btn px-3 py-1.5 rounded-lg border text-xs font-medium transition-all" data-period="week" style="border-color:rgba(6,182,212,0.12);color:#64748b">Hafta</button>' +
+      '<button class="dash-period-btn px-3 py-1.5 rounded-lg border text-xs font-medium transition-all active" data-period="month" style="border-color:rgba(6,182,212,0.12);color:#64748b">Oy</button>' +
+      '<button class="dash-period-btn px-3 py-1.5 rounded-lg border text-xs font-medium transition-all" data-period="prevMonth" style="border-color:rgba(6,182,212,0.12);color:#64748b">O\'tgan oy</button>' +
+      '<span class="mx-2" style="color:rgba(6,182,212,0.2)">|</span>' +
+      '<input type="date" id="dashFrom" class="inp px-2 py-1 text-xs rounded-lg" style="width:130px;background:#1a2235;border:1px solid rgba(6,182,212,0.15);color:#e2e8f0"/>' +
+      '<span class="text-xs" style="color:#64748b">—</span>' +
+      '<input type="date" id="dashTo" class="inp px-2 py-1 text-xs rounded-lg" style="width:130px;background:#1a2235;border:1px solid rgba(6,182,212,0.15);color:#e2e8f0"/>' +
+      '<button id="dashCustomBtn" class="px-3 py-1.5 rounded-lg text-xs font-bold text-white" style="background:linear-gradient(135deg,#8b5cf6,#06b6d4)">Ko\'rsatish</button>' +
     '</div>' +
-    '<div class="skel-card mb-5"><div class="skel h-4 w-36 mb-4"></div><div class="skel h-32 rounded-lg"></div></div>' +
-    skelTable(4) +
+    // CONTENT
+    '<div id="dashContent">' + skelStats(5) +
+      '<div class="grid gap-4 mb-5" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">' +
+        '<div class="skel-card"><div class="skel h-4 w-40 mb-4"></div><div class="skel h-52 rounded-lg"></div></div>' +
+        '<div class="skel-card"><div class="skel h-4 w-32 mb-4"></div><div class="skel h-52 rounded-lg"></div></div>' +
+      '</div>' +
+    '</div>' +
   '</div>';
 
-  var stats = await apiFetch('/admin/stats/fast');
-  if (!stats) return;
+  // Period tugmalari event
+  document.querySelectorAll('.dash-period-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.dash-period-btn').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      _dashPeriod = btn.dataset.period;
+      _dashFrom = '';
+      _dashTo = '';
+      loadDashboardData();
+    });
+  });
 
-  main.innerHTML = '<div class="page">' +
-    pageHeader('Dashboard', 'Bugungi holat va statistika') +
-    '<div id="statsGrid" class="grid gap-4 mb-6" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">' +
-      statCard('📦', 'Bugungi buyurtmalar', stats.today.orders, 'Oylik: ' + stats.month.orders + ' ta') +
-      statCard('💰', 'Bugungi daromad', Number(stats.today.revenue).toLocaleString(), 'Oylik: ' + Number(stats.month.revenue).toLocaleString() + " so'm") +
-      statCard('🌐', 'Online / Restoranda', stats.today.online + ' / ' + stats.today.dineIn, 'Bugun') +
-      statCard('⭐', "O'rtacha reyting", stats.rating.avg || '—', stats.rating.count + ' ta baho') +
-      statCard('👥', 'Foydalanuvchilar', stats.totalUsers, 'Jami') +
+  // Custom date
+  document.getElementById('dashCustomBtn').addEventListener('click', function() {
+    var f = document.getElementById('dashFrom').value;
+    var t = document.getElementById('dashTo').value;
+    if (f && t) {
+      document.querySelectorAll('.dash-period-btn').forEach(function(b) { b.classList.remove('active'); });
+      _dashPeriod = 'custom';
+      _dashFrom = f;
+      _dashTo = t;
+      loadDashboardData();
+    }
+  });
+
+  loadDashboardData();
+}
+
+async function loadDashboardData() {
+  var container = document.getElementById('dashContent');
+  if (!container) return;
+  container.innerHTML = skelStats(5) + '<div class="grid gap-4 mb-5" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))"><div class="skel-card"><div class="skel h-52 rounded-lg"></div></div><div class="skel-card"><div class="skel h-52 rounded-lg"></div></div></div>';
+
+  var url = '/admin/stats/filter?period=' + _dashPeriod;
+  if (_dashPeriod === 'custom' && _dashFrom && _dashTo) {
+    url = '/admin/stats/filter?from=' + _dashFrom + '&to=' + _dashTo;
+  }
+  var d = await apiFetch(url);
+  if (!d) { container.innerHTML = '<p style="color:#f87171">Yuklab bo\'lmadi</p>'; return; }
+
+  var s = d.summary || {};
+  var periodLabel = _dashPeriod === 'today' ? 'Bugun' : _dashPeriod === 'yesterday' ? 'Kecha' : _dashPeriod === 'week' ? 'Haftalik' : _dashPeriod === 'month' ? 'Oylik' : _dashPeriod === 'prevMonth' ? 'O\'tgan oy' : (d.from + ' — ' + d.to);
+
+  container.innerHTML =
+    '<div class="grid gap-4 mb-6" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr))">' +
+      statCard('📦', 'Buyurtmalar', s.orders || 0, periodLabel) +
+      statCard('💰', 'Daromad', Number(s.revenue || 0).toLocaleString() + " so'm", periodLabel) +
+      statCard('🌐', 'Online / Restoranda', (s.online || 0) + ' / ' + (s.dineIn || 0), periodLabel) +
+      statCard('🧾', 'O\'rtacha chek', Number(s.avgCheck || 0).toLocaleString() + " so'm", periodLabel) +
+      statCard('⭐', 'Reyting', (d.rating && d.rating.avg) || '—', (d.rating ? d.rating.count : 0) + ' ta baho') +
+      statCard('👥', 'Foydalanuvchilar', d.totalUsers || 0, 'Jami') +
     '</div>' +
     '<div class="grid gap-4 mb-5" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">' +
-      '<div class="rounded-xl border p-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">📈 Haftalik buyurtmalar</div><div style="position:relative;height:220px"><canvas id="weeklyChart"></canvas></div></div>' +
+      '<div class="rounded-xl border p-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">📈 Kunlik trend</div><div style="position:relative;height:220px"><canvas id="weeklyChart"></canvas></div></div>' +
       '<div class="rounded-xl border p-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">🔵 Buyurtma turi</div><div style="position:relative;height:220px"><canvas id="typeChart"></canvas></div></div>' +
     '</div>' +
-    '<div class="rounded-xl border p-5 mb-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">🏆 Ko\'p sotilgan (TOP 5)</div><div id="topChart"></div></div>' +
-    '<div class="rounded-xl border overflow-hidden mb-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="px-5 py-4 border-b" style="border-color:rgba(6,182,212,0.12)"><span class="text-sm font-semibold">Oxirgi buyurtmalar</span></div><div id="recentOrders" class="overflow-x-auto"></div></div>' +
-  '</div>';
-
-  setPageCache('dashboard');
+    '<div class="rounded-xl border p-5 mb-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="text-sm font-semibold mb-4">🏆 Ko\'p sotilgan (TOP 10)</div><div id="topChart"></div></div>' +
+    '<div class="rounded-xl border overflow-hidden mb-5" style="background:#131c2e;border-color:rgba(6,182,212,0.12)"><div class="px-5 py-4 border-b" style="border-color:rgba(6,182,212,0.12)"><span class="text-sm font-semibold">Oxirgi buyurtmalar</span></div><div id="recentOrders" class="overflow-x-auto"></div></div>';
 
   // Grafiklar
   if (weeklyChart) weeklyChart.destroy();
+  var daily = d.daily || [];
   var wc = document.getElementById('weeklyChart');
-  if (wc) weeklyChart = new Chart(wc.getContext('2d'), {
+  if (wc && daily.length) weeklyChart = new Chart(wc.getContext('2d'), {
     type: 'bar',
-    data: { labels: stats.weekly.map(function(d){return d.date;}), datasets: [{ label:'Buyurtmalar', data: stats.weekly.map(function(d){return d.orders;}), backgroundColor:'rgba(6,182,212,0.6)', borderColor:'var(--sx-cyan, #06b6d4)', borderRadius:6, borderWidth:1 }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#64748b'},grid:{color:'rgba(6,182,212,0.06)'}}, y:{ticks:{color:'#64748b'},grid:{color:'rgba(6,182,212,0.06)'}} } }
+    data: { labels: daily.map(function(x){return x.date;}), datasets: [
+      { label:'Buyurtmalar', data: daily.map(function(x){return x.orders;}), backgroundColor:'rgba(6,182,212,0.6)', borderColor:'#06b6d4', borderRadius:6, borderWidth:1 },
+    ]},
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#64748b',maxRotation:45},grid:{color:'rgba(6,182,212,0.06)'}}, y:{ticks:{color:'#64748b'},grid:{color:'rgba(6,182,212,0.06)'}} } }
   });
 
   if (typeChart) typeChart.destroy();
   var tc = document.getElementById('typeChart');
   if (tc) typeChart = new Chart(tc.getContext('2d'), {
     type: 'doughnut',
-    data: { labels:['Online','Restoranda'], datasets:[{ data:[stats.today.online||0, stats.today.dineIn||0], backgroundColor:['rgba(139,92,246,0.7)','rgba(245,158,11,0.7)'], borderColor:['#8b5cf6','#f59e0b'], borderWidth:2 }] },
+    data: { labels:['Online','Restoranda'], datasets:[{ data:[s.online||0, s.dineIn||0], backgroundColor:['rgba(139,92,246,0.7)','rgba(245,158,11,0.7)'], borderColor:['#8b5cf6','#f59e0b'], borderWidth:2 }] },
     options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{size:12}}}}, cutout:'65%' }
   });
 
   // Top mahsulotlar
-  if (stats.topProducts && stats.topProducts.length) {
-    var maxQ = stats.topProducts[0].quantity;
+  var topEl = document.getElementById('topChart');
+  if (topEl && d.topProducts && d.topProducts.length) {
+    var maxQ = d.topProducts[0].quantity;
     var html = '';
-    stats.topProducts.forEach(function(p, i) {
+    d.topProducts.forEach(function(p, i) {
       var pct = Math.round(p.quantity / maxQ * 100);
       html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">' +
         '<div style="width:24px;height:24px;border-radius:50%;background:var(--sx-cyan, #06b6d4);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">' + (i+1) + '</div>' +
-        '<div style="flex:1">' +
-          '<div style="display:flex;justify-content:space-between;margin-bottom:5px">' +
-            '<span style="font-size:13px;font-weight:600">' + p._id + '</span>' +
-            '<span style="font-size:12px;color:#22d3ee">' + p.quantity + ' ta &middot; ' + Number(p.total).toLocaleString() + " so'm</span>" +
-          '</div>' +
-          '<div style="height:6px;background:#1a2235;border-radius:3px;overflow:hidden">' +
-            '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,var(--sx-cyan, #06b6d4),#f59e0b);border-radius:3px"></div>' +
-          '</div>' +
-        '</div>' +
-      '</div>';
+        '<div style="flex:1"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:13px;font-weight:600">' + p._id + '</span><span style="font-size:12px;color:#22d3ee">' + p.quantity + ' ta &middot; ' + Number(p.total).toLocaleString() + " so'm</span></div>" +
+          '<div style="height:6px;background:#1a2235;border-radius:3px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,#06b6d4,#f59e0b);border-radius:3px"></div></div></div></div>';
     });
-    document.getElementById('topChart').innerHTML = html;
+    topEl.innerHTML = html;
+  } else if (topEl) { topEl.innerHTML = '<p class="text-sm" style="color:#64748b">Ma\'lumot yo\'q</p>'; }
+
+  // Oxirgi buyurtmalar
+  var recentEl = document.getElementById('recentOrders');
+  if (recentEl && d.recentOrders && d.recentOrders.length) {
+    var rows = '';
+    d.recentOrders.forEach(function(o) {
+      var name = ((o.userInfo&&o.userInfo.first_name)||'') + ' ' + ((o.userInfo&&o.userInfo.last_name)||'');
+      var phone = (o.userInfo&&o.userInfo.phone)||'';
+      rows += '<tr><td style="' + tdStyle + '">' + name.trim() + '<br><small style="color:#64748b">' + phone + '</small></td>' +
+        '<td style="' + tdStyle + ';max-width:160px;font-size:12px">' + (o.items||[]).map(function(i){return i.name+'x'+i.quantity;}).join(', ') + '</td>' +
+        '<td style="' + tdStyle + ';color:#22d3ee">' + Number(o.total||0).toLocaleString() + '</td>' +
+        '<td style="' + tdStyle + '">' + statusBadge(o.status) + '</td>' +
+        '<td style="' + tdStyle + ';color:#64748b;font-size:12px">' + fmtDate(o.createdAt) + '</td></tr>';
+    });
+    recentEl.innerHTML = '<table class="w-full border-collapse"><thead><tr><th style="' + thStyle + '">Mijoz</th><th style="' + thStyle + '">Mahsulotlar</th><th style="' + thStyle + '">Jami</th><th style="' + thStyle + '">Status</th><th style="' + thStyle + '">Vaqt</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
-  // Oxirgi buyurtmalar — fast endpoint dan keladi
-  if (stats.recentOrders && stats.recentOrders.length) {
-    var rows = '';
-    stats.recentOrders.forEach(function(o) {
-      var name  = ((o.userInfo&&o.userInfo.first_name)||'') + ' ' + ((o.userInfo&&o.userInfo.last_name)||'');
-      var phone = (o.userInfo&&o.userInfo.phone)||'';
-      rows += '<tr>' +
-        '<td style="' + tdStyle + '">' + name.trim() + '<br><small style="color:#64748b">' + phone + '</small></td>' +
-        '<td style="' + tdStyle + ';max-width:160px;font-size:12px">' + o.items.map(function(i){return i.name+'x'+i.quantity;}).join(', ') + '</td>' +
-        '<td style="' + tdStyle + ';color:#22d3ee">' + Number(o.total).toLocaleString() + '</td>' +
-        '<td style="' + tdStyle + '"><span class="badge ' + (o.orderType==='online'?'badge-online':'badge-dinein') + '">' + (o.orderType==='online'?'Online':'Restoran') + '</span></td>' +
-        '<td style="' + tdStyle + '">' + statusBadge(o.status) + '</td>' +
-        '<td style="' + tdStyle + ';color:#64748b;font-size:12px">' + fmtDate(o.createdAt) + '</td>' +
-      '</tr>';
-    });
-    document.getElementById('recentOrders').innerHTML =
-      '<table class="w-full border-collapse">' +
-        '<thead><tr>' +
-          '<th style="' + thStyle + '">Mijoz</th><th style="' + thStyle + '">Mahsulotlar</th>' +
-          '<th style="' + thStyle + '">Jami</th><th style="' + thStyle + '">Tur</th>' +
-          '<th style="' + thStyle + '">Status</th><th style="' + thStyle + '">Vaqt</th>' +
-        '</tr></thead>' +
-        '<tbody>' + rows + '</tbody>' +
-      '</table>';
-  }
+  setPageCache('dashboard');
 }
 
 // ===== ORDERS =====
