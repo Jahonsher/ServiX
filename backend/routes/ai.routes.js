@@ -5,7 +5,25 @@ const { moduleGuard } = require("../middleware/moduleGuard");
 const logger = require("../utils/logger");
 const Admin = require("../models/Admin");
 const { AIChat } = require("../models");
-const { askAI } = require("../services/ai.service");
+const { askAI, collectAllData } = require("../services/ai.service");
+
+// ===== DEBUG — data tekshirish (keyinchalik o'chiriladi) =====
+router.get("/debug", authMiddleware, async (req, res) => {
+  try {
+    var data = await collectAllData(req.admin.restaurantId);
+    res.json({
+      restaurantId: req.admin.restaurantId,
+      menyu_soni: data.menyu ? data.menyu.jami_taomlar : "menyu yo'q",
+      buyurtmalar_oylik: data.buyurtmalar ? data.buyurtmalar.oylik : "buyurtmalar yo'q",
+      xodimlar_soni: data.xodimlar_soni,
+      moliya_oylik: data.moliya ? data.moliya.oylik_daromad : "moliya yo'q",
+      mijozlar: data.mijozlar_soni,
+      raw_keys: Object.keys(data),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message, stack: e.stack });
+  }
+});
 
 // ===== AI CHAT — savol yuborish =====
 router.post("/chat", authMiddleware, moduleGuard("aiAgent"), async (req, res) => {
