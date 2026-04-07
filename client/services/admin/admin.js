@@ -2444,6 +2444,9 @@ function expandAiChat() {
   if (messages) messages.scrollTop = messages.scrollHeight;
 }
 
+
+
+
 // Excel hisobot yuklab olish
 function downloadReport() {
   var link = document.createElement('a');
