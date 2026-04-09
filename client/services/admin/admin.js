@@ -2346,12 +2346,17 @@ async function sendAiMessage() {
       // AI javobi
       messages.innerHTML += '<div style="display:flex;gap:8px;max-width:95%"><div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#8b5cf6,#06b6d4);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">🤖</div><div style="background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.12);border-radius:12px;padding:12px 14px;font-size:13px;color:#e2e8f0;line-height:1.7;word-break:break-word;flex:1;overflow-x:auto">' + formatted + '</div></div>';
 
-      // Excel/fayl so'ralgan bo'lsa — download tugma ko'rsatish
-      var qLow = question.toLowerCase();
-      if (/excel|fayl|yukla|download|csv|hisobot.*tayyorla|report.*tayyorla/i.test(qLow)) {
-        var exportUrl = API + '/admin/ai/export?token=' + encodeURIComponent(token) + '&q=' + encodeURIComponent(question);
-        messages.innerHTML += '<div style="max-width:90%;margin-top:4px"><a href="' + exportUrl + '" download style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#10b981;border-radius:10px;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer">📊 Excel hisobot yuklab olish</a></div>';
-      }
+      // Har bir javob ostiga Excel yuklab olish tugmasi
+      var dlId = 'ai-dl-' + Date.now();
+      messages.innerHTML += '<div style="max-width:90%;margin-top:4px"><button id="' + dlId + '" style="display:inline-flex;align-items:center;gap:6px;padding:8px 16px;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.3);color:#10b981;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">📊 Excelga yuklab olish</button></div>';
+
+      // Tugma bosilganda AI javobini CSV ga aylantirish
+      (function(aid, ans, q) {
+        setTimeout(function() {
+          var btn = document.getElementById(aid);
+          if (btn) btn.addEventListener('click', function() { downloadAiAnswerAsCSV(ans, q); });
+        }, 100);
+      })(dlId, answer, question);
 
       if (d.usage) {
         document.getElementById('aiUsageInfo').textContent = d.usage.remaining + '/' + d.usage.limit + ' surov qoldi';
@@ -2447,17 +2452,71 @@ function expandAiChat() {
 
 
 
-// Excel hisobot yuklab olish
-function downloadReport() {
-  var link = document.createElement('a');
-  link.href = API + '/admin/ai/export';
-  link.setAttribute('download', '');
-  // Token qo'shish
-  var t = localStorage.getItem('adminToken');
-  if (t) {
-    link.href += '?token=' + encodeURIComponent(t);
+// AI javobini Excel/CSV ga aylantirish
+function downloadAiAnswerAsCSV(aiAnswer, question) {
+  var bizName = adminInfo.restaurantName || 'ServiX';
+  var sana = new Date().toLocaleDateString('uz-UZ');
+
+  // AI javobidagi markdown jadvalni CSV ga aylantirish
+  var csv = '\uFEFF'; // BOM — Excel da o'zbek harflar to'g'ri ko'rinishi uchun
+  csv += 'ServiX AI Hisobot\n';
+  csv += 'Biznes:,' + bizName + '\n';
+  csv += 'Sana:,' + sana + '\n';
+  csv += 'Savol:,"' + question.replace(/"/g, '""') + '"\n\n';
+
+  // AI javobini parse qilish
+  var lines = aiAnswer.split('\n');
+  var inTable = false;
+  var tableHeaderDone = false;
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+
+    // Markdown jadval qatori (| bilan)
+    if (line.indexOf('|') === 0 || (line.indexOf('|') > -1 && line.lastIndexOf('|') > line.indexOf('|'))) {
+      // Separator qatorini o'tkazib yuborish (|---|---|)
+      if (/^\|[\s\-:]+\|/.test(line)) {
+        continue;
+      }
+      // Jadval qatorini CSV ga
+      var cells = line.split('|').filter(function(c) { return c.trim() !== ''; });
+      csv += cells.map(function(c) {
+        var val = c.trim().replace(/\*\*/g, '');
+        // Agar vergul bo'lsa, qo'shtirnoq ichiga olish
+        if (val.indexOf(',') > -1) return '"' + val + '"';
+        return val;
+      }).join(',') + '\n';
+      inTable = true;
+    } else {
+      if (inTable) {
+        csv += '\n';
+        inTable = false;
+      }
+      // Oddiy matn qatori
+      if (line && !line.match(/^---/) && !line.match(/^— ServiX/)) {
+        // # sarlavha
+        line = line.replace(/^#+\s*/, '');
+        // ** bold
+        line = line.replace(/\*\*/g, '');
+        // Emoji
+        line = line.replace(/[💡⚠️📊📋🏆📈🔵]/g, '');
+        if (line.trim()) {
+          csv += '"' + line.trim().replace(/"/g, '""') + '"\n';
+        }
+      }
+    }
   }
+
+  csv += '\n— ServiX AI | ' + sana + '\n';
+
+  // Fayl yuklab olish
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.href = url;
+  link.download = 'ServiX_' + bizName.replace(/\s+/g, '_') + '_' + new Date().toISOString().split('T')[0] + '.csv';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }

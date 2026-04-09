@@ -247,14 +247,9 @@ tailwind.config = {
       </div>
     </div>
     <!-- Input -->
-    <div style="padding:12px 14px;border-top:1px solid rgba(139,92,246,0.15)">
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <input id="aiInput" type="text" placeholder="Har qanday savol bering..." style="flex:1;padding:10px 14px;background:#1a2235;border:1px solid rgba(139,92,246,0.2);border-radius:10px;color:#f1f5f9;font-size:13px;font-family:inherit;outline:none" onkeydown="if(event.key==='Enter')sendAiMessage()"/>
-        <button onclick="sendAiMessage()" id="aiSendBtn" style="padding:10px 16px;background:linear-gradient(135deg,#8b5cf6,#06b6d4);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Yuborish</button>
-      </div>
-      <div style="display:flex;gap:6px">
-        <button onclick="downloadReport()" style="flex:1;padding:6px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);color:#10b981;border-radius:8px;font-size:11px;cursor:pointer;font-family:inherit">📊 Excel hisobot yuklab olish</button>
-      </div>
+    <div style="padding:12px 14px;border-top:1px solid rgba(139,92,246,0.15);display:flex;gap:8px">
+      <input id="aiInput" type="text" placeholder="Har qanday savol bering..." style="flex:1;padding:10px 14px;background:#1a2235;border:1px solid rgba(139,92,246,0.2);border-radius:10px;color:#f1f5f9;font-size:13px;font-family:inherit;outline:none" onkeydown="if(event.key==='Enter')sendAiMessage()"/>
+      <button onclick="sendAiMessage()" id="aiSendBtn" style="padding:10px 16px;background:linear-gradient(135deg,#8b5cf6,#06b6d4);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">Yuborish</button>
     </div>
   </div>
 </div>
