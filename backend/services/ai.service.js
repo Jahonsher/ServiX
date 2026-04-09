@@ -1,21 +1,15 @@
 /**
- * ServiX AI Service
+ * ServiX AI Service — DINAMIK DATA COLLECTOR
  * 
- * MUHIM: Bu service admin routes dagi stats/fast va analytics/advanced
- * endpointlari bilan AYNAN BIR XIL querylarni ishlatadi.
- * Agar Dashboard da data ko'rinsa — AI da ham ko'rinadi.
+ * MongoDB dan restaurantId bo'yicha BARCHA collectionlarni avtomatik skanerlaydi.
+ * Yangi collection qo'shilsa ham — AI avtomatik ko'radi.
+ * Hech qanday hardcode yo'q.
  */
 
 var config = require("../config");
 var logger = require("../utils/logger");
-
-// ===== MODEL IMPORTS — admin.routes.js dagi bilan bir xil =====
-var Order = require("../models/Order");
-var User = require("../models/User");
+var mongoose = require("mongoose");
 var Admin = require("../models/Admin");
-var Product = require("../models/Product");
-var Category = require("../models/Category");
-var models = require("../models/index");
 
 var ANTHROPIC_API = "https://api.anthropic.com/v1/messages";
 var AI_MODEL = "claude-haiku-4-5-20251001";
@@ -36,247 +30,194 @@ function isBlocked(t) {
 }
 
 /**
- * BARCHA DATA YIGISH
- * admin.routes.js dagi stats/fast + analytics/advanced + orders + products
- * endpointlari bilan BIR XIL query. 
- * Agar Dashboard da ko'rinsa — bu yerda ham ko'rinadi.
+ * DINAMIK DATA COLLECTOR
+ * 
+ * 1. MongoDB dagi BARCHA collectionlarni ro'yxatini oladi
+ * 2. Har bir collectionda restaurantId bo'yicha qidiradi
+ * 3. Topilgan BARCHA datani AI ga beradi
+ * 
+ * Natija: AI shu biznesning HAMMA ma'lumotlarini ko'radi
  */
 async function collectAllData(rId) {
-  logger.info("[AI] collectAllData: " + rId);
+  logger.info("[AI] Dinamik data yigish: " + rId);
+  var db = mongoose.connection.db;
+  var result = {};
 
-  var now = new Date();
-  var today = new Date();
-  today.setHours(0, 0, 0, 0);
-  var month = new Date(today.getFullYear(), today.getMonth(), 1);
-  var prevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  // Maxfiy fieldlar — AI ga ko'rsatmaslik kerak
+  var HIDE_FIELDS = { password: 0, faceDescriptor: 0, photo: 0, botToken: 0 };
 
-  // ===== stats/fast bilan BIR XIL query =====
-  var todayOrders, monthOrders, ratedOrders, totalUsers, recentOrders;
   try {
-    var r = await Promise.all([
-      Order.find({ restaurantId: rId, createdAt: { $gte: today } }).lean(),
-      Order.find({ restaurantId: rId, createdAt: { $gte: month } }).lean(),
-      Order.find({ restaurantId: rId, rating: { $ne: null } }).select("rating").lean(),
-      User.countDocuments({ restaurantId: rId }),
-      Order.find({ restaurantId: rId }).sort({ createdAt: -1 }).limit(20).lean(),
-    ]);
-    todayOrders = r[0];
-    monthOrders = r[1];
-    ratedOrders = r[2];
-    totalUsers = r[3];
-    recentOrders = r[4];
+    // 1. Barcha collectionlarni olish
+    var collections = await db.listCollections().toArray();
+    var colNames = collections.map(function (c) { return c.name; });
+
+    logger.info("[AI] Collections topildi: " + colNames.join(", "));
+
+    // 2. Har bir collectiondan restaurantId bo'yicha data olish
+    for (var i = 0; i < colNames.length; i++) {
+      var colName = colNames[i];
+
+      // System collectionlarni o'tkazib yuborish
+      if (colName.startsWith("system.")) continue;
+
+      try {
+        var col = db.collection(colName);
+
+        // restaurantId bo'yicha qidirish
+        var docs = await col.find(
+          { restaurantId: rId },
+          { projection: HIDE_FIELDS }
+        ).sort({ createdAt: -1 }).limit(500).toArray();
+
+        if (docs.length > 0) {
+          result[colName] = {
+            jami: docs.length,
+            malumotlar: docs,
+          };
+          logger.info("[AI]   " + colName + ": " + docs.length + " ta");
+        }
+      } catch (e) {
+        // Ba'zi collectionlarda restaurantId yo'q bo'lishi mumkin — muammo emas
+        logger.debug("[AI]   " + colName + ": " + e.message);
+      }
+    }
+
+    // 3. Admin ma'lumotlarini qo'shish (restaurantId bo'yicha)
+    try {
+      var adminDoc = await db.collection("admins").findOne(
+        { restaurantId: rId, role: "admin" },
+        { projection: HIDE_FIELDS }
+      );
+      if (adminDoc) {
+        result._biznes_nomi = adminDoc.restaurantName || rId;
+        result._biznes_info = {
+          nomi: adminDoc.restaurantName,
+          telefon: adminDoc.phone || "-",
+          manzil: adminDoc.address || "-",
+          ish_vaqti: (adminDoc.workStart || 10) + ":00 — " + (adminDoc.workEnd || 23) + ":00",
+        };
+      }
+    } catch (e) {
+      logger.error("[AI] admin info err: " + e.message);
+    }
+
+    // 4. Qo'shimcha hisoblashlar — AI uchun tayyor raqamlar
+    result._hisoblashlar = buildCalculations(result);
+    result._sana = new Date().toLocaleDateString("uz-UZ", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+
   } catch (e) {
-    logger.error("[AI] orders query error: " + e.message);
-    todayOrders = []; monthOrders = []; ratedOrders = []; totalUsers = 0; recentOrders = [];
+    logger.error("[AI] collectAllData error: " + e.message);
   }
 
-  // O'tgan oy buyurtmalari
-  var prevMonthOrders = [];
-  try {
-    prevMonthOrders = await Order.find({ restaurantId: rId, createdAt: { $gte: prevMonth, $lt: month } }).lean();
-  } catch (e) { logger.error("[AI] prevMonth err: " + e.message); }
-
-  // Menyu — Product va Category
-  var products = [];
-  var categories = [];
-  try {
-    products = await Product.find({ restaurantId: rId }).lean();
-    categories = await Category.find({ restaurantId: rId }).lean();
-  } catch (e) { logger.error("[AI] products/cats err: " + e.message); }
-
-  // Xodimlar va davomat
-  var employees = [];
-  var todayAtt = [];
-  var monthAtt = [];
-  try {
-    employees = await models.Employee.find({ restaurantId: rId, active: true })
-      .select("name position salary workStart workEnd weeklyOff role").lean();
-  } catch (e) { logger.error("[AI] employees err: " + e.message); }
-  try {
-    todayAtt = await models.Attendance.find({ restaurantId: rId, date: today.toISOString().split("T")[0] }).lean();
-  } catch (e) { logger.error("[AI] todayAtt err: " + e.message); }
-  try {
-    monthAtt = await models.Attendance.find({ restaurantId: rId, date: { $regex: "^" + now.toISOString().slice(0, 7) } }).lean();
-  } catch (e) { logger.error("[AI] monthAtt err: " + e.message); }
-
-  // Ombor
-  var inventory = [];
-  try {
-    inventory = await models.Inventory.find({ restaurantId: rId, active: true }).lean();
-  } catch (e) { logger.error("[AI] inventory err: " + e.message); }
-
-  // Filiallar
-  var branches = [];
-  try {
-    branches = await models.Branch.find({ restaurantId: rId, active: true }).lean();
-  } catch (e) { logger.error("[AI] branches err: " + e.message); }
-
-  // Admin info
-  var adminDoc = null;
-  try {
-    adminDoc = await Admin.findOne({ restaurantId: rId, role: "admin" })
-      .select("restaurantName phone address workStart workEnd").lean();
-  } catch (e) { logger.error("[AI] admin err: " + e.message); }
-
-  logger.info("[AI] DATA: orders_today=" + todayOrders.length +
-    " orders_month=" + monthOrders.length +
-    " products=" + products.length +
-    " cats=" + categories.length +
-    " emps=" + employees.length +
-    " inv=" + inventory.length +
-    " users=" + totalUsers);
-
-  // ===== HISOBLASHLAR — stats/fast bilan bir xil =====
-
-  // Haftalik trend (stats/fast bilan aynan bir xil)
-  var weeklyData = [];
-  for (var i = 6; i >= 0; i--) {
-    var d = new Date(today);
-    d.setDate(d.getDate() - i);
-    var dn = new Date(d);
-    dn.setDate(dn.getDate() + 1);
-    var dayOrders = monthOrders.filter(function (o) {
-      var ct = new Date(o.createdAt);
-      return ct >= d && ct < dn;
-    });
-    weeklyData.push({
-      sana: d.toLocaleDateString("uz-UZ", { month: "short", day: "numeric" }),
-      hafta_kuni: d.toLocaleDateString("uz-UZ", { weekday: "long" }),
-      buyurtmalar: dayOrders.length,
-      daromad: dayOrders.reduce(function (s, o) { return s + (o.total || 0); }, 0),
-    });
+  var totalDocs = 0;
+  for (var key in result) {
+    if (result[key] && result[key].jami) totalDocs += result[key].jami;
   }
+  logger.info("[AI] Jami: " + totalDocs + " ta hujjat, " + Object.keys(result).length + " ta collection");
 
-  // Oyning HAR BIR KUNI (buxgalter uchun)
-  var kunlikHisobot = [];
-  var kunSoni = now.getDate();
-  for (var j = 0; j < kunSoni; j++) {
-    var kun = new Date(month);
-    kun.setDate(kun.getDate() + j);
-    var kunEnd = new Date(kun);
-    kunEnd.setDate(kunEnd.getDate() + 1);
-    var kunOrders = monthOrders.filter(function (o) {
-      var ct = new Date(o.createdAt);
-      return ct >= kun && ct < kunEnd;
-    });
-    var kunDaromad = kunOrders.reduce(function (s, o) { return s + (o.total || 0); }, 0);
+  return result;
+}
 
-    // Shu kundagi mahsulotlar
-    var kunItems = {};
-    kunOrders.forEach(function (o) {
+/**
+ * Tayyor hisoblashlar — AI tezroq javob berishi uchun
+ */
+function buildCalculations(data) {
+  var calc = {};
+  var now = new Date();
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // Buyurtmalar hisoblash
+  if (data.orders && data.orders.malumotlar) {
+    var orders = data.orders.malumotlar;
+
+    // Bugungi
+    var todayOrders = orders.filter(function (o) { return new Date(o.createdAt) >= today; });
+    calc.bugun_buyurtmalar = todayOrders.length;
+    calc.bugun_daromad = todayOrders.reduce(function (s, o) { return s + (o.total || 0); }, 0);
+
+    // Oylik
+    var monthOrders = orders.filter(function (o) { return new Date(o.createdAt) >= monthStart; });
+    calc.oylik_buyurtmalar = monthOrders.length;
+    calc.oylik_daromad = monthOrders.reduce(function (s, o) { return s + (o.total || 0); }, 0);
+
+    // Ortacha chek
+    calc.ortacha_chek = monthOrders.length > 0 ? Math.round(calc.oylik_daromad / monthOrders.length) : 0;
+
+    // Top mahsulotlar (oylik)
+    var itemMap = {};
+    monthOrders.forEach(function (o) {
       (o.items || []).forEach(function (item) {
-        var key = item.name || "?";
-        if (!kunItems[key]) kunItems[key] = { soni: 0, summa: 0 };
-        kunItems[key].soni += item.quantity || 1;
-        kunItems[key].summa += (item.price || 0) * (item.quantity || 1);
+        var k = item.name || "?";
+        if (!itemMap[k]) itemMap[k] = { soni: 0, summa: 0 };
+        itemMap[k].soni += item.quantity || 1;
+        itemMap[k].summa += (item.price || 0) * (item.quantity || 1);
       });
     });
-    var kunItemsList = [];
-    for (var key in kunItems) {
-      kunItemsList.push({ nom: key, soni: kunItems[key].soni, summa: kunItems[key].summa });
+    var topList = [];
+    for (var k in itemMap) {
+      topList.push({ nom: k, soni: itemMap[k].soni, summa: itemMap[k].summa });
     }
-    kunItemsList.sort(function (a, b) { return b.soni - a.soni; });
+    topList.sort(function (a, b) { return b.soni - a.soni; });
+    calc.top_mahsulotlar = topList;
 
-    kunlikHisobot.push({
-      sana: kun.getDate() + "-aprel",
-      buyurtmalar: kunOrders.length,
-      daromad: kunDaromad,
-      mahsulotlar: kunItemsList,
-    });
+    // Kunlik breakdown (shu oy)
+    var kunlik = [];
+    var kunSoni = now.getDate();
+    for (var d = 0; d < kunSoni; d++) {
+      var kun = new Date(monthStart);
+      kun.setDate(kun.getDate() + d);
+      var kunEnd = new Date(kun);
+      kunEnd.setDate(kunEnd.getDate() + 1);
+      var kOrders = monthOrders.filter(function (o) { return new Date(o.createdAt) >= kun && new Date(o.createdAt) < kunEnd; });
+      var kItems = {};
+      kOrders.forEach(function (o) {
+        (o.items || []).forEach(function (item) {
+          var n = item.name || "?";
+          if (!kItems[n]) kItems[n] = { soni: 0, summa: 0 };
+          kItems[n].soni += item.quantity || 1;
+          kItems[n].summa += (item.price || 0) * (item.quantity || 1);
+        });
+      });
+      var kItemsList = [];
+      for (var ki in kItems) { kItemsList.push({ nom: ki, soni: kItems[ki].soni, summa: kItems[ki].summa }); }
+      kItemsList.sort(function (a, b) { return b.soni - a.soni; });
+      kunlik.push({
+        sana: kun.getDate() + "-" + kun.toLocaleDateString("uz-UZ", { month: "short" }),
+        buyurtmalar: kOrders.length,
+        daromad: kOrders.reduce(function (s, o) { return s + (o.total || 0); }, 0),
+        mahsulotlar: kItemsList,
+      });
+    }
+    calc.kunlik_hisobot = kunlik;
+
+    // Oylar statistikasi (6 oy)
+    var oylar = [];
+    for (var oi = 0; oi < 6; oi++) {
+      var oyB = new Date(now.getFullYear(), now.getMonth() - oi, 1);
+      var oyE = new Date(now.getFullYear(), now.getMonth() - oi + 1, 1);
+      var oyN = oyB.toLocaleDateString("uz-UZ", { month: "long", year: "numeric" });
+      var oyO = orders.filter(function (o) { return new Date(o.createdAt) >= oyB && new Date(o.createdAt) < oyE; });
+      var oyD = oyO.reduce(function (s, o) { return s + (o.total || 0); }, 0);
+      if (oyO.length > 0) {
+        oylar.push({ oy: oyN, buyurtmalar: oyO.length, daromad: oyD });
+      }
+    }
+    calc.oylar_statistikasi = oylar;
   }
 
-  // Top mahsulotlar (stats/fast bilan bir xil)
-  var itemMap = {};
-  monthOrders.forEach(function (o) {
-    (o.items || []).forEach(function (item) {
-      if (!itemMap[item.name]) itemMap[item.name] = { soni: 0, summa: 0 };
-      itemMap[item.name].soni += item.quantity || 1;
-      itemMap[item.name].summa += (item.price || 0) * (item.quantity || 1);
-    });
-  });
-  var topMahsulotlar = [];
-  for (var tm in itemMap) {
-    topMahsulotlar.push({ nom: tm, soni: itemMap[tm].soni, summa: itemMap[tm].summa });
+  // Xodimlar hisoblash
+  if (data.employees && data.employees.malumotlar) {
+    calc.xodimlar_soni = data.employees.jami;
+    calc.jami_maosh = data.employees.malumotlar.reduce(function (s, e) { return s + (e.salary || 0); }, 0);
   }
-  topMahsulotlar.sort(function (a, b) { return b.soni - a.soni; });
-
-  // Daromadlar
-  var todayRev = todayOrders.reduce(function (s, o) { return s + (o.total || 0); }, 0);
-  var monthRev = monthOrders.reduce(function (s, o) { return s + (o.total || 0); }, 0);
-  var prevRev = prevMonthOrders.reduce(function (s, o) { return s + (o.total || 0); }, 0);
-
-  // Xodimlar + davomat
-  var xodimlarList = employees.map(function (e) {
-    var ba = todayAtt.find(function (a) { return a.employeeId && a.employeeId.toString() === e._id.toString(); });
-    var ma = monthAtt.filter(function (a) { return a.employeeId && a.employeeId.toString() === e._id.toString(); });
-    return {
-      ism: e.name,
-      lavozim: e.position || "-",
-      maosh: e.salary || 0,
-      bugun: ba ? ba.status : "kelgan emas",
-      bugun_kechikish: ba ? (ba.lateMinutes || 0) : 0,
-      oylik_kelgan_kun: ma.filter(function (a) { return a.status === "keldi"; }).length,
-      oylik_kechikishlar: ma.filter(function (a) { return (a.lateMinutes || 0) > 0; }).length,
-    };
-  });
-
-  // Ombor
-  var omborList = inventory.map(function (it) {
-    return {
-      nomi: it.productName,
-      qoldiq: it.currentStock,
-      birlik: it.unit,
-      min: it.minStock,
-      holat: it.currentStock <= 0 ? "TUGAGAN" : it.currentStock <= it.minStock ? "KAM" : "OK",
-    };
-  });
 
   // Menyu
-  var menyuList = products.map(function (p) {
-    return { nomi: p.name, narxi: p.price || 0, kategoriya: p.category || "-" };
-  });
+  if (data.products && data.products.malumotlar) {
+    calc.menyu_soni = data.products.jami;
+  }
 
-  // Rating
-  var avgRating = ratedOrders.length > 0
-    ? (ratedOrders.reduce(function (s, o) { return s + o.rating; }, 0) / ratedOrders.length).toFixed(1)
-    : null;
-
-  return {
-    biznes: adminDoc ? adminDoc.restaurantName : rId,
-    sana: now.toLocaleDateString("uz-UZ", { year: "numeric", month: "long", day: "numeric", weekday: "long" }),
-
-    bugun_buyurtmalar: todayOrders.length,
-    bugun_daromad: todayRev,
-    bugun_online: todayOrders.filter(function (o) { return o.orderType === "online"; }).length,
-    bugun_restoranda: todayOrders.filter(function (o) { return o.orderType === "dine_in"; }).length,
-
-    oylik_buyurtmalar: monthOrders.length,
-    oylik_daromad: monthRev,
-    otgan_oy_daromad: prevRev,
-    osish: prevRev > 0 ? Math.round(((monthRev - prevRev) / prevRev) * 100) + "%" : "birinchi oy",
-    ortacha_chek: monthOrders.length > 0 ? Math.round(monthRev / monthOrders.length) : 0,
-
-    reyting: avgRating,
-    reyting_soni: ratedOrders.length,
-    mijozlar: totalUsers,
-
-    haftalik_trend: weeklyData,
-    kunlik_hisobot: kunlikHisobot,
-    top_mahsulotlar: topMahsulotlar,
-
-    menyu_soni: products.length,
-    menyu: menyuList,
-    kategoriyalar: categories.map(function (c) { return c.name; }),
-
-    xodimlar: xodimlarList,
-    xodimlar_soni: employees.length,
-    jami_maosh_fond: employees.reduce(function (s, e) { return s + (e.salary || 0); }, 0),
-
-    ombor: omborList,
-    ombor_kam: omborList.filter(function (o) { return o.holat === "KAM" || o.holat === "TUGAGAN"; }).length,
-
-    filiallar: branches.map(function (b) { return b.name; }),
-  };
+  return calc;
 }
 
 // ===== SYSTEM PROMPT =====
@@ -284,40 +225,28 @@ function buildPrompt(name) {
   var sana = new Date().toLocaleDateString("uz-UZ", { year: "numeric", month: "long", day: "numeric" });
   return 'Sen "' + name + '" biznesining professional buxgalteri va tahlilchisisan. Noming ServiX AI.\n\n' +
 
-    'SENGA BERILGAN MALUMOTLAR:\n' +
-    '- bugun_buyurtmalar, bugun_daromad — bugungi statistika\n' +
-    '- oylik_buyurtmalar, oylik_daromad — shu oy\n' +
-    '- kunlik_hisobot — OYNING HAR BIR KUNI alohida: buyurtmalar, daromad, qaysi mahsulot nechta sotilgan\n' +
-    '- top_mahsulotlar — eng kop sotilgan mahsulotlar (oy boyicha)\n' +
-    '- menyu — barcha taomlar royxati va narxi\n' +
-    '- xodimlar — ism, lavozim, maosh, bugungi davomat, oylik kelgan kunlar, kechikishlar\n' +
-    '- ombor — mahsulot qoldiqlari, holat (OK, KAM, TUGAGAN)\n' +
-    '- reyting, mijozlar soni, filiallar\n\n' +
+    'SENGA SHU BIZNESNING MONGODB DAGI BARCHA MALUMOTLARI BERILGAN.\n' +
+    'Har bir collection alohida: orders, products, categories, employees, attendances, inventories, users, branches va boshqalar.\n' +
+    'Har bir collection ichida "jami" (soni) va "malumotlar" (array) bor.\n' +
+    '_hisoblashlar ichida tayyor raqamlar bor: bugun, oylik, kunlik, top mahsulotlar, oylar statistikasi.\n\n' +
 
-    'AQLLI TUSHUNISH — eng muhim qoida:\n' +
-    'Foydalanuvchi qisqa, notug\'ri yoki lotinchada yozishi mumkin. Sen FIKRLAB nima demoqchiligini tushunib javob ber:\n' +
-    '- "5 aprel product" = "5-aprelda qaysi mahsulotlar sotilgan?"\n' +
-    '- "kechagi sotuv" = "kecha qancha buyurtma va daromad bo\'ldi?"\n' +
-    '- "menyu nechta" = "menyuda nechta taom bor?"\n' +
-    '- "ishchi kechikish" = "qaysi xodimlar kechikkan?"\n' +
-    '- "eng yaxshi taom" = "eng ko\'p sotilgan taom qaysi?"\n' +
-    '- "ombor holat" = "ombordagi kam qolgan yoki tugagan mahsulotlar"\n' +
-    '- "haftalik" = "oxirgi 7 kun statistikasi"\n' +
-    '- "oylik daromad" = "shu oydagi jami daromad"\n' +
-    '- "hisobot" yoki "report" = "to\'liq oylik hisobot tayyorla"\n' +
-    '- "excel", "fayl" = "hisobotni tayyorladim, pastdagi tugmadan yuklab oling"\n' +
-    'Agar savol tushunarsiz bo\'lsa — eng yaqin ma\'noda javob ber, "tushunmadim" dema.\n\n' +
+    'AQLLI TUSHUNISH:\n' +
+    'Foydalanuvchi qisqa yoki notogri yozishi mumkin. FIKRLAB nima demoqchiligini tushun:\n' +
+    '- "5 aprel product" = 5-aprelda qaysi mahsulotlar sotilgan (_hisoblashlar.kunlik_hisobot dan)\n' +
+    '- "mart hisoboti" = mart oyi statistikasi (_hisoblashlar.oylar_statistikasi dan)\n' +
+    '- "kechagi sotuv" = kecha qancha buyurtma va daromad\n' +
+    '- "menyu nechta" = menyuda nechta taom bor (products collectiondan)\n' +
+    '- "ishchi kechikish" = kechikkan xodimlar (attendances dan)\n' +
+    '- "ombor holat" = kam/tugagan mahsulotlar (inventories dan)\n' +
+    '- Tushunarsiz bolsa — eng yaqin manoda javob ber, "tushunmadim" dema.\n\n' +
 
     'JAVOB FORMATI:\n' +
-    '1. Faqat so\'ralganni javob ber, ortiqcha ma\'lumot qo\'shma.\n' +
-    '2. Har javob oxirida 1-2 qator 💡 MASLAHAT ber — foydali, amaliy maslahat.\n' +
-    '   Masalan: "💡 Lag\'mon eng ko\'p sotilmoqda, combo taklif qilsangiz daromad 15% oshishi mumkin"\n' +
-    '   Yoki: "⚠️ Omborda go\'sht tugagan — zudlik bilan buyurtma qiling"\n' +
-    '   Yoki: "💡 Shanba kunlari eng ko\'p buyurtma keladi — qo\'shimcha ishchi chaqiring"\n' +
-    '3. Jadval ko\'rsatish kerak bo\'lsa — markdown table ishlatish.\n' +
-    '4. Pul: 1,250,000 so\'m formatda.\n' +
-    '5. Raqam 0 bo\'lsa — "0 ta buyurtma, 0 so\'m daromad" deb aniq yoz.\n' +
-    '6. Foydalanuvchi qaysi tilda yozsa — shu tilda javob ber.\n' +
+    '1. Faqat soralganni javob ber, ortiqcha qushma.\n' +
+    '2. Har javob oxirida 1-2 qator 💡 MASLAHAT yoki ⚠️ OGOHLANTIRISH ber.\n' +
+    '3. Jadval kerak bolsa — markdown table.\n' +
+    '4. Pul: 1,250,000 som.\n' +
+    '5. Raqam 0 bolsa — "0 ta buyurtma, 0 som" yoz.\n' +
+    '6. Foydalanuvchi tilida javob ber.\n' +
     '7. Siyosat, din, dasturlash haqida gapirma.\n' +
     '8. Javob oxiri: — ServiX AI | ' + sana;
 }
@@ -341,7 +270,7 @@ async function askAI(restaurantId, adminId, adminUsername, question) {
 
   var data = await collectAllData(restaurantId);
   var systemPrompt = buildPrompt(admin.restaurantName);
-  var userMessage = "MALUMOTLAR:\n" + JSON.stringify(data, null, 2) + "\n\nSAVOL: " + question;
+  var userMessage = "BIZNES MALUMOTLARI (MongoDB):\n" + JSON.stringify(data, null, 2) + "\n\nSAVOL: " + question;
 
   logger.info("[AI] -> Anthropic: " + restaurantId + " | " + question.substring(0, 60));
 
@@ -376,13 +305,9 @@ async function askAI(restaurantId, adminId, adminUsername, question) {
 
   return {
     answer: answer,
-    inputTokens: inp,
-    outputTokens: out,
-    totalTokens: inp + out,
-    cost: calcCost(inp, out),
-    model: AI_MODEL,
-    responseTime: Date.now() - startTime,
-    filtered: false,
+    inputTokens: inp, outputTokens: out, totalTokens: inp + out,
+    cost: calcCost(inp, out), model: AI_MODEL,
+    responseTime: Date.now() - startTime, filtered: false,
   };
 }
 
