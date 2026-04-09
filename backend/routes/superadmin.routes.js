@@ -14,7 +14,7 @@ const User = require("../models/User");
 const Admin = require("../models/Admin");
 const Category = require("../models/Category");
 const {
-  Restaurant, AuditLog, Payment, SANotification,
+  Restaurant, AuditLog, Payment, SANotification, Notification,
 } = require("../models");
 const {
   BUSINESS_TYPES,
@@ -719,17 +719,39 @@ router.get("/ai/history/:restaurantId", superMiddleware, async (req, res) => {
   }
 });
 
-// AI limitni o'zgartirish
+// AI limitni o'zgartirish + bildirishnoma yuborish
 router.put("/ai/limit/:restaurantId", superMiddleware, async (req, res) => {
   try {
     const { limit } = req.body;
     if (!limit || limit < 0) return res.status(400).json({ error: "limit musbat raqam bo'lishi kerak" });
+
+    // Eski limitni olish
+    const adminDoc = await Admin.findOne({ restaurantId: req.params.restaurantId, role: "admin" }).select("aiLimit restaurantName");
+    const oldLimit = adminDoc?.aiLimit || 0;
+    const newLimit = Number(limit);
+    const added = newLimit - oldLimit;
+
+    // Limitni yangilash
     await Admin.findOneAndUpdate(
       { restaurantId: req.params.restaurantId, role: "admin" },
-      { aiLimit: Number(limit) }
+      { aiLimit: newLimit }
     );
-    await logAudit("ai_limit_change", req.admin.username, "superadmin", req.params.restaurantId, `AI limit: ${limit}`);
-    res.json({ ok: true, limit: Number(limit) });
+
+    // Agar token qo'shilgan bo'lsa (limit oshgan) — admin panelga bildirishnoma
+    if (added > 0) {
+      await Notification.create({
+        restaurantId: req.params.restaurantId,
+        type: "ai_tokens_added",
+        title: "🤖 AI tokenlar qo'shildi",
+        message: added + " ta AI token qo'shildi! Yangi limit: " + newLimit + " ta. AI yordamchidan foydalanishingiz mumkin.",
+        icon: "🤖",
+        targetRole: "admin",
+        data: { oldLimit: oldLimit, newLimit: newLimit, added: added },
+      });
+    }
+
+    await logAudit("ai_limit_change", req.admin.username, "superadmin", req.params.restaurantId, "AI limit: " + oldLimit + " → " + newLimit + " (+" + added + ")");
+    res.json({ ok: true, limit: newLimit, added: added });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
