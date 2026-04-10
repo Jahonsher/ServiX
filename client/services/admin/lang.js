@@ -254,7 +254,7 @@ function setLang(lang) {
     ruBtn.style.color = lang === 'ru' ? '#22d3ee' : '#64748b';
   }
 
-  // data-i18n elementlarni yangilash
+  // data-i18n elementlarni yangilash (sidebar)
   document.querySelectorAll('[data-i18n]').forEach(function(el) {
     var key = el.getAttribute('data-i18n');
     var val = t(key);
@@ -266,4 +266,10 @@ function setLang(lang) {
   if (aiInput) aiInput.placeholder = t('ai_placeholder');
   var aiSendBtn = document.getElementById('aiSendBtn');
   if (aiSendBtn) aiSendBtn.textContent = t('ai_send');
+
+  // Hozirgi sahifani qayta yuklash (content tilini yangilash uchun)
+  if (typeof _currentPage !== 'undefined' && _currentPage && typeof clearPageCache === 'function') {
+    clearPageCache(_currentPage);
+    if (typeof showPage === 'function') showPage(_currentPage);
+  }
 }

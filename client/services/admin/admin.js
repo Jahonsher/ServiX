@@ -164,8 +164,20 @@ function _startApp() {
   document.getElementById('sidebarRestName').textContent = adminInfo.restaurantName || 'Restoran';
   document.getElementById('adminUsername').textContent   = '@' + (adminInfo.username || '');
 
-  // Tilni yuklash
-  setLang(_lang);
+  // Tilni yuklash (faqat sidebar — sahifani qayta yuklamasdan)
+  var uzBtn = document.getElementById('langUz');
+  var ruBtn = document.getElementById('langRu');
+  if (uzBtn && ruBtn) {
+    uzBtn.style.background = _lang === 'uz' ? 'rgba(6,182,212,0.15)' : 'transparent';
+    uzBtn.style.color = _lang === 'uz' ? '#22d3ee' : '#64748b';
+    ruBtn.style.background = _lang === 'ru' ? 'rgba(6,182,212,0.15)' : 'transparent';
+    ruBtn.style.color = _lang === 'ru' ? '#22d3ee' : '#64748b';
+  }
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n');
+    var val = t(key);
+    if (val !== key) el.textContent = val;
+  });
 
   // ===== MODULLAR — serverdan yangi holat olish =====
   apiFetch('/admin/me').then(function(d) {
