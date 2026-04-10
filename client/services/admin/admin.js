@@ -13,6 +13,12 @@ var dragSrc = null;
 
 // ===== TIL TIZIMI — lang.js dan yuklangan =====
 // LANGS, t(), setLang(), getLang() — /static/lang.js da aniqlangan
+// Fallback — agar lang.js yuklanmagan bo'lsa
+if (typeof t !== 'function') {
+  var _lang = 'uz';
+  function t(key) { return key; }
+  function setLang() {}
+}
 
 // ===== AUTH =====
 async function doLogin() {

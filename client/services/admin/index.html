@@ -298,6 +298,15 @@ tailwind.config = {
 </div>
 
 <script src="/static/lang.js"></script>
+<script>
+// Fallback — agar lang.js yuklanmagan bo'lsa (Vercel)
+if (typeof t !== 'function') {
+  function t(key) { return key; }
+  function setLang() {}
+  var _lang = 'uz';
+  console.warn('lang.js yuklanmadi — fallback ishlamoqda');
+}
+</script>
 <script src="admin.js"></script>
 
 <!-- ISHCHI MODAL -->
