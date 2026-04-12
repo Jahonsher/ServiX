@@ -1,119 +1,230 @@
-# ServiX v3.0 — Universal Biznes Platforma
+# ServiX — Universal Business Management Platform
 
-## O'zgartirilgan/yaratilgan fayllar
+**Biznesingizni bitta platformadan boshqaring.**
 
-### YANGI FAYLLAR (qo'shish kerak):
-```
-backend/config/businessTypes.js    ← Biznes turlari registry
-backend/middleware/moduleGuard.js  ← Route-level modul tekshirish
-```
+ServiX — bu restoran, do'kon, salon va boshqa har qanday biznes uchun mo'ljallangan CRM tizimi. Buyurtmalar, xodimlar, ombor, moliya, mijozlar — hammasi bitta joyda, AI buxgalter bilan kuchaytirilgan.
 
-### O'ZGARTIRILGAN FAYLLAR (almashtirib qo'yish kerak):
+---
+
+## 🌐 Platformalar
+
+| Panel | URL | Kimlar uchun |
+|-------|-----|-------------|
+| **Biznes sayti** | [servi-x.vercel.app](https://servi-x.vercel.app/) | Mijozlar — onlayn buyurtma berish |
+| **Admin panel** | [servix-admin.vercel.app](https://servix-admin.vercel.app/) | Biznes egasi — butun biznesni boshqarish |
+| **Xodim panel** | [servix-imployee.vercel.app](https://servix-imployee.vercel.app) | Ishchilar — davomat, vazifalar |
+| **Super Admin** | Server ichida | Platforma boshqaruvi — barcha bizneslar |
+
+---
+
+## 🧩 Tizim arxitekturasi
+
 ```
-backend/models/Admin.js            ← businessType field qo'shildi
-backend/models/index.js            ← Restaurant ga businessType qo'shildi
-backend/routes/superadmin.routes.js ← 7 ta yangi endpoint + businessType support
-backend/routes/admin.routes.js     ← moduleGuard barcha endpointlarga qo'yildi
-backend/routes/waiter-employee.routes.js ← moduleGuard qo'shildi
-backend/routes/kitchen.routes.js   ← moduleGuard qo'shildi
-backend/package.json               ← description yangilandi
-client/superadmin/index.html       ← businessType dropdown, dynamic modullar
-client/superadmin/superadmin.js    ← biznes turi tanlash, dynamic modul toggle
-client/services/admin/admin.js     ← filterSidebar tuzatildi (inventory, defaultOff)
+┌─────────────────────────────────────────────────────────┐
+│                    SUPER ADMIN                          │
+│  Barcha bizneslarni boshqarish, modul toggling,         │
+│  AI monitoring, token/limit boshqaruvi                  │
+└──────────────────────┬──────────────────────────────────┘
+                       │
+        ┌──────────────┼──────────────────┐
+        │              │                  │
+   ┌────▼────┐   ┌─────▼─────┐    ┌──────▼──────┐
+   │ Biznes 1│   │ Biznes 2  │    │  Biznes N   │
+   │Imperial │   │  Gavali   │    │  AqsoTour   │
+   └────┬────┘   └─────┬─────┘    └──────┬──────┘
+        │              │                  │
+   ┌────▼──────────────▼──────────────────▼────┐
+   │              ADMIN PANEL                   │
+   │  Dashboard, Buyurtmalar, Mahsulotlar,     │
+   │  Ishchilar, Ombor, Hisobot, AI Buxgalter  │
+   └────────────────┬──────────────────────────┘
+                    │
+     ┌──────────────┼──────────────┐
+     │              │              │
+┌────▼────┐  ┌──────▼─────┐ ┌─────▼──────┐
+│Ofitsiant│  │  Oshpaz    │ │  Xodim     │
+│ /waiter │  │ /kitchen   │ │ /employee  │
+└─────────┘  └────────────┘ └────────────┘
 ```
 
 ---
 
-## Yangi API Endpointlar
+## 📋 Admin Panel — imkoniyatlar
 
-| Method | URL | Tavsif |
-|--------|-----|--------|
-| GET | `/superadmin/business-types` | Barcha biznes turlari ro'yxati |
-| GET | `/superadmin/business-types/:type/modules` | Biznes turi uchun mavjud modullar |
-| PUT | `/superadmin/restaurants/:id/business-type` | Biznes turini o'zgartirish |
-| GET | `/superadmin/restaurants/:id/modules` | Biznes modullarini olish (hozirgi holat) |
-| PUT | `/superadmin/restaurants/:id/modules` | Modullarni bulk yangilash |
-| PUT | `/superadmin/restaurants/:id/modules/:key/toggle` | Bitta modulni toggle |
+Admin panel biznes egasiga butun biznesni bitta ekrandan boshqarish imkonini beradi.
 
----
+### Dashboard
+Real vaqtda biznes holati: bugungi buyurtmalar, daromad, o'rtacha chek, reyting, foydalanuvchilar soni. Kunlik trend grafigi, buyurtma turi (online/restoran) diagrammasi, TOP 10 mahsulotlar reytingi. Davr bo'yicha filter: bugun, kecha, hafta, oy, o'tgan oy yoki ixtiyoriy sana.
 
-## Arxitektura
+### Buyurtmalar
+Barcha buyurtmalar ro'yxati real vaqtda. Status bo'yicha filter: Yangi, Qabul qilindi, Tayyorlanmoqda, Tayyor, Bekor qilindi. Har bir buyurtmaning tarkibi, jami summasi, mijoz ma'lumotlari, buyurtma turi (Online/Restoran) ko'rinadi. Statusni bir tugma bilan o'zgartirish mumkin.
 
-### businessTypes.js — Markaziy registr
-Har bir biznes turi quyidagilarni aniqlaydi:
-- `label` (uz/ru), `icon`, `description`
-- `modules` — har bir modul uchun:
-  - `key` — ichki nom (Admin.modules dagi field)
-  - `label` (uz/ru), `icon`
-  - `default` — yangi biznes yaratilganda yoqilganmi
-  - `core` — o'chirib bo'lmaydigan modul (masalan: menyu, buyurtmalar)
-  - `description` (uz/ru)
+### Mahsulotlar
+Mahsulotlarni qo'shish, tahrirlash, o'chirish. Rasm, narx, kategoriya, UZ/RU nomi. Mahsulotni yashirish (vaqtincha menyudan olish) imkoniyati. Drag-and-drop tartib o'zgartirish.
 
-### moduleGuard middleware
-```javascript
-// Foydalanish:
-router.get("/products", authMiddleware, moduleGuard("menu"), handler);
-router.post("/waiter/shots/open", waiterMiddleware, moduleGuard("waiter", "waiter"), handler);
-router.get("/kitchen/orders", kitchenMiddleware, moduleGuard("kitchen", "kitchen"), handler);
-```
-- Modul o'chirilgan bo'lsa → 403 `MODULE_DISABLED`
-- Superadmin har joyga kira oladi
-- Source: "admin" | "waiter" | "kitchen" | "employee"
+### Kategoriyalar
+Menyu kategoriyalarini boshqarish. Emoji, nom (UZ/RU), tartib raqami. Drag-and-drop bilan tartibni o'zgartirish.
 
-### Admin.modules — Kengaytirilgan
-Yangi modullar:
-- `inventory: false` (default o'chiq)
+### Xodimlar
+Ishchilarni qo'shish, tahrirlash, o'chirish. Ism, telefon, lavozim, maosh, filial birikma, login/parol, ish vaqti, dam olish kuni. Face ID uchun rasm yuklash.
 
-Yangi field:
-- `businessType: "restaurant"` (default)
+### Filiallar
+Bir nechta filial boshqaruvi. Har bir filialga ishchilar biriktiriladi, hisobotlar filial bo'yicha filtrlanadi.
 
-### Restaurant model
-- `businessType: "restaurant"` (default)
+### Davomat
+Bugungi davomat holati: kim keldi, kim kechikdi, kim kelmadi — real vaqtda. Face ID orqali avtomatik belgilash yoki qo'lda kiritish. Kechikish daqiqalari hisoblanadi.
 
----
+### Hisobot va Maosh
+Oylik/haftalik hisobot: ish kunlari, kelgan kunlar, kechikishlar, ishlagan soatlar. Maosh hisoblash. Filial bo'yicha filter. Excel ga eksport.
 
-## Yangi biznes turi qo'shish qo'llanmasi
+### Ofitsiantlar
+Ofitsiant qo'shish, stol birikma. Ofitsiant /waiter panelidan buyurtma oladi, oshpazga yuboradi. Real-time tizim.
 
-1. `backend/config/businessTypes.js` ga yangi tur qo'shing:
-```javascript
-salon: {
-  label: { uz: "Salon", ru: "Салон" },
-  icon: "💇",
-  description: { uz: "Go'zallik saloni", ru: "Салон красоты" },
-  modules: {
-    services: { label: { uz: "Xizmatlar" }, icon: "✂️", default: true, core: true },
-    booking:  { label: { uz: "Bron" },      icon: "📅", default: true, core: true },
-    // ... shared modullar ham qo'shish mumkin (employees, attendance, ...)
-  },
-}
-```
+### Oshpazlar
+Oshpaz qo'shish. /kitchen panelidan kelgan buyurtmalarni real vaqtda ko'radi, tayyor bo'lganda belgilaydi.
 
-2. Kerakli modellar yarating: `backend/models/Booking.js` va h.k.
+### Reytinglar
+Mijozlar qo'ygan baholar ro'yxati. O'rtacha reyting, yulduz taqsimoti.
 
-3. Route yarating: `backend/routes/salon.routes.js`
-   - Barcha endpointlarga `moduleGuard("booking")` qo'ying
+### Foydalanuvchilar
+Telegram orqali ro'yxatdan o'tgan mijozlar. Ism, username, telefon, Telegram ID.
 
-4. `server.js` ga route ulang:
-```javascript
-const salonRoutes = require("./routes/salon.routes");
-app.use("/", salonRoutes);
-```
+### Bildirishnomalar
+Tizim bildirishnomalari: yangi buyurtma, AI token qo'shildi, xodim kechikdi. O'qilgan/o'qilmagan status.
 
-5. Client yarating: `client/services/salon/`
+### Ombor
+Mahsulot qoldiqlari nazorati. Holat: OK, KAM, TUGAGAN — avtomatik hisoblash. Ombor harakatlari logi.
 
 ---
 
-## Deploy qilish
+## 🤖 AI Buxgalter (ServiX AI)
 
-1. Fayllarni repo ga qo'ying (yuqoridagi ro'yxat bo'yicha)
-2. `git add . && git commit -m "v3.0: Universal business platform" && git push`
-3. Railway avtomatik deploy qiladi
-4. MongoDB da eski adminlar uchun: `businessType` field avtomatik `"restaurant"` default oladi
-5. Eski `modules` ham saqlanib qoladi — hech narsa buzilmaydi
+Anthropic Claude Haiku 4.5 asosida ishlaydi. Admin panelda o'rnatilgan chatbot — biznes egasi o'zbek yoki rus tilida savol beradi, AI real vaqtda MongoDB dagi barcha ma'lumotlarni tahlil qilib javob beradi.
 
-## Backward Compatibility
-- Barcha eski endpointlar avvalgidek ishlaydi
-- `Restaurant` model va `restaurantId` field nomlari saqlanib qoldi
-- Eski adminlar `businessType: "restaurant"` default oladi
-- `modules` da yangi `inventory` field — eski adminlarda `undefined` → `false` deb hisoblanadi
-- Superadmin eski funksional to'liq saqlanib qoldi (CRUD, block, payment, bots, audit)
+### AI nima qila oladi
+
+- **"Bugungi sotuv qancha?"** — real vaqtda daromad va buyurtmalar soni
+- **"Mart oyining hisobotini ber"** — 6 oylik arxivdan istalgan oy statistikasi
+- **"Eng ko'p sotilgan mahsulot?"** — TOP mahsulotlar reytingi
+- **"Qaysi ishchi kechikdi?"** — davomat tahlili
+- **"Omborda nima tugagan?"** — ombor holati
+- **"Haftalik sotuv trendi"** — kunlik breakdown
+- **"Kecha bilan bugunni solishtir"** — qiyosiy tahlil
+
+### AI xususiyatlari
+
+- **Dinamik data collector** — MongoDB dagi BARCHA collectionlarni avtomatik skanerlaydi, yangi collection qo'shilsa ham avtomatik ko'radi
+- **Aqlli tushunish** — qisqa va noto'g'ri yozilgan matnlarni fikrlab tushunadi ("5 aprel product" = 5-aprelda sotilgan mahsulotlar)
+- **Maslahat** — har javob oxirida amaliy maslahat yoki ogohlantirish beradi
+- **Excel eksport** — AI javobini Excelga yuklab olish imkoniyati
+- **Izolyatsiya** — har bir biznes alohida (restaurantId bo'yicha)
+- **Token boshqaruvi** — superadmin tomonidan limit belgilanadi va monitoring qilinadi
+
+---
+
+## 🛡️ Xavfsizlik (Security)
+
+ServiX 8 ta hujum turidan himoyalangan:
+
+| # | Hujum turi | Himoya | Tavsif |
+|---|-----------|--------|--------|
+| 1 | **XSS** (Cross-Site Scripting) | Helmet + Custom cleaner | `<script>`, `onclick=`, `javascript:` avtomatik tozalanadi |
+| 2 | **NoSQL Injection** | express-mongo-sanitize | `$gt`, `$ne`, `$or` operatorlari bloklanadi |
+| 3 | **Clickjacking** | X-Frame-Options | Saytni iframe ga joylashtirishni bloklaydi |
+| 4 | **MIME Sniffing** | X-Content-Type-Options | Faylni noto'g'ri turda ochishni bloklaydi |
+| 5 | **HTTP Parameter Pollution** | HPP | Takroriy parametrli hujumlar bloklanadi |
+| 6 | **Path Traversal** | Custom middleware | `../../etc/passwd` kabi urinishlar bloklanadi |
+| 7 | **DDoS** | Request size + Rate limit | 20MB limit, ortiqcha yuklanishdan himoya |
+| 8 | **Brute Force** | Login rate limiter | Ketma-ket noto'g'ri parolda vaqtinchalik bloklash |
+
+### Qo'shimcha himoyalar
+
+- JWT token autentifikatsiya (7 kunlik muddatli)
+- Bcrypt parol hashlash (salt: 10 round)
+- HMAC-SHA256 webhook himoyasi
+- Input sanitizatsiya va validatsiya
+- Audit log — barcha muhim amallar loglanadi
+- Har bir hujum urinishi logga yoziladi (IP bilan)
+
+---
+
+## 👨‍💼 Super Admin Panel
+
+Platforma darajasidagi boshqaruv paneli — barcha bizneslarni bitta joydan nazorat qilish.
+
+- **Bizneslar boshqaruvi** — yaratish, tahrirlash, o'chirish. Biznes turi tanlash (restoran, do'kon, salon, klinika va h.k.)
+- **Modul boshqaruvi** — 27 ta modul, har bir biznesga keraklilarini yoqish/o'chirish
+- **AI Monitoring** — har bir biznesning surov soni, token sarfi, xarajati. Token qo'shish modali
+- **Audit Log** — barcha muhim amallar logi: login, o'chirish, modul o'zgartirish
+
+---
+
+## 👷 Xodim Panel
+
+Ishchilar uchun alohida panel: davomat belgilash (Face ID yoki qo'lda), ish vaqti ko'rish, kechikish holati.
+
+---
+
+## 🧑‍🍳 Ofitsiant Panel (/waiter)
+
+Ofitsiant uchun optimallashtirilgan interfeys: stoldagi buyurtmalarni ko'rish, yangi buyurtma yaratish, oshpazga yuborish. Real-time Socket.IO bilan.
+
+---
+
+## 🍳 Oshpaz Panel (/kitchen)
+
+Oshpaz ekranida kelgan buyurtmalar real vaqtda ko'rinadi, tayyor bo'lganda belgilaydi, ofitsiantga signal yuboriladi.
+
+---
+
+## 🌍 Til qo'llab-quvvatlash
+
+Admin panel 2 tilda ishlaydi: 🇺🇿 O'zbekcha va 🇷🇺 Русский. Sidebar pastidagi tugma bilan til almashtiriladi. Barcha sahifalar — dashboard, buyurtmalar, mahsulotlar, ishchilar, davomat, hisobot va boshqalar — tanlangan tilda ko'rinadi.
+
+---
+
+## 🔧 Texnologiyalar
+
+| Qatlam | Texnologiya |
+|--------|-------------|
+| Backend | Node.js, Express.js |
+| Database | MongoDB Atlas |
+| Frontend | Vanilla HTML/CSS/JS, Tailwind CSS |
+| AI | Anthropic Claude Haiku 4.5 API |
+| Bot | Telegram Bot API |
+| Face ID | Face++ API |
+| Real-time | Socket.IO |
+| Auth | JWT + Bcrypt |
+| Deploy | Railway (backend) + Vercel (frontend) |
+| Security | Helmet, mongo-sanitize, HPP, rate-limit |
+
+---
+
+## 📊 Raqamlar
+
+- **103** ta API endpoint
+- **6** ta route modul
+- **16** ta MongoDB model
+- **4** ta middleware (auth, validation, rate-limit, module-guard)
+- **4** ta service (AI, Bot, Face ID, Notification)
+- **5** ta panel (Admin, SuperAdmin, Waiter, Kitchen, Employee)
+- **8** ta security himoya
+- **27** ta biznes modul
+- **9** ta biznes turi
+
+---
+
+## 🚀 Boshqa CRM tizimlardan farqi
+
+| Xususiyat | ServiX | 1C | BILLZ | iiko |
+|-----------|--------|-----|-------|------|
+| AI buxgalter | ✅ | ❌ | ❌ | ❌ |
+| Telegram bot | ✅ | ❌ | ❌ | ❌ |
+| Face ID davomat | ✅ | ❌ | ❌ | ❌ |
+| Multi-tenant (ko'p biznes) | ✅ | ❌ | ✅ | ❌ |
+| Universal (restoran + do'kon + salon) | ✅ | ✅ | ❌ | ❌ |
+| UZ/RU til | ✅ | ✅ | ✅ | ❌ |
+
+---
+
+*ServiX — biznesingizni aqlli boshqaring.*
